@@ -1,0 +1,13 @@
+# Core Dashboard & Data Analysis
+streamlit
+pandas
+numpy
+plotly
+
+# File I/O & Export
+openpyxl
+fpdf
+
+# Statistical Forecasting & Machine Learning
+statsmodels
+scikit-learn
