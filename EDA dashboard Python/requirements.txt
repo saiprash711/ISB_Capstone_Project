@@ -1,8 +1,15 @@
-streamlit
-pandas
-plotly
-numpy
-openpyxl
-fpdf
-statsmodels
-scikit-learn
+# Core Dependencies
+streamlit>=1.28.0
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Visualization
+plotly>=5.17.0
+
+# File Handling
+openpyxl>=3.1.0
+fpdf>=1.7.2
+
+# Forecasting & ML
+statsmodels>=0.14.0
+scikit-learn>=1.3.0
