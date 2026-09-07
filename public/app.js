@@ -124,25 +124,82 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Live Streamlit Engine Controller
+  const DEFAULT_CLOUD_URL = 'https://isbcapstoneproject-deloittedemandforecasting.streamlit.app';
+  const LOCALHOST_URL = 'http://localhost:8501';
+
   const engineIframe = document.getElementById('engineIframe');
   const engineLoader = document.getElementById('engineLoader');
   const engineUrlInput = document.getElementById('engineUrlInput');
+  const engineStatusLabel = document.getElementById('engineStatusLabel');
+  const presetCloudBtn = document.getElementById('presetCloudBtn');
+  const presetLocalBtn = document.getElementById('presetLocalBtn');
   const applyUrlBtn = document.getElementById('applyUrlBtn');
   const reloadEngineBtn = document.getElementById('reloadEngineBtn');
   const openNewTabBtn = document.getElementById('openNewTabBtn');
   const fullscreenBtn = document.getElementById('fullscreenBtn');
+  const directLaunchBannerBtn = document.getElementById('directLaunchBannerBtn');
+  const loaderLaunchBtn = document.getElementById('loaderLaunchBtn');
+  const navLiveAppBtn = document.getElementById('navLiveAppBtn');
+  const heroLiveBtn = document.getElementById('heroLiveBtn');
 
-  // Load saved custom URL or default
-  const savedUrl = localStorage.getItem('daikin_streamlit_url') || 'http://localhost:8501';
-  if (engineUrlInput) {
-    engineUrlInput.value = savedUrl;
+  // Load saved custom URL or default to production Cloud URL
+  let currentUrl = localStorage.getItem('daikin_streamlit_url');
+  if (!currentUrl || currentUrl.includes('localhost:8501') || currentUrl.includes('127.0.0.1')) {
+    currentUrl = DEFAULT_CLOUD_URL;
+    localStorage.setItem('daikin_streamlit_url', DEFAULT_CLOUD_URL);
+  }
+
+  function syncExternalLinks(url) {
+    if (directLaunchBannerBtn) directLaunchBannerBtn.href = url;
+    if (loaderLaunchBtn) loaderLaunchBtn.href = url;
+    if (navLiveAppBtn) navLiveAppBtn.href = url;
+    if (heroLiveBtn) heroLiveBtn.href = url;
+
+    const isLocal = url.includes('localhost') || url.includes('127.0.0.1');
+    if (presetLocalBtn && presetCloudBtn) {
+      if (isLocal) {
+        presetLocalBtn.classList.add('active');
+        presetCloudBtn.classList.remove('active');
+      } else {
+        presetCloudBtn.classList.add('active');
+        presetLocalBtn.classList.remove('active');
+      }
+    }
+
+    if (engineStatusLabel) {
+      engineStatusLabel.textContent = isLocal ? 'LOCAL ENGINE' : 'CLOUD ENGINE';
+    }
   }
 
   function loadEngine(url) {
     if (!engineIframe) return;
     if (engineLoader) engineLoader.classList.remove('hidden');
     engineIframe.src = url;
+    if (engineUrlInput) engineUrlInput.value = url;
     localStorage.setItem('daikin_streamlit_url', url);
+    syncExternalLinks(url);
+  }
+
+  // Initialize values
+  if (engineUrlInput) {
+    engineUrlInput.value = currentUrl;
+  }
+  if (engineIframe && engineIframe.src !== currentUrl) {
+    engineIframe.src = currentUrl;
+  }
+  syncExternalLinks(currentUrl);
+
+  // Preset button handlers
+  if (presetCloudBtn) {
+    presetCloudBtn.addEventListener('click', () => {
+      loadEngine(DEFAULT_CLOUD_URL);
+    });
+  }
+
+  if (presetLocalBtn) {
+    presetLocalBtn.addEventListener('click', () => {
+      loadEngine(LOCALHOST_URL);
+    });
   }
 
   if (engineIframe) {
@@ -166,14 +223,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (reloadEngineBtn && engineIframe) {
     reloadEngineBtn.addEventListener('click', () => {
-      if (engineUrlInput) loadEngine(engineUrlInput.value.trim());
+      const url = engineUrlInput ? engineUrlInput.value.trim() : currentUrl;
+      loadEngine(url);
     });
   }
 
   if (openNewTabBtn && engineUrlInput) {
     openNewTabBtn.addEventListener('click', () => {
-      const url = engineUrlInput.value.trim() || 'http://localhost:8501';
-      window.open(url, '_blank');
+      const url = engineUrlInput.value.trim() || DEFAULT_CLOUD_URL;
+      window.open(url, '_blank', 'noopener,noreferrer');
     });
   }
 

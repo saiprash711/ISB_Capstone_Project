@@ -44,7 +44,7 @@
           <span class="status-dot"></span>
           <span>SYSTEM READY</span>
         </div>
-        <a href="#engine" class="btn btn-primary">Open Live App</a>
+        <a href="https://isbcapstoneproject-deloittedemandforecasting.streamlit.app" target="_blank" rel="noopener noreferrer" class="btn btn-primary" id="navLiveAppBtn">⚡ Open App ↗</a>
       </div>
     </div>
   </header>
@@ -66,7 +66,8 @@
         </p>
 
         <div class="hero-cta-group">
-          <a href="#engine" class="btn btn-primary" id="heroLiveBtn">🚀 Launch Live Engine</a>
+          <a href="https://isbcapstoneproject-deloittedemandforecasting.streamlit.app" target="_blank" rel="noopener noreferrer" class="btn btn-primary" id="heroLiveBtn">🚀 Launch Live Engine ↗</a>
+          <a href="#engine" class="btn btn-secondary">⚡ Embedded Viewer</a>
           <a href="assets/Daikin_Executive_Report.pdf" download="Daikin_Executive_Report.pdf" class="btn btn-emerald">📄 Download Executive Report</a>
           <a href="assets/Daikin_Presentation_Deck.pptx" download="Daikin_Presentation_Deck.pptx" class="btn btn-secondary">📊 Presentation Deck (PPTX)</a>
         </div>
@@ -143,7 +144,11 @@
           <div class="engine-status-group">
             <div class="status-pill">
               <span class="status-dot"></span>
-              <span>LIVE CLOUD LINK</span>
+              <span id="engineStatusLabel">CLOUD ENGINE</span>
+            </div>
+            <div class="engine-presets">
+              <button type="button" class="preset-btn active" id="presetCloudBtn" title="Switch to Live Streamlit Cloud">🌐 Cloud</button>
+              <button type="button" class="preset-btn" id="presetLocalBtn" title="Switch to Localhost (for local development)">💻 Localhost</button>
             </div>
           </div>
 
@@ -153,7 +158,7 @@
               class="engine-url-input" 
               id="engineUrlInput" 
               placeholder="Enter Streamlit Cloud URL (e.g. https://your-app.streamlit.app)"
-              value="http://localhost:8501"
+              value="https://isbcapstoneproject-deloittedemandforecasting.streamlit.app"
               aria-label="Streamlit App URL"
             />
             <button type="submit" class="btn btn-primary" id="applyUrlBtn">Connect</button>
@@ -166,20 +171,32 @@
           </div>
         </div>
 
+        <!-- Direct Launch Advice Banner -->
+        <div class="engine-banner">
+          <div class="engine-banner-text">
+            <span class="engine-banner-icon">⚡</span>
+            <span><strong>Live Streamlit Engine:</strong> Powered by Streamlit Community Cloud. For best performance, high-speed WebSockets, and unrestricted full-screen analytics, launch directly in a dedicated tab.</span>
+          </div>
+          <a href="https://isbcapstoneproject-deloittedemandforecasting.streamlit.app" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm" id="directLaunchBannerBtn">Launch in New Tab ↗</a>
+        </div>
+
         <!-- Embedded Iframe with Loading Overlay -->
         <div class="engine-iframe-wrapper">
           <div class="engine-loader" id="engineLoader">
             <div class="spinner"></div>
             <h3 style="color: #FFFFFF; font-family: var(--font-heading);">Connecting to Streamlit Engine...</h3>
             <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 480px; text-align: center;">
-              Running locally? Ensure <code>streamlit run "EDA dashboard Python/dashboard.py"</code> is active on port 8501. Or enter your live Streamlit Cloud URL above.
+              Connecting to Streamlit Cloud. If this is the first visit in a while, the app may take 15–30 seconds to wake up.
             </p>
+            <a href="https://isbcapstoneproject-deloittedemandforecasting.streamlit.app" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm" id="loaderLaunchBtn" style="margin-top: 6px;">
+              Open in Dedicated Tab ↗
+            </a>
           </div>
 
           <iframe 
             id="engineIframe"
             class="engine-iframe" 
-            src="http://localhost:8501" 
+            src="https://isbcapstoneproject-deloittedemandforecasting.streamlit.app" 
             title="Daikin AI Intelligence Streamlit Application"
             loading="lazy"
             allow="fullscreen"
