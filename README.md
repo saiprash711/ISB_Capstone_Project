@@ -53,14 +53,12 @@ ISB_Capstone_Project/
 
 ---
 
-## 🌐 Live Deployment Options
+## 🌐 Live Vercel Deployment
 
-This project supports a **Dual-Ready Cloud Architecture**:
+This project is configured for **100% Standalone Vercel Deployment** with zero external backend dependencies:
 
-1. **Vercel Executive Portal**: Deploy instantly to Vercel for a world-class executive dashboard with live KPI counters, architecture overview, direct 1-click downloads of the presentation and PDF briefing, and an embedded interactive viewer.
-   - See [VERCEL_DEPLOYMENT_GUIDE.md](file:///c:/ISB%20Capstone/VERCEL_DEPLOYMENT_GUIDE.md) for 1-click deployment instructions.
-2. **Streamlit Community Cloud**: Deploy the Python analytics engine with persistent WebSockets for real-time ARIMA, SARIMAX, and dynamic filtering.
-   - See [EDA dashboard Python/DEPLOYMENT_OPTIONS.md](file:///c:/ISB%20Capstone/EDA%20dashboard%20Python/DEPLOYMENT_OPTIONS.md).
+- **Interactive Vercel Application**: Deploy instantly to Vercel for an executive analytics platform featuring live interactive Plotly.js ARIMA demand forecasting, dynamic branch/SKU filtering, 6-module interactive showcase, and 1-click downloads of the presentation and PDF briefing.
+- See [VERCEL_DEPLOYMENT_GUIDE.md](file:///c:/ISB%20Capstone/VERCEL_DEPLOYMENT_GUIDE.md) for 1-click deployment instructions.
 
 
 ---

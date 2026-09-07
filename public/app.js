@@ -123,129 +123,357 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Live Streamlit Engine Controller
-  const DEFAULT_CLOUD_URL = 'https://isbcapstoneproject-deloittedemandforecasting.streamlit.app';
-  const LOCALHOST_URL = 'http://localhost:8501';
+  // ---------------------------------------------------------------------------
+  // NATIVE CLIENT-SIDE INTERACTIVE FORECASTING & ANALYTICS ENGINE
+  // ---------------------------------------------------------------------------
+  const branchSelect = document.getElementById('branchSelect');
+  const skuSelect = document.getElementById('skuSelect');
+  const viewTrendBtn = document.getElementById('viewTrendBtn');
+  const viewBarBtn = document.getElementById('viewBarBtn');
+  const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+  const exportSliceBtn = document.getElementById('exportSliceBtn');
 
-  const engineIframe = document.getElementById('engineIframe');
-  const engineLoader = document.getElementById('engineLoader');
-  const engineUrlInput = document.getElementById('engineUrlInput');
-  const engineStatusLabel = document.getElementById('engineStatusLabel');
-  const presetCloudBtn = document.getElementById('presetCloudBtn');
-  const presetLocalBtn = document.getElementById('presetLocalBtn');
-  const applyUrlBtn = document.getElementById('applyUrlBtn');
-  const reloadEngineBtn = document.getElementById('reloadEngineBtn');
-  const openNewTabBtn = document.getElementById('openNewTabBtn');
-  const fullscreenBtn = document.getElementById('fullscreenBtn');
-  const directLaunchBannerBtn = document.getElementById('directLaunchBannerBtn');
-  const loaderLaunchBtn = document.getElementById('loaderLaunchBtn');
-  const navLiveAppBtn = document.getElementById('navLiveAppBtn');
-  const heroLiveBtn = document.getElementById('heroLiveBtn');
+  const kpiTotalQty = document.getElementById('kpiTotalQty');
+  const kpiPeakQty = document.getElementById('kpiPeakQty');
+  const kpiPeakWeek = document.getElementById('kpiPeakWeek');
+  const kpiAvgQty = document.getElementById('kpiAvgQty');
+  const kpiSkuCount = document.getElementById('kpiSkuCount');
 
-  // Load saved custom URL or default to production Cloud URL
-  let currentUrl = localStorage.getItem('daikin_streamlit_url');
-  if (!currentUrl || currentUrl.includes('localhost:8501') || currentUrl.includes('127.0.0.1')) {
-    currentUrl = DEFAULT_CLOUD_URL;
-    localStorage.setItem('daikin_streamlit_url', DEFAULT_CLOUD_URL);
-  }
+  const tableSliceCount = document.getElementById('tableSliceCount');
+  const forecastTableBody = document.getElementById('forecastTableBody');
+  const chartContainer = document.getElementById('plotlyForecastChart');
 
-  function syncExternalLinks(url) {
-    if (directLaunchBannerBtn) directLaunchBannerBtn.href = url;
-    if (loaderLaunchBtn) loaderLaunchBtn.href = url;
-    if (navLiveAppBtn) navLiveAppBtn.href = url;
-    if (heroLiveBtn) heroLiveBtn.href = url;
+  let forecastData = [];
+  let currentChartMode = 'trend'; // 'trend' | 'bar'
 
-    const isLocal = url.includes('localhost') || url.includes('127.0.0.1');
-    if (presetLocalBtn && presetCloudBtn) {
-      if (isLocal) {
-        presetLocalBtn.classList.add('active');
-        presetCloudBtn.classList.remove('active');
-      } else {
-        presetCloudBtn.classList.add('active');
-        presetLocalBtn.classList.remove('active');
+  const BRANCH_NAMES = {
+    'BLR': 'Bangalore (BLR)',
+    'MAA': 'Chennai (MAA)',
+    'COK': 'Cochin (COK)',
+    'SBD': 'Secunderabad (SBD)',
+    'SBD1': 'Vijayawada (SBD1)'
+  };
+
+  // Load and parse CSV
+  async function initAnalyticsEngine() {
+    try {
+      const response = await fetch('assets/ARIMA_Forecast_Results.csv');
+      if (!response.ok) throw new Error('Failed to load forecast data');
+      const csvText = await response.text();
+      forecastData = parseCSV(csvText);
+
+      // Populate SKU Select Options
+      const uniqueSkus = Array.from(new Set(forecastData.map(d => d.sku))).sort();
+      if (skuSelect) {
+        skuSelect.innerHTML = '<option value="ALL">All High-Volume SKUs (15 Products)</option>' +
+          uniqueSkus.map(sku => `<option value="${sku}">${sku}</option>`).join('');
+      }
+
+      updateDashboard();
+    } catch (err) {
+      console.error('Error initializing analytics engine:', err);
+      if (chartContainer) {
+        chartContainer.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);">Failed to load forecast dataset.</div>`;
       }
     }
+  }
 
-    if (engineStatusLabel) {
-      engineStatusLabel.textContent = isLocal ? 'LOCAL ENGINE' : 'CLOUD ENGINE';
+  function parseCSV(text) {
+    const lines = text.trim().split(/\r?\n/);
+    if (lines.length <= 1) return [];
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      const parts = line.split(',');
+      if (parts.length >= 5) {
+        rows.push({
+          branch: parts[0].trim(),
+          sku: parts[1].trim(),
+          forecastWeek: parseInt(parts[2].trim(), 10) || 0,
+          weekStart: parts[3].trim(),
+          forecastQty: parseFloat(parts[4].trim()) || 0
+        });
+      }
+    }
+    return rows;
+  }
+
+  function getFilteredData() {
+    const branchVal = branchSelect ? branchSelect.value : 'ALL';
+    const skuVal = skuSelect ? skuSelect.value : 'ALL';
+
+    return forecastData.filter(item => {
+      const matchBranch = (branchVal === 'ALL' || item.branch === branchVal);
+      const matchSku = (skuVal === 'ALL' || item.sku === skuVal);
+      return matchBranch && matchSku;
+    });
+  }
+
+  function updateDashboard() {
+    const filtered = getFilteredData();
+    updateKPIs(filtered);
+    renderPlotlyChart(filtered);
+    updateTable(filtered);
+  }
+
+  function updateKPIs(data) {
+    if (!data.length) {
+      if (kpiTotalQty) kpiTotalQty.textContent = '0';
+      if (kpiPeakQty) kpiPeakQty.textContent = '0';
+      if (kpiPeakWeek) kpiPeakWeek.textContent = 'None';
+      if (kpiAvgQty) kpiAvgQty.textContent = '0';
+      if (kpiSkuCount) kpiSkuCount.textContent = '0';
+      return;
+    }
+
+    const totalQty = data.reduce((acc, row) => acc + row.forecastQty, 0);
+    
+    // Group by week to find peak week demand
+    const weekMap = {};
+    data.forEach(row => {
+      weekMap[row.weekStart] = (weekMap[row.weekStart] || 0) + row.forecastQty;
+    });
+
+    let peakQty = 0;
+    let peakWeek = '';
+    const weekKeys = Object.keys(weekMap);
+    weekKeys.forEach(wk => {
+      if (weekMap[wk] > peakQty) {
+        peakQty = weekMap[wk];
+        peakWeek = wk;
+      }
+    });
+
+    const avgQty = weekKeys.length ? Math.round(totalQty / weekKeys.length) : 0;
+    const uniqueSkus = new Set(data.map(d => d.sku)).size;
+
+    if (kpiTotalQty) kpiTotalQty.textContent = Math.round(totalQty).toLocaleString();
+    if (kpiPeakQty) kpiPeakQty.textContent = Math.round(peakQty).toLocaleString();
+    if (kpiPeakWeek) kpiPeakWeek.textContent = peakWeek ? `Peak: ${peakWeek}` : 'N/A';
+    if (kpiAvgQty) kpiAvgQty.textContent = avgQty.toLocaleString() + ' / wk';
+    if (kpiSkuCount) kpiSkuCount.textContent = uniqueSkus.toString();
+  }
+
+  function renderPlotlyChart(data) {
+    if (!chartContainer || typeof Plotly === 'undefined') return;
+
+    if (!data.length) {
+      chartContainer.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:0.95rem;">No data found matching filter selection.</div>`;
+      return;
+    }
+
+    if (currentChartMode === 'trend') {
+      // Group by WeekStart
+      const weekSums = {};
+      const weekOrder = [];
+      data.forEach(row => {
+        if (!weekSums[row.weekStart]) {
+          weekSums[row.weekStart] = 0;
+          weekOrder.push(row.weekStart);
+        }
+        weekSums[row.weekStart] += row.forecastQty;
+      });
+
+      const xVals = weekOrder;
+      const yVals = weekOrder.map(wk => Math.round(weekSums[wk]));
+
+      const trace = {
+        x: xVals,
+        y: yVals,
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: 'Projected Demand',
+        line: {
+          color: '#00E5FF',
+          width: 3.5,
+          shape: 'spline'
+        },
+        marker: {
+          color: '#00E5FF',
+          size: 8,
+          symbol: 'circle',
+          line: { color: '#0A0E1A', width: 2 }
+        },
+        fill: 'tozeroy',
+        fillcolor: 'rgba(0, 229, 255, 0.12)',
+        hovertemplate: '<b>Week of %{x}</b><br>Forecast: %{y:,} units<extra></extra>'
+      };
+
+      const layout = {
+        title: {
+          text: 'ARIMA Weekly Demand Forecast Horizon (Units / Tonnage)',
+          font: { family: 'Outfit, sans-serif', size: 16, color: '#FFFFFF' },
+          x: 0.02
+        },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { family: 'Plus Jakarta Sans, sans-serif', color: '#94A3B8' },
+        margin: { l: 60, r: 30, t: 50, b: 50 },
+        xaxis: {
+          title: 'Timeline (Week Start)',
+          gridcolor: 'rgba(255, 255, 255, 0.06)',
+          linecolor: 'rgba(255, 255, 255, 0.15)',
+          tickfont: { size: 11, color: '#94A3B8' }
+        },
+        yaxis: {
+          title: 'Forecast Units',
+          gridcolor: 'rgba(255, 255, 255, 0.06)',
+          linecolor: 'rgba(255, 255, 255, 0.15)',
+          tickfont: { size: 11, color: '#94A3B8' }
+        },
+        hovermode: 'x unified'
+      };
+
+      const config = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false,
+        modeBarButtonsToRemove: ['lasso2d', 'select2d']
+      };
+
+      Plotly.newPlot(chartContainer, [trace], layout, config);
+    } else {
+      // Group by Branch
+      const branchSums = { BLR: 0, MAA: 0, COK: 0, SBD: 0, SBD1: 0 };
+      data.forEach(row => {
+        if (branchSums[row.branch] !== undefined) {
+          branchSums[row.branch] += row.forecastQty;
+        } else {
+          branchSums[row.branch] = row.forecastQty;
+        }
+      });
+
+      const branches = Object.keys(branchSums);
+      const xLabels = branches.map(b => BRANCH_NAMES[b] || b);
+      const yAmounts = branches.map(b => Math.round(branchSums[b]));
+
+      const barColors = [
+        'rgba(0, 229, 255, 0.85)',
+        'rgba(99, 102, 241, 0.85)',
+        'rgba(16, 185, 129, 0.85)',
+        'rgba(245, 158, 11, 0.85)',
+        'rgba(168, 85, 247, 0.85)'
+      ];
+
+      const trace = {
+        x: xLabels,
+        y: yAmounts,
+        type: 'bar',
+        marker: {
+          color: barColors,
+          line: { color: 'rgba(255, 255, 255, 0.2)', width: 1.5 }
+        },
+        text: yAmounts.map(v => v.toLocaleString() + ' u'),
+        textposition: 'auto',
+        textfont: { family: 'Outfit, sans-serif', color: '#FFFFFF', weight: 'bold' },
+        hovertemplate: '<b>%{x}</b><br>Forecast: %{y:,} units<extra></extra>'
+      };
+
+      const layout = {
+        title: {
+          text: 'Regional Branch Forecast Allocation (South India Hubs)',
+          font: { family: 'Outfit, sans-serif', size: 16, color: '#FFFFFF' },
+          x: 0.02
+        },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { family: 'Plus Jakarta Sans, sans-serif', color: '#94A3B8' },
+        margin: { l: 60, r: 30, t: 50, b: 60 },
+        xaxis: {
+          gridcolor: 'rgba(255, 255, 255, 0.06)',
+          tickfont: { size: 11, color: '#FFFFFF' }
+        },
+        yaxis: {
+          title: 'Total Forecast Units',
+          gridcolor: 'rgba(255, 255, 255, 0.06)',
+          tickfont: { size: 11, color: '#94A3B8' }
+        }
+      };
+
+      const config = {
+        responsive: true,
+        displayModeBar: false
+      };
+
+      Plotly.newPlot(chartContainer, [trace], layout, config);
     }
   }
 
-  function loadEngine(url) {
-    if (!engineIframe) return;
-    if (engineLoader) engineLoader.classList.remove('hidden');
-    engineIframe.src = url;
-    if (engineUrlInput) engineUrlInput.value = url;
-    localStorage.setItem('daikin_streamlit_url', url);
-    syncExternalLinks(url);
+  function updateTable(data) {
+    if (!forecastTableBody || !tableSliceCount) return;
+
+    tableSliceCount.textContent = `Showing ${Math.min(data.length, 50)} of ${data.length} entries (${data.length === forecastData.length ? 'Full Dataset' : 'Filtered Slice'})`;
+
+    const previewRows = data.slice(0, 50);
+    forecastTableBody.innerHTML = previewRows.map(row => `
+      <tr>
+        <td><strong>${BRANCH_NAMES[row.branch] || row.branch}</strong></td>
+        <td><code>${row.sku}</code></td>
+        <td>Week ${row.forecastWeek}</td>
+        <td>${row.weekStart}</td>
+        <td style="color: var(--cyan-primary); font-weight: 700;">${Math.round(row.forecastQty).toLocaleString()}</td>
+      </tr>
+    `).join('');
   }
 
-  // Initialize values
-  if (engineUrlInput) {
-    engineUrlInput.value = currentUrl;
-  }
-  if (engineIframe && engineIframe.src !== currentUrl) {
-    engineIframe.src = currentUrl;
-  }
-  syncExternalLinks(currentUrl);
+  // Filter Listeners
+  if (branchSelect) branchSelect.addEventListener('change', updateDashboard);
+  if (skuSelect) skuSelect.addEventListener('change', updateDashboard);
 
-  // Preset button handlers
-  if (presetCloudBtn) {
-    presetCloudBtn.addEventListener('click', () => {
-      loadEngine(DEFAULT_CLOUD_URL);
+  if (viewTrendBtn) {
+    viewTrendBtn.addEventListener('click', () => {
+      currentChartMode = 'trend';
+      viewTrendBtn.classList.add('active');
+      if (viewBarBtn) viewBarBtn.classList.remove('active');
+      updateDashboard();
     });
   }
 
-  if (presetLocalBtn) {
-    presetLocalBtn.addEventListener('click', () => {
-      loadEngine(LOCALHOST_URL);
+  if (viewBarBtn) {
+    viewBarBtn.addEventListener('click', () => {
+      currentChartMode = 'bar';
+      viewBarBtn.classList.add('active');
+      if (viewTrendBtn) viewTrendBtn.classList.remove('active');
+      updateDashboard();
     });
   }
 
-  if (engineIframe) {
-    engineIframe.addEventListener('load', () => {
-      if (engineLoader) engineLoader.classList.add('hidden');
-    });
-
-    // In case iframe doesn't trigger onload due to security/network
-    setTimeout(() => {
-      if (engineLoader) engineLoader.classList.add('hidden');
-    }, 4000);
-  }
-
-  if (applyUrlBtn && engineUrlInput) {
-    applyUrlBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const url = engineUrlInput.value.trim();
-      if (url) loadEngine(url);
+  if (resetFiltersBtn) {
+    resetFiltersBtn.addEventListener('click', () => {
+      if (branchSelect) branchSelect.value = 'ALL';
+      if (skuSelect) skuSelect.value = 'ALL';
+      currentChartMode = 'trend';
+      if (viewTrendBtn) viewTrendBtn.classList.add('active');
+      if (viewBarBtn) viewBarBtn.classList.remove('active');
+      updateDashboard();
     });
   }
 
-  if (reloadEngineBtn && engineIframe) {
-    reloadEngineBtn.addEventListener('click', () => {
-      const url = engineUrlInput ? engineUrlInput.value.trim() : currentUrl;
-      loadEngine(url);
+  if (exportSliceBtn) {
+    exportSliceBtn.addEventListener('click', () => {
+      const filtered = getFilteredData();
+      if (!filtered.length) return;
+
+      let csv = 'Branch,SKU,ForecastWeek,WeekStart,ForecastQty\r\n';
+      filtered.forEach(r => {
+        csv += `${r.branch},${r.sku},${r.forecastWeek},${r.weekStart},${r.forecastQty}\r\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Daikin_ARIMA_Forecast_${branchSelect ? branchSelect.value : 'ALL'}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     });
   }
 
-  if (openNewTabBtn && engineUrlInput) {
-    openNewTabBtn.addEventListener('click', () => {
-      const url = engineUrlInput.value.trim() || DEFAULT_CLOUD_URL;
-      window.open(url, '_blank', 'noopener,noreferrer');
-    });
-  }
-
-  if (fullscreenBtn) {
-    fullscreenBtn.addEventListener('click', () => {
-      const container = document.querySelector('.engine-iframe-wrapper');
-      if (!document.fullscreenElement) {
-        if (container.requestFullscreen) container.requestFullscreen();
-        else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
-      } else {
-        if (document.exitFullscreen) document.exitFullscreen();
-      }
-    });
-  }
+  // Initialize engine
+  initAnalyticsEngine();
 
   // Image Zoom Modal
   const modalOverlay = document.getElementById('imageModal');
