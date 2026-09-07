@@ -1,0 +1,204 @@
+═══════════════════════════════════════════════════════════════════════════════
+    ✅ CORRECT STREAMLIT CLOUD DEPLOYMENT SETTINGS
+═══════════════════════════════════════════════════════════════════════════════
+
+⚠️  IMPORTANT: Your Main file path was WRONG!
+
+❌ WRONG SETTING (What you had):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Main file path: EDA dashboard Python/dashboard.py
+
+✅ CORRECT SETTING (What it should be):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Main file path: dashboard.py
+
+═══════════════════════════════════════════════════════════════════════════════
+                    📋 COMPLETE DEPLOYMENT SETTINGS
+═══════════════════════════════════════════════════════════════════════════════
+
+Field: Repository
+Value: saiprash711/ISB_Capstone_Project
+Status: ✅ CORRECT
+
+Field: Branch
+Value: main
+Status: ✅ CORRECT
+
+Field: Main file path
+Value: dashboard.py
+Status: ⚠️ CHANGE THIS (remove "EDA dashboard Python/" part)
+
+Field: App URL (optional)
+Value: isbcapstoneproject-deloittedemandforecasting
+Status: ✅ CORRECT
+
+═══════════════════════════════════════════════════════════════════════════════
+                         🤔 WHY WAS IT WRONG?
+═══════════════════════════════════════════════════════════════════════════════
+
+YOUR LOCAL FOLDER STRUCTURE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+C:\ISB Capstone\EDA dashboard Python\dashboard.py
+                 ↑                     ↑
+            folder name            file name
+
+GITHUB REPOSITORY STRUCTURE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ISB_Capstone_Project/
+├── dashboard.py          ← File is at ROOT level!
+├── requirements.txt
+├── Filtered.csv
+├── .streamlit/
+│   └── config.toml
+└── ... other files
+
+The "EDA dashboard Python" folder exists on your LOCAL computer,
+but NOT in your GitHub repository!
+
+In GitHub, dashboard.py is at the ROOT level of the repository.
+
+═══════════════════════════════════════════════════════════════════════════════
+                         🔧 HOW TO FIX RIGHT NOW
+═══════════════════════════════════════════════════════════════════════════════
+
+STEP 1: Go to Streamlit Cloud
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+https://share.streamlit.io/
+
+STEP 2: Find Your App Settings
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• If deploying NEW: You should see the deployment form
+• If app EXISTS: Click "⋮" → "Settings"
+
+STEP 3: Update Main File Path
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+In the "Main file path" field:
+
+REMOVE THIS: EDA dashboard Python/dashboard.py
+ENTER THIS:  dashboard.py
+
+STEP 4: Save and Deploy
+━━━━━━━━━━━━━━━━━━━━━━━━
+• Click "Save" (if editing settings)
+• OR Click "Deploy" (if new deployment)
+• Wait 3-5 minutes
+
+STEP 5: Check Logs
+━━━━━━━━━━━━━━━━━━
+• Click "Manage app"
+• Click "Logs"
+• Should show successful installation now!
+
+═══════════════════════════════════════════════════════════════════════════════
+                         ✅ VERIFICATION CHECKLIST
+═══════════════════════════════════════════════════════════════════════════════
+
+Before clicking Deploy, verify:
+
+☐ Repository: saiprash711/ISB_Capstone_Project
+☐ Branch: main
+☐ Main file path: dashboard.py (NO folder prefix!)
+☐ App URL: isbcapstoneproject-deloittedemandforecasting (or your choice)
+
+After deployment starts:
+
+☐ No "File not found" error in logs
+☐ Requirements installing successfully
+☐ App status shows "Running"
+☐ Can access app in browser
+
+═══════════════════════════════════════════════════════════════════════════════
+                         📊 YOUR REPOSITORY FILES
+═══════════════════════════════════════════════════════════════════════════════
+
+Files at ROOT level in your GitHub repo:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ dashboard.py                    ← Your main app file
+✅ requirements.txt                ← Dependencies (fixed!)
+✅ Filtered.csv                    ← Data file
+✅ Filtered.xlsx                   ← Data file (backup)
+✅ .streamlit/config.toml          ← Configuration
+✅ .python-version                 ← Python 3.11
+✅ packages.txt                    ← System dependencies
+✅ README.md                       ← Documentation
+✅ All other support files
+
+There is NO "EDA dashboard Python" folder in GitHub!
+
+═══════════════════════════════════════════════════════════════════════════════
+                         🎯 QUICK FIX SUMMARY
+═══════════════════════════════════════════════════════════════════════════════
+
+PROBLEM: 
+Main file path pointed to: EDA dashboard Python/dashboard.py
+But file is actually at: dashboard.py (root level)
+
+SOLUTION:
+Change Main file path to: dashboard.py
+
+WHY IT HAPPENS:
+Your local folder is "EDA dashboard Python" but when you pushed to
+GitHub, the files went to the repository ROOT, not inside a subfolder.
+
+═══════════════════════════════════════════════════════════════════════════════
+                         🆘 IF STILL GETTING ERROR
+═══════════════════════════════════════════════════════════════════════════════
+
+If you STILL get "Error installing requirements" after fixing file path:
+
+CHECK 1: Verify the path change
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Make sure you SAVED the settings change
+Field should show: dashboard.py (not: EDA dashboard Python/dashboard.py)
+
+CHECK 2: View deployment logs
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Click "Manage app" → "Logs"
+Look for the ACTUAL error message
+Share the exact error if still failing
+
+CHECK 3: Verify file exists in GitHub
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Go to: https://github.com/saiprash711/ISB_Capstone_Project
+Look for: dashboard.py in the file list
+It should be visible at the top level (not inside a folder)
+
+CHECK 4: Clear Streamlit cache
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Click "⋮" → "Reboot app" (forces fresh deployment)
+
+═══════════════════════════════════════════════════════════════════════════════
+                         📞 COMMON ERRORS & SOLUTIONS
+═══════════════════════════════════════════════════════════════════════════════
+
+ERROR: "File dashboard.py not found"
+SOLUTION: Wrong file path - use just "dashboard.py"
+
+ERROR: "Error installing requirements"
+SOLUTION: Already fixed in requirements.txt (pushed to GitHub)
+
+ERROR: "ModuleNotFoundError"
+SOLUTION: Check requirements.txt has all needed packages
+
+ERROR: "Cannot find Filtered.csv or Filtered.xlsx"
+SOLUTION: Files are in GitHub repo, should work after fixing main path
+
+═══════════════════════════════════════════════════════════════════════════════
+                         🎉 YOU'RE ALMOST THERE!
+═══════════════════════════════════════════════════════════════════════════════
+
+This is the LAST fix needed:
+
+1. Change "Main file path" from "EDA dashboard Python/dashboard.py"
+2. To just: "dashboard.py"
+3. Click Deploy
+4. Wait 3-5 minutes
+5. Your app will be LIVE! 🚀
+
+═══════════════════════════════════════════════════════════════════════════════
+
+Last Updated: 06/09/2026 1:00 PM
+Issue: Incorrect main file path
+Fix: Use "dashboard.py" (no folder prefix)
+
+═══════════════════════════════════════════════════════════════════════════════

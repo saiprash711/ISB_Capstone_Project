@@ -21,6 +21,13 @@ This project provides an end-to-end data analytics workflow for analyzing sales,
 
 ```plaintext
 ISB_Capstone_Project/
+├── vercel.json                              # Vercel deployment configuration & edge routing
+├── VERCEL_DEPLOYMENT_GUIDE.md               # 1-Click Vercel & Streamlit dual deployment guide
+├── public/                                  # Vercel Executive Web Portal & Global CDN Assets
+│   ├── index.html                           # Modern responsive Daikin executive web portal
+│   ├── styles.css                           # Glassmorphic executive UI design system
+│   ├── app.js                               # Interactive client engine & Streamlit controller
+│   └── assets/                              # Deliverables: PDF report, PPTX deck, forecast CSV, screenshots
 ├── 2024 July to 2025 June.xlsx              # Raw baseline sales dataset (July 2024 - June 2025)
 ├── Capstone Weekly Update- Format.docx      # Weekly project documentation & update template
 ├── Daikin Capstone Weekly Report (1).pdf    # Project milestones & weekly briefing report
@@ -43,6 +50,18 @@ ISB_Capstone_Project/
     ├── verify_all_views.py                  # Automated headless view verification
     └── assets / screenshots (.png)          # Visual demonstrations and view captures
 ```
+
+---
+
+## 🌐 Live Deployment Options
+
+This project supports a **Dual-Ready Cloud Architecture**:
+
+1. **Vercel Executive Portal**: Deploy instantly to Vercel for a world-class executive dashboard with live KPI counters, architecture overview, direct 1-click downloads of the presentation and PDF briefing, and an embedded interactive viewer.
+   - See [VERCEL_DEPLOYMENT_GUIDE.md](file:///c:/ISB%20Capstone/VERCEL_DEPLOYMENT_GUIDE.md) for 1-click deployment instructions.
+2. **Streamlit Community Cloud**: Deploy the Python analytics engine with persistent WebSockets for real-time ARIMA, SARIMAX, and dynamic filtering.
+   - See [EDA dashboard Python/DEPLOYMENT_OPTIONS.md](file:///c:/ISB%20Capstone/EDA%20dashboard%20Python/DEPLOYMENT_OPTIONS.md).
+
 
 ---
 

@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daikin AI Intelligence & Demand Forecasting | ISB Capstone</title>
+  <meta name="description" content="Enterprise Sales & Distribution Analytics, Data Quality Auditing, and Predictive Demand Forecasting with ARIMA/SARIMAX models for Daikin South Region.">
+  <meta name="keywords" content="Daikin, ISB Capstone, Demand Forecasting, ARIMA, Data Quality, Streamlit, Vercel, Sales Analytics">
+  <meta name="theme-color" content="#0A0E1A">
+
+  <!-- Open Graph / Social -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Daikin AI Intelligence & Demand Forecasting | ISB Capstone">
+  <meta property="og:description" content="Predictive Demand Forecasting & Enterprise Sales EDA for Daikin South Region.">
+  <meta property="og:image" content="/assets/verified_light_cockpit.png">
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%20%22100%22%20%22100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header class="navbar" id="navbar">
+    <div class="container nav-container">
+      <div class="brand-wrapper">
+        <div class="brand-badge" aria-label="Daikin Logo">⚡</div>
+        <div class="brand-title-group">
+          <h1>DAIKIN AI INTELLIGENCE</h1>
+          <p>ISB Capstone Project &bull; South Region</p>
+        </div>
+      </div>
+
+      <nav class="nav-tabs" aria-label="Main Navigation">
+        <button class="nav-tab-btn active" data-target="overview">📊 Overview</button>
+        <button class="nav-tab-btn" data-target="engine">⚡ Live Engine</button>
+        <button class="nav-tab-btn" data-target="modules">🔍 Modules</button>
+        <button class="nav-tab-btn" data-target="deliverables">📥 Downloads</button>
+        <button class="nav-tab-btn" data-target="architecture">🏛️ Architecture</button>
+      </nav>
+
+      <div class="nav-actions">
+        <div class="status-pill">
+          <span class="status-dot"></span>
+          <span>SYSTEM READY</span>
+        </div>
+        <a href="#engine" class="btn btn-primary">Open Live App</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <main>
+    <section class="hero-section" id="overview">
+      <div class="container">
+        <div class="hero-pill-group">
+          <span class="meta-chip">🏢 Daikin South Region</span>
+          <span class="meta-chip">🎓 ISB AMPBA Capstone</span>
+          <span class="meta-chip">🧠 ARIMA & SARIMAX AI</span>
+          <span class="meta-chip">⚡ Vercel Cloud Ready</span>
+        </div>
+
+        <h1 class="hero-title">Predictive Demand Forecasting &amp; Enterprise Sales Intelligence</h1>
+        <p class="hero-subtitle">
+          An end-to-end analytics platform transforming 54,000+ sales line items across 5 South India hubs into high-precision demand forecasts, automated data quality scoring, and executive-ready strategy briefings.
+        </p>
+
+        <div class="hero-cta-group">
+          <a href="#engine" class="btn btn-primary" id="heroLiveBtn">🚀 Launch Live Engine</a>
+          <a href="assets/Daikin_Executive_Report.pdf" download="Daikin_Executive_Report.pdf" class="btn btn-emerald">📄 Download Executive Report</a>
+          <a href="assets/Daikin_Presentation_Deck.pptx" download="Daikin_Presentation_Deck.pptx" class="btn btn-secondary">📊 Presentation Deck (PPTX)</a>
+        </div>
+
+        <!-- Regional Branch Badges -->
+        <div class="branches-grid">
+          <div class="branch-badge"><span class="dot"></span> Bangalore (BLR)</div>
+          <div class="branch-badge"><span class="dot"></span> Chennai (MAA)</div>
+          <div class="branch-badge"><span class="dot"></span> Cochin (COK)</div>
+          <div class="branch-badge"><span class="dot"></span> Secunderabad (SBD)</div>
+          <div class="branch-badge"><span class="dot"></span> Vijayawada (SBD1)</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Key Performance Indicators Grid -->
+    <section class="container">
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <div class="kpi-icon">📋</div>
+            <span class="kpi-badge cyan">ENTERPRISE</span>
+          </div>
+          <div class="kpi-label">Analyzed Invoices</div>
+          <div class="kpi-value">54,000+</div>
+          <div class="kpi-subtext">Sales transactions from July 2024 to June 2025</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <div class="kpi-icon">🛡️</div>
+            <span class="kpi-badge emerald">VERIFIED</span>
+          </div>
+          <div class="kpi-label">Data Quality Score</div>
+          <div class="kpi-value">99.8%</div>
+          <div class="kpi-subtext">Zero unhandled duplicates &bull; Cleaned schema</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <div class="kpi-icon">📈</div>
+            <span class="kpi-badge purple">AI ENGINE</span>
+          </div>
+          <div class="kpi-label">Forecast Horizon</div>
+          <div class="kpi-value">180 Days</div>
+          <div class="kpi-subtext">ARIMA(1,1,1) &bull; SARIMAX &bull; 95% Conf. Bounds</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <div class="kpi-icon">⚡</div>
+            <span class="kpi-badge amber">REGIONAL HUBS</span>
+          </div>
+          <div class="kpi-label">Branch Coverage</div>
+          <div class="kpi-value">5 Hubs</div>
+          <div class="kpi-subtext">BLR, MAA, COK, SBD, and SBD1</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Live Streamlit Engine Container Section -->
+    <section class="section container" id="engine">
+      <div class="section-header">
+        <span class="section-tag">Interactive Engine</span>
+        <h2 class="section-title">Live Analytics &amp; Forecasting Dashboard</h2>
+        <p class="section-description">
+          Interact with the full multi-module Python Streamlit engine embedded below, or configure the connection endpoint to your live cloud deployment.
+        </p>
+      </div>
+
+      <div class="engine-container">
+        <!-- Toolbar -->
+        <div class="engine-toolbar">
+          <div class="engine-status-group">
+            <div class="status-pill">
+              <span class="status-dot"></span>
+              <span>LIVE CLOUD LINK</span>
+            </div>
+          </div>
+
+          <form class="engine-url-form" id="engineUrlForm">
+            <input 
+              type="text" 
+              class="engine-url-input" 
+              id="engineUrlInput" 
+              placeholder="Enter Streamlit Cloud URL (e.g. https://your-app.streamlit.app)"
+              value="http://localhost:8501"
+              aria-label="Streamlit App URL"
+            />
+            <button type="submit" class="btn btn-primary" id="applyUrlBtn">Connect</button>
+          </form>
+
+          <div class="engine-controls">
+            <button class="btn btn-secondary" id="reloadEngineBtn" title="Reload Engine">🔄 Reload</button>
+            <button class="btn btn-secondary" id="openNewTabBtn" title="Open in New Tab">↗ New Tab</button>
+            <button class="btn btn-secondary" id="fullscreenBtn" title="Fullscreen">⛶ Fullscreen</button>
+          </div>
+        </div>
+
+        <!-- Embedded Iframe with Loading Overlay -->
+        <div class="engine-iframe-wrapper">
+          <div class="engine-loader" id="engineLoader">
+            <div class="spinner"></div>
+            <h3 style="color: #FFFFFF; font-family: var(--font-heading);">Connecting to Streamlit Engine...</h3>
+            <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 480px; text-align: center;">
+              Running locally? Ensure <code>streamlit run "EDA dashboard Python/dashboard.py"</code> is active on port 8501. Or enter your live Streamlit Cloud URL above.
+            </p>
+          </div>
+
+          <iframe 
+            id="engineIframe"
+            class="engine-iframe" 
+            src="http://localhost:8501" 
+            title="Daikin AI Intelligence Streamlit Application"
+            loading="lazy"
+            allow="fullscreen"
+          ></iframe>
+        </div>
+      </div>
+    </section>
+
+    <!-- Visual Module Showcase Section -->
+    <section class="section container" id="modules">
+      <div class="section-header">
+        <span class="section-tag">Interactive Feature Tour</span>
+        <h2 class="section-title">Comprehensive Analytical Modules</h2>
+        <p class="section-description">
+          Explore the 6 core pillars engineered for Daikin leadership and operations teams.
+        </p>
+      </div>
+
+      <!-- Module Selection Tabs -->
+      <div class="module-tabs">
+        <button class="module-tab-btn active" data-module="cockpit">📊 Executive Cockpit</button>
+        <button class="module-tab-btn" data-module="radar">🛡️ Data Quality Radar</button>
+        <button class="module-tab-btn" data-module="cleaning">🧼 Cleaning Studio</button>
+        <button class="module-tab-btn" data-module="statistical">📈 Statistical Engine</button>
+        <button class="module-tab-btn" data-module="explorer">🔍 Detailed Explorer</button>
+        <button class="module-tab-btn" data-module="forecasting">🔮 Predictive Forecasting</button>
+      </div>
+
+      <!-- Module Showcase Card -->
+      <div class="module-display-card">
+        <div class="module-image-container" title="Click to enlarge view">
+          <img id="moduleImage" src="assets/verified_light_cockpit.png" alt="Executive Cockpit Dashboard View">
+        </div>
+
+        <div class="module-info-panel">
+          <div class="module-info-content">
+            <h3 id="moduleTitle">Executive Cockpit &amp; Sales Telemetry</h3>
+            <p id="moduleDesc">
+              Real-time bird’s-eye monitoring of total order volume, monthly tonnage distributions, channel splits, and regional branch performance across South India.
+            </p>
+            <ul class="module-features-list" id="moduleFeatures">
+              <li><span class="check">✓</span><span>Multi-metric KPI cards with dynamic trend calculations</span></li>
+              <li><span class="check">✓</span><span>Interactive Plotly monthly volume vs. tonnage time series</span></li>
+              <li><span class="check">✓</span><span>Sales channel distribution (Dealers, Direct, Projects)</span></li>
+              <li><span class="check">✓</span><span>Executive telemetry with dynamic theme engine</span></li>
+            </ul>
+          </div>
+
+          <div style="display: flex; gap: 10px;">
+            <a href="#engine" class="btn btn-primary" style="width: 100%;">Test in Live Engine</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Deliverables & Downloads Section -->
+    <section class="section container" id="deliverables">
+      <div class="section-header">
+        <span class="section-tag">Executive Deliverables</span>
+        <h2 class="section-title">Reports, Presentations &amp; Model Data</h2>
+        <p class="section-description">
+          Download executive-ready presentation decks, data quality briefing documents, and time-series model projections.
+        </p>
+      </div>
+
+      <div class="download-grid">
+        <div class="download-card">
+          <div>
+            <div class="download-header">
+              <div class="download-icon pdf">📄</div>
+              <div class="download-title-group">
+                <h4>Executive Briefing Report</h4>
+                <span>PDF Document &bull; 528 KB</span>
+              </div>
+            </div>
+            <p>
+              Comprehensive executive report covering baseline dataset profiling, missing value distributions, data hygiene certifications, and strategic recommendations.
+            </p>
+          </div>
+          <a href="assets/Daikin_Executive_Report.pdf" download="Daikin_Executive_Report.pdf" class="btn btn-emerald">
+            📥 Download Report (.pdf)
+          </a>
+        </div>
+
+        <div class="download-card">
+          <div>
+            <div class="download-header">
+              <div class="download-icon pptx">📊</div>
+              <div class="download-title-group">
+                <h4>Presentation Slide Deck</h4>
+                <span>PowerPoint Deck &bull; 830 KB</span>
+              </div>
+            </div>
+            <p>
+              Professional slide deck featuring high-resolution captures of the 6 dashboard modules, methodology diagrams, branch comparisons, and key executive takeaways.
+            </p>
+          </div>
+          <a href="assets/Daikin_Presentation_Deck.pptx" download="Daikin_Presentation_Deck.pptx" class="btn btn-primary">
+            📥 Download Slides (.pptx)
+          </a>
+        </div>
+
+        <div class="download-card">
+          <div>
+            <div class="download-header">
+              <div class="download-icon csv">📈</div>
+              <div class="download-title-group">
+                <h4>ARIMA Forecast Dataset</h4>
+                <span>CSV Export &bull; 17 KB</span>
+              </div>
+            </div>
+            <p>
+              Curated model projection outputs including predicted tonnage, 95% upper and lower confidence bounds, baseline metrics, and regional branch allocations.
+            </p>
+          </div>
+          <a href="assets/ARIMA_Forecast_Results.csv" download="ARIMA_Forecast_Results.csv" class="btn btn-secondary">
+            📥 Download Projections (.csv)
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Architecture & Vercel Deployment Section -->
+    <section class="section container" id="architecture">
+      <div class="section-header">
+        <span class="section-tag">Production Setup</span>
+        <h2 class="section-title">Vercel &amp; Cloud Deployment Architecture</h2>
+        <p class="section-description">
+          How this hybrid architecture delivers sub-second global CDN delivery on Vercel while powering stateful Python ML workflows.
+        </p>
+      </div>
+
+      <div class="arch-grid">
+        <div class="arch-step-card">
+          <span class="step-number">01</span>
+          <h4>Vercel Edge Global CDN</h4>
+          <p>
+            Vercel serves the static frontend portal, caching media, style tokens, executive reports, and presentation decks across 100+ edge points of presence worldwide.
+          </p>
+          <div class="code-box">vercel --prod</div>
+        </div>
+
+        <div class="arch-step-card">
+          <span class="step-number">02</span>
+          <h4>Python ML Compute Engine</h4>
+          <p>
+            The 2,800-line Streamlit engine executes on Streamlit Community Cloud (or Render), maintaining persistent WebSockets for ARIMA, SARIMAX, and Plotly calculations.
+          </p>
+          <div class="code-box">share.streamlit.io</div>
+        </div>
+
+        <div class="arch-step-card">
+          <span class="step-number">03</span>
+          <h4>Seamless Integration</h4>
+          <p>
+            Evaluators and stakeholders visit your custom <code>your-project.vercel.app</code> domain, getting immediate high-speed access to both the portal and the live computing engine.
+          </p>
+          <div class="code-box">https://*.vercel.app</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Image Zoom Modal -->
+  <div class="modal-overlay" id="imageModal">
+    <div class="modal-content">
+      <button class="modal-close-btn" id="modalCloseBtn" aria-label="Close image preview">&times;</button>
+      <img id="modalImage" src="" alt="Expanded View">
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-content">
+      <div class="brand-wrapper">
+        <div class="brand-badge" style="width: 36px; height: 36px; font-size: 18px;">⚡</div>
+        <span style="font-weight: 700; font-family: var(--font-heading); color: #FFFFFF;">Daikin AI Intelligence &bull; ISB Capstone</span>
+      </div>
+      <div class="footer-links">
+        <a href="#overview">Overview</a> &bull;
+        <a href="#engine">Live Engine</a> &bull;
+        <a href="#modules">Modules</a> &bull;
+        <a href="#deliverables">Downloads</a> &bull;
+        <a href="https://github.com/saiprash711/ISB_Capstone_Project" target="_blank" rel="noopener">GitHub Repository</a>
+      </div>
+      <p class="footer-credits">
+        Developed for ISB Advanced Management Programme in Business Analytics (AMPBA) &bull; Daikin South Region Sales Analytics.
+      </p>
+    </div>
+  </footer>
+
+  <!-- Client Script -->
+  <script src="app.js"></script>
+</body>
+</html>

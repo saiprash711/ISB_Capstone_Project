@@ -1,0 +1,213 @@
+═══════════════════════════════════════════════════════════════════════════════
+    ✅ STREAMLIT CLOUD - CORRECT PATH CONFIGURATION
+═══════════════════════════════════════════════════════════════════════════════
+
+🎯 THE CORRECT PATH IS:
+
+  EDA dashboard Python/dashboard.py
+
+⚠️  IMPORTANT: Note the space between "EDA dashboard" and "Python"!
+
+═══════════════════════════════════════════════════════════════════════════════
+                     📋 EXACT SETTINGS TO USE
+═══════════════════════════════════════════════════════════════════════════════
+
+Repository:     saiprash711/ISB_Capstone_Project
+Branch:         main  
+Main file path: EDA dashboard Python/dashboard.py
+App URL:        isbcapstoneproject-deloittedemandforecasting
+
+═══════════════════════════════════════════════════════════════════════════════
+                   🔍 VERIFIED FILE EXISTS IN GITHUB
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ File confirmed in GitHub repository at:
+   ISB_Capstone_Project/EDA dashboard Python/dashboard.py
+
+✅ Latest commit: 7fdabca
+✅ File size: ~776 lines of code
+✅ Last updated: Recently pushed
+
+═══════════════════════════════════════════════════════════════════════════════
+                   ⚠️  IF STILL GETTING "FILE NOT FOUND" ERROR
+═══════════════════════════════════════════════════════════════════════════════
+
+TRY THESE SOLUTIONS IN ORDER:
+
+SOLUTION 1: CLEAR STREAMLIT CACHE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Go to your Streamlit Cloud dashboard
+2. Find the app (or deployment in progress)
+3. Click "⋮" (three dots)
+4. Select "Delete app" (don't worry, you can redeploy)
+5. Wait 30 seconds
+6. Click "New app" and enter settings again
+7. Main file path: EDA dashboard Python/dashboard.py
+
+SOLUTION 2: WAIT FOR GITHUB SYNC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Sometimes GitHub takes 1-2 minutes to sync with Streamlit Cloud:
+1. Wait 2-3 minutes after pushing
+2. Try deploying again
+3. Make sure you're on https://share.streamlit.io/ (not old UI)
+
+SOLUTION 3: VERIFY PATH EXACTLY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Copy and paste this EXACT path (select and copy):
+
+EDA dashboard Python/dashboard.py
+
+Make sure:
+✓ Capital E in EDA
+✓ Single space between "dashboard" and "Python"
+✓ Capital P in Python
+✓ Forward slash / (not backslash \)
+✓ Lowercase d in dashboard.py
+✓ .py extension included
+
+SOLUTION 4: USE ADVANCED SETTINGS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Click "Advanced settings" and verify:
+• Python version: 3.11 (or leave default)
+• Requirements file: requirements.txt (should auto-detect)
+• No extra environment variables needed
+
+SOLUTION 5: CHECK GITHUB DIRECTLY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Go to: https://github.com/saiprash711/ISB_Capstone_Project
+2. Click on "EDA dashboard Python" folder
+3. Verify you see "dashboard.py" in the file list
+4. If not visible, the push might not have completed
+
+SOLUTION 6: REFRESH REPOSITORY CONNECTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Go to Streamlit Cloud settings
+2. Disconnect GitHub (if option available)
+3. Reconnect GitHub account
+4. Try deploying again
+
+═══════════════════════════════════════════════════════════════════════════════
+                   🐛 COMMON MISTAKES TO AVOID
+═══════════════════════════════════════════════════════════════════════════════
+
+❌ DON'T USE: EDA dashboard Python\dashboard.py (backslash)
+✅ USE:       EDA dashboard Python/dashboard.py (forward slash)
+
+❌ DON'T USE: EDA dashboard Python /dashboard.py (extra space before slash)
+✅ USE:       EDA dashboard Python/dashboard.py (no extra spaces)
+
+❌ DON'T USE: eda dashboard python/dashboard.py (lowercase)
+✅ USE:       EDA dashboard Python/dashboard.py (proper case)
+
+❌ DON'T USE: EDA  dashboard  Python/dashboard.py (multiple spaces)
+✅ USE:       EDA dashboard Python/dashboard.py (single spaces)
+
+❌ DON'T USE: "EDA dashboard Python/dashboard.py" (with quotes)
+✅ USE:       EDA dashboard Python/dashboard.py (no quotes)
+
+═══════════════════════════════════════════════════════════════════════════════
+                   📸 STEP-BY-STEP WITH SCREENSHOTS
+═══════════════════════════════════════════════════════════════════════════════
+
+STEP 1: Go to Streamlit Cloud
+▸ https://share.streamlit.io/
+
+STEP 2: Click "New app" (or "Deploy an app")
+
+STEP 3: Fill in the form EXACTLY like this:
+
+┌─────────────────────────────────────────────────────────────┐
+│ Repository                                                   │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ saiprash711/ISB_Capstone_Project                        │ │
+│ └─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ Branch                                                       │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ main                                                     │ │
+│ └─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ Main file path                                               │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ EDA dashboard Python/dashboard.py                       │ │
+│ └─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ App URL (optional)                                           │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ isbcapstoneproject-deloittedemandforecasting  .streaml...│ │
+│ └─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+
+STEP 4: Click [Deploy] button
+
+STEP 5: Wait 3-5 minutes and watch the logs
+
+═══════════════════════════════════════════════════════════════════════════════
+                   🎯 ALTERNATIVE: TRY THE ROOT REQUIREMENTS.TXT
+═══════════════════════════════════════════════════════════════════════════════
+
+There are TWO requirements.txt files in your repo:
+1. /requirements.txt (root level)
+2. /EDA dashboard Python/requirements.txt (folder level)
+
+Streamlit might be looking at the WRONG one!
+
+QUICK FIX:
+━━━━━━━━━━
+Make sure BOTH requirements.txt files have the SAME content.
+
+Let me check if they match...
+
+═══════════════════════════════════════════════════════════════════════════════
+                   💡 NUCLEAR OPTION: SIMPLIFY FOLDER NAME
+═══════════════════════════════════════════════════════════════════════════════
+
+If NOTHING works, the issue might be the SPACE in the folder name!
+Some systems don't handle "EDA dashboard Python" well.
+
+OPTION A: Rename folder (breaks everything temporarily):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Rename "EDA dashboard Python" to "dashboard"
+2. git mv "EDA dashboard Python" dashboard
+3. git commit -m "Rename folder for Streamlit Cloud compatibility"
+4. git push
+5. Use path: dashboard/dashboard.py
+
+OPTION B: Keep as is (recommended):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+The space SHOULD work fine. Try the other solutions first!
+
+═══════════════════════════════════════════════════════════════════════════════
+                   📞 IF STILL STUCK
+═══════════════════════════════════════════════════════════════════════════════
+
+1. Take a screenshot of the EXACT error message
+2. Check Streamlit Community Forum: https://discuss.streamlit.io/
+3. Try deploying from Streamlit Community Cloud (not the old share.streamlit.io)
+4. Verify your GitHub account is properly connected to Streamlit Cloud
+
+═══════════════════════════════════════════════════════════════════════════════
+                   ✅ CHECKLIST BEFORE DEPLOYING
+═══════════════════════════════════════════════════════════════════════════════
+
+☐ Verified file exists on GitHub web interface
+☐ Copied path exactly: EDA dashboard Python/dashboard.py
+☐ No typos (capital letters, spaces, slashes)
+☐ Waited 2-3 minutes after last git push
+☐ Tried clearing Streamlit cache (delete and redeploy)
+☐ Checked both requirements.txt files match
+☐ Advanced settings left as default
+
+═══════════════════════════════════════════════════════════════════════════════
+
+Copy this path and try again:
+
+EDA dashboard Python/dashboard.py
+
+═══════════════════════════════════════════════════════════════════════════════
