@@ -1,0 +1,292 @@
+{
+  "total_records": 82034,
+  "total_columns": 23,
+  "total_missing": 94435,
+  "missing_percentage": 5.01,
+  "duplicate_rows": 4463,
+  "duplicate_percentage": 5.44,
+  "completeness": 94.99,
+  "columns_with_missing": 23,
+  "monthly_trend": [
+    {
+      "Month": "2022-07",
+      "Count": 250
+    },
+    {
+      "Month": "2022-08",
+      "Count": 1047
+    },
+    {
+      "Month": "2022-09",
+      "Count": 1970
+    },
+    {
+      "Month": "2022-10",
+      "Count": 1444
+    },
+    {
+      "Month": "2022-11",
+      "Count": 1451
+    },
+    {
+      "Month": "2022-12",
+      "Count": 3335
+    },
+    {
+      "Month": "2023-01",
+      "Count": 1671
+    },
+    {
+      "Month": "2023-02",
+      "Count": 2865
+    },
+    {
+      "Month": "2023-03",
+      "Count": 3846
+    },
+    {
+      "Month": "2023-04",
+      "Count": 4373
+    },
+    {
+      "Month": "2023-05",
+      "Count": 3663
+    },
+    {
+      "Month": "2023-06",
+      "Count": 3140
+    },
+    {
+      "Month": "2023-07",
+      "Count": 1979
+    },
+    {
+      "Month": "2023-08",
+      "Count": 3060
+    },
+    {
+      "Month": "2023-09",
+      "Count": 2730
+    },
+    {
+      "Month": "2023-10",
+      "Count": 2510
+    },
+    {
+      "Month": "2023-11",
+      "Count": 2774
+    },
+    {
+      "Month": "2023-12",
+      "Count": 4224
+    },
+    {
+      "Month": "2024-01",
+      "Count": 2110
+    },
+    {
+      "Month": "2024-02",
+      "Count": 3864
+    },
+    {
+      "Month": "2024-03",
+      "Count": 6124
+    },
+    {
+      "Month": "2024-04",
+      "Count": 12318
+    },
+    {
+      "Month": "2024-05",
+      "Count": 7136
+    },
+    {
+      "Month": "2024-06",
+      "Count": 4149
+    }
+  ],
+  "segments": {
+    "Inverter": 67097,
+    "Non Inv": 14936
+  },
+  "branches": {
+    "MAA": 28832,
+    "COK": 15110,
+    "SBD": 13971,
+    "SBD1": 13733,
+    "BLR": 10387
+  },
+  "missing_by_col": {
+    "Material": 1,
+    "Billing Doc.": 23604,
+    "Item": 23604,
+    "SALES OFFICE CODE": 1,
+    "EXT MAT GROUP": 1,
+    "MatGroup3": 1,
+    "Star Rating": 1,
+    "Segment": 1,
+    "Star Rating.1": 1,
+    "Stor. Location": 23604,
+    "SALES OFFICE CODE.1": 1,
+    "SBU": 1,
+    "Year": 1,
+    "Month": 1,
+    "Week": 1,
+    "Billing Date": 1,
+    "Customer": 1,
+    "Material.1": 1,
+    "Billing Quantity ODU": 1,
+    "Billing Quantity IDU": 1,
+    "Tonnage": 1,
+    "Dealer Name": 23604,
+    "Tonnage.1": 1
+  },
+  "tonnage_mean_by_seg": {
+    "Inverter": 1.2985401731821093,
+    "Non Inv": 1.1881293519014462
+  },
+  "tonnage_quantiles": {
+    "0.05": 0.0,
+    "0.25": 1.0,
+    "0.5": 1.5,
+    "0.75": 1.5,
+    "0.95": 2.2
+  },
+  "describe": {
+    "Billing Doc.": {
+      "count": 58430.0,
+      "mean": 2303429287.14,
+      "std": 48291015.32,
+      "min": 2203007529.0,
+      "25%": 2236022842.0,
+      "50%": 2332010187.5,
+      "75%": 2333500202.0,
+      "max": 2391590002.0
+    },
+    "Item": {
+      "count": 58430.0,
+      "mean": 60.71,
+      "std": 50.91,
+      "min": 10.0,
+      "25%": 20.0,
+      "50%": 40.0,
+      "75%": 80.0,
+      "max": 840.0
+    },
+    "Stor. Location": {
+      "count": 58430.0,
+      "mean": 1030.0,
+      "std": 0.0,
+      "min": 1030.0,
+      "25%": 1030.0,
+      "50%": 1030.0,
+      "75%": 1030.0,
+      "max": 1030.0
+    },
+    "Billing Quantity ODU": {
+      "count": 82033.0,
+      "mean": 8.89,
+      "std": 18.05,
+      "min": -135.0,
+      "25%": 1.0,
+      "50%": 3.0,
+      "75%": 10.0,
+      "max": 180.0
+    },
+    "Billing Quantity IDU": {
+      "count": 82033.0,
+      "mean": 2.11,
+      "std": 10.35,
+      "min": -30.0,
+      "25%": 0.0,
+      "50%": 0.0,
+      "75%": 0.0,
+      "max": 170.0
+    },
+    "Tonnage": {
+      "count": 82033.0,
+      "mean": 1.28,
+      "std": 0.56,
+      "min": 0.0,
+      "25%": 1.0,
+      "50%": 1.5,
+      "75%": 1.5,
+      "max": 2.2
+    },
+    "Tonnage.1": {
+      "count": 82033.0,
+      "mean": 1.28,
+      "std": 0.56,
+      "min": 0.0,
+      "25%": 1.0,
+      "50%": 1.5,
+      "75%": 1.5,
+      "max": 2.2
+    }
+  },
+  "correlation": {
+    "Billing Doc.": {
+      "Billing Doc.": 1.0,
+      "Item": -0.04,
+      "Stor. Location": 0.0,
+      "Billing Quantity ODU": 0.02,
+      "Billing Quantity IDU": 0.0,
+      "Tonnage": 0.0,
+      "Tonnage.1": 0.0
+    },
+    "Item": {
+      "Billing Doc.": -0.04,
+      "Item": 1.0,
+      "Stor. Location": 0.0,
+      "Billing Quantity ODU": 0.07,
+      "Billing Quantity IDU": 0.0,
+      "Tonnage": 0.08,
+      "Tonnage.1": 0.08
+    },
+    "Stor. Location": {
+      "Billing Doc.": 0.0,
+      "Item": 0.0,
+      "Stor. Location": 0.0,
+      "Billing Quantity ODU": 0.0,
+      "Billing Quantity IDU": 0.0,
+      "Tonnage": 0.0,
+      "Tonnage.1": 0.0
+    },
+    "Billing Quantity ODU": {
+      "Billing Doc.": 0.02,
+      "Item": 0.07,
+      "Stor. Location": 0.0,
+      "Billing Quantity ODU": 1.0,
+      "Billing Quantity IDU": -0.1,
+      "Tonnage": 0.13,
+      "Tonnage.1": 0.13
+    },
+    "Billing Quantity IDU": {
+      "Billing Doc.": 0.0,
+      "Item": 0.0,
+      "Stor. Location": 0.0,
+      "Billing Quantity ODU": -0.1,
+      "Billing Quantity IDU": 1.0,
+      "Tonnage": -0.33,
+      "Tonnage.1": -0.33
+    },
+    "Tonnage": {
+      "Billing Doc.": 0.0,
+      "Item": 0.08,
+      "Stor. Location": 0.0,
+      "Billing Quantity ODU": 0.13,
+      "Billing Quantity IDU": -0.33,
+      "Tonnage": 1.0,
+      "Tonnage.1": 1.0
+    },
+    "Tonnage.1": {
+      "Billing Doc.": 0.0,
+      "Item": 0.08,
+      "Stor. Location": 0.0,
+      "Billing Quantity ODU": 0.13,
+      "Billing Quantity IDU": -0.33,
+      "Tonnage": 1.0,
+      "Tonnage.1": 1.0
+    }
+  }
+}

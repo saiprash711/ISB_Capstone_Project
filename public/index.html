@@ -1,424 +1,649 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Daikin AI Intelligence & Demand Forecasting | ISB Capstone</title>
-  <meta name="description" content="Enterprise Sales & Distribution Analytics, Data Quality Auditing, and Predictive Demand Forecasting with ARIMA/SARIMAX models for Daikin South Region.">
-  <meta name="keywords" content="Daikin, ISB Capstone, Demand Forecasting, ARIMA, Data Quality, Streamlit, Vercel, Sales Analytics">
-  <meta name="theme-color" content="#0A0E1A">
+  <title>AI Intelligence & Demand Forecasting | ISB Capstone</title>
+  <meta name="description" content="Supply Chain Intelligence - South Region Demand Forecasting & Data Quality Radar. ISB Capstone Project.">
+  <meta name="theme-color" content="#0284C7">
 
-  <!-- Open Graph / Social -->
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="Daikin AI Intelligence & Demand Forecasting | ISB Capstone">
-  <meta property="og:description" content="Predictive Demand Forecasting & Enterprise Sales EDA for Daikin South Region.">
-  <meta property="og:image" content="/assets/verified_light_cockpit.png">
+  <!-- Open Graph -->
+  <meta property="og:title" content="Supply Chain Intelligence | ISB Capstone">
+  <meta property="og:description" content="South Region Demand Forecasting & Quality Radar Command Center.">
 
-  <!-- Stylesheets -->
+  <!-- Google Fonts & Stylesheet -->
   <link rel="stylesheet" href="styles.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%20%22100%22%20%22100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%200%20100%20100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
 
   <!-- Plotly.js Analytics Engine -->
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 </head>
 <body>
 
-  <!-- Navigation Bar -->
-  <header class="navbar" id="navbar">
-    <div class="container nav-container">
-      <div class="brand-wrapper">
-        <div class="brand-badge" aria-label="Daikin Logo">⚡</div>
-        <div class="brand-title-group">
-          <h1>DAIKIN AI INTELLIGENCE</h1>
-          <p>ISB Capstone Project &bull; South Region</p>
+  <!-- Floating Mobile Menu Toggle -->
+  <button class="mobile-nav-toggle" id="mobileNavToggle" aria-label="Toggle Navigation">☰</button>
+
+  <div class="app-container">
+
+    <!-- =====================================================================
+         SIDEBAR: CONTROL HUB - EXECUTIVE COMMAND CENTER
+    ====================================================================== -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-icon">🎛️</div>
+        <div class="sidebar-brand">
+          <h3>Control Hub</h3>
+          <p>Executive Command Center</p>
         </div>
       </div>
 
-      <nav class="nav-tabs" aria-label="Main Navigation">
-        <button class="nav-tab-btn active" data-target="overview">📊 Overview</button>
-        <button class="nav-tab-btn" data-target="engine">⚡ Live Engine</button>
-        <button class="nav-tab-btn" data-target="modules">🔍 Modules</button>
-        <button class="nav-tab-btn" data-target="deliverables">📥 Downloads</button>
-        <button class="nav-tab-btn" data-target="architecture">🏛️ Architecture</button>
+      <!-- Theme Switcher Segmented Control -->
+      <div class="sidebar-section-title">🎨 Appearance Theme</div>
+      <div class="theme-switch-control" id="sidebarThemeControl">
+        <button type="button" class="theme-btn" data-theme="dark">🌙 Dark</button>
+        <button type="button" class="theme-btn active" data-theme="light">☀️ Light</button>
+      </div>
+
+      <!-- Navigation Views -->
+      <div class="sidebar-section-title">Navigation Views</div>
+      <nav class="sidebar-nav-list" id="sidebarNavList">
+        <button type="button" class="nav-item-btn active" data-target="cockpit">
+          <span class="nav-icon">🏠</span> <span>Executive Cockpit</span>
+        </button>
+        <button type="button" class="nav-item-btn" data-target="forecasting">
+          <span class="nav-icon">🎯</span> <span>AI Demand Forecasting</span>
+        </button>
+        <button type="button" class="nav-item-btn" data-target="radar">
+          <span class="nav-icon">🛡️</span> <span>Data Quality Radar</span>
+        </button>
+        <button type="button" class="nav-item-btn" data-target="cleaning">
+          <span class="nav-icon">🧹</span> <span>Data Cleaning Studio</span>
+        </button>
+        <button type="button" class="nav-item-btn" data-target="statistical">
+          <span class="nav-icon">📈</span> <span>Statistical Deep-Dive</span>
+        </button>
+        <button type="button" class="nav-item-btn" data-target="explorer">
+          <span class="nav-icon">🔍</span> <span>Intelligence Explorer</span>
+        </button>
+        <button type="button" class="nav-item-btn" data-target="reports">
+          <span class="nav-icon">📄</span> <span>C-Suite Reports</span>
+        </button>
       </nav>
 
-      <div class="nav-actions">
-        <div class="status-pill">
-          <span class="status-dot"></span>
-          <span>SYSTEM READY</span>
+      <!-- Enterprise Fleet Stats Panel -->
+      <div class="sidebar-stat-panel">
+        <div class="sidebar-stat-header">Enterprise Fleet Stats</div>
+        <div class="sidebar-stat-row">
+          <span class="label">Total Transactions</span>
+          <strong>82,034</strong>
         </div>
-        <a href="#engine" class="btn btn-primary" id="navLiveAppBtn">📊 Interactive Engine</a>
-      </div>
-    </div>
-  </header>
-
-  <!-- Hero Section -->
-  <main>
-    <section class="hero-section" id="overview">
-      <div class="container">
-        <div class="hero-pill-group">
-          <span class="meta-chip">🏢 Daikin South Region</span>
-          <span class="meta-chip">🎓 ISB AMPBA Capstone</span>
-          <span class="meta-chip">🧠 ARIMA & SARIMAX AI</span>
-          <span class="meta-chip">⚡ Vercel Cloud Ready</span>
+        <div class="sidebar-stat-row">
+          <span class="label">Active Attributes</span>
+          <strong>23 Cols</strong>
         </div>
-
-        <h1 class="hero-title">Predictive Demand Forecasting &amp; Enterprise Sales Intelligence</h1>
-        <p class="hero-subtitle">
-          An end-to-end analytics platform transforming 54,000+ sales line items across 5 South India hubs into high-precision demand forecasts, automated data quality scoring, and executive-ready strategy briefings.
-        </p>
-
-        <div class="hero-cta-group">
-          <a href="#engine" class="btn btn-primary" id="heroLiveBtn">🚀 Explore Live Analytics</a>
-          <a href="assets/Daikin_Executive_Report.pdf" download="Daikin_Executive_Report.pdf" class="btn btn-emerald">📄 Download Executive Report</a>
-          <a href="assets/Daikin_Presentation_Deck.pptx" download="Daikin_Presentation_Deck.pptx" class="btn btn-secondary">📊 Presentation Deck (PPTX)</a>
+        <div class="sidebar-stat-row">
+          <span class="label">Completeness</span>
+          <strong style="color: #10B981;">94.99%</strong>
         </div>
-
-        <!-- Regional Branch Badges -->
-        <div class="branches-grid">
-          <div class="branch-badge"><span class="dot"></span> Bangalore (BLR)</div>
-          <div class="branch-badge"><span class="dot"></span> Chennai (MAA)</div>
-          <div class="branch-badge"><span class="dot"></span> Cochin (COK)</div>
-          <div class="branch-badge"><span class="dot"></span> Secunderabad (SBD)</div>
-          <div class="branch-badge"><span class="dot"></span> Vijayawada (SBD1)</div>
+        <div class="sidebar-stat-row">
+          <span class="label">Duplicate Rows</span>
+          <strong style="color: #D97706;">4,463</strong>
         </div>
       </div>
-    </section>
 
-    <!-- Key Performance Indicators Grid -->
-    <section class="container">
-      <div class="kpi-grid">
-        <div class="kpi-card">
-          <div class="kpi-header">
-            <div class="kpi-icon">📋</div>
-            <span class="kpi-badge cyan">ENTERPRISE</span>
-          </div>
-          <div class="kpi-label">Analyzed Invoices</div>
-          <div class="kpi-value">54,000+</div>
-          <div class="kpi-subtext">Sales transactions from July 2024 to June 2025</div>
-        </div>
-
-        <div class="kpi-card">
-          <div class="kpi-header">
-            <div class="kpi-icon">🛡️</div>
-            <span class="kpi-badge emerald">VERIFIED</span>
-          </div>
-          <div class="kpi-label">Data Quality Score</div>
-          <div class="kpi-value">99.8%</div>
-          <div class="kpi-subtext">Zero unhandled duplicates &bull; Cleaned schema</div>
-        </div>
-
-        <div class="kpi-card">
-          <div class="kpi-header">
-            <div class="kpi-icon">📈</div>
-            <span class="kpi-badge purple">AI ENGINE</span>
-          </div>
-          <div class="kpi-label">Forecast Horizon</div>
-          <div class="kpi-value">180 Days</div>
-          <div class="kpi-subtext">ARIMA(1,1,1) &bull; SARIMAX &bull; 95% Conf. Bounds</div>
-        </div>
-
-        <div class="kpi-card">
-          <div class="kpi-header">
-            <div class="kpi-icon">⚡</div>
-            <span class="kpi-badge amber">REGIONAL HUBS</span>
-          </div>
-          <div class="kpi-label">Branch Coverage</div>
-          <div class="kpi-value">5 Hubs</div>
-          <div class="kpi-subtext">BLR, MAA, COK, SBD, and SBD1</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Native Client-Side Interactive Analytics & Forecasting Section -->
-    <section class="section container" id="engine">
-      <div class="section-header">
-        <span class="section-tag">Native Vercel Analytics Engine</span>
-        <h2 class="section-title">Interactive Demand Forecasting &amp; Regional Telemetry</h2>
-        <p class="section-description">
-          Real-time ARIMA time-series projections executed natively in your browser. Filter by branch hub and high-volume SKU, inspect trend trajectories, and export customized data slices.
-        </p>
+      <!-- Executive Shortcuts -->
+      <div class="sidebar-section-title">Executive Shortcuts</div>
+      <div class="sidebar-shortcuts">
+        <button type="button" class="shortcut-btn" id="shortcutPdfBtn">
+          📄 Jump to C-Suite PDF
+        </button>
+        <button type="button" class="shortcut-btn" id="shortcutForecastBtn">
+          🎯 Jump to AI Forecasting
+        </button>
       </div>
 
-      <div class="analytics-dashboard-card">
-        <!-- Control Filter Bar -->
-        <div class="dashboard-controls-bar">
-          <div class="filter-group">
-            <label for="branchSelect">Branch Hub:</label>
-            <select id="branchSelect" class="custom-select" aria-label="Select Branch Hub">
-              <option value="ALL">All Hubs (South India Region)</option>
-              <option value="BLR">Bangalore (BLR)</option>
-              <option value="MAA">Chennai (MAA)</option>
-              <option value="COK">Cochin (COK)</option>
-              <option value="SBD">Secunderabad (SBD)</option>
-              <option value="SBD1">Vijayawada (SBD1)</option>
-            </select>
-          </div>
+      <div class="sidebar-footer">
+        Supply Chain Analytics &amp; ISB &bull; 2024-2025
+      </div>
+    </aside>
 
-          <div class="filter-group">
-            <label for="skuSelect">Material / SKU:</label>
-            <select id="skuSelect" class="custom-select" aria-label="Select Material SKU">
-              <option value="ALL">All High-Volume SKUs (15 Products)</option>
-            </select>
-          </div>
+    <!-- =====================================================================
+         MAIN CANVAS AREA
+    ====================================================================== -->
+    <main class="main-canvas">
 
-          <div class="filter-group">
-            <label>Chart Mode:</label>
-            <div class="view-toggle-group">
-              <button type="button" class="toggle-btn active" id="viewTrendBtn">📈 Weekly Trend</button>
-              <button type="button" class="toggle-btn" id="viewBarBtn">📊 Branch Comparison</button>
+      <!-- Executive Header Banner -->
+      <header class="executive-header">
+        <div class="header-inner">
+          <div class="brand-wrapper">
+            <div class="brand-logo-badge">⚡</div>
+            <div class="brand-title-group">
+              <h1>SUPPLY CHAIN INTELLIGENCE</h1>
+              <p>ISB Capstone Project &bull; South Region Demand Forecasting &amp; Quality Radar</p>
             </div>
           </div>
 
-          <div class="filter-actions">
-            <button type="button" class="btn btn-secondary btn-sm" id="resetFiltersBtn">Reset Filters</button>
-          </div>
-        </div>
-
-        <!-- Dynamic Filter KPI Counters -->
-        <div class="engine-kpi-strip">
-          <div class="engine-kpi-item">
-            <span class="label">Total Projected Demand</span>
-            <span class="val cyan" id="kpiTotalQty">91,504</span>
-            <span class="sub">Tonnage / Units Forecasted</span>
-          </div>
-          <div class="engine-kpi-item">
-            <span class="label">Peak Weekly Demand</span>
-            <span class="val emerald" id="kpiPeakQty">--</span>
-            <span class="sub" id="kpiPeakWeek">Week --</span>
-          </div>
-          <div class="engine-kpi-item">
-            <span class="label">Avg Weekly Run-Rate</span>
-            <span class="val purple" id="kpiAvgQty">--</span>
-            <span class="sub">Units / Week</span>
-          </div>
-          <div class="engine-kpi-item">
-            <span class="label">Active SKU Slices</span>
-            <span class="val amber" id="kpiSkuCount">15</span>
-            <span class="sub">Product Configurations</span>
-          </div>
-        </div>
-
-        <!-- Interactive Plotly Chart Container -->
-        <div class="chart-container-wrapper">
-          <div id="plotlyForecastChart" style="width: 100%; height: 460px;"></div>
-        </div>
-
-        <!-- Tabular Slice Preview & Export -->
-        <div class="table-preview-section">
-          <div class="table-preview-header">
-            <div class="table-title-group">
-              <h4>Forecast Data Slice Preview</h4>
-              <span id="tableSliceCount">Showing all 504 forecast entries</span>
+          <!-- Live Status & Quick Meta Chips -->
+          <div class="quick-meta-strip">
+            <div class="live-status-pill">
+              <span class="live-beacon"></span>
+              <span>AI FORECASTING ENGINE ACTIVE</span>
             </div>
-            <button type="button" class="btn btn-secondary btn-sm" id="exportSliceBtn">
-              📥 Export Filtered CSV
-            </button>
+            <div class="meta-chip">
+              <span>Theme:</span>
+              <strong id="themeLabelChip" style="color: #0284C7;">☀️ Modern Light</strong>
+            </div>
+            <div class="meta-chip">
+              <span>Horizon:</span>
+              <strong>16 Jul 2022 &rarr; 30 Jun 2024</strong>
+            </div>
+            <div class="meta-chip">
+              <span>Coverage:</span>
+              <strong>5 Regional Branches</strong>
+            </div>
+            <div class="meta-chip">
+              <span>Completeness:</span>
+              <strong style="color: #0284C7;">95.0%</strong>
+            </div>
           </div>
+        </div>
+      </header>
+
+      <!-- Top Synchronized Navigation & Theme Row -->
+      <div class="top-nav-bar">
+        <div class="top-segmented-group" id="topNavGroup">
+          <button type="button" class="top-segment-btn active" data-target="cockpit">🏠 Executive Cockpit</button>
+          <button type="button" class="top-segment-btn" data-target="forecasting">🎯 AI Demand Forecasting</button>
+          <button type="button" class="top-segment-btn" data-target="radar">🛡️ Data Quality Radar</button>
+          <button type="button" class="top-segment-btn" data-target="cleaning">🧹 Data Cleaning Studio</button>
+          <button type="button" class="top-segment-btn" data-target="statistical">📈 Statistical Deep-Dive</button>
+          <button type="button" class="top-segment-btn" data-target="explorer">🔍 Intelligence Explorer</button>
+          <button type="button" class="top-segment-btn" data-target="reports">📄 C-Suite Reports</button>
+        </div>
+
+        <div class="top-theme-toggle" id="topThemeControl">
+          <button type="button" class="theme-btn" data-theme="dark">🌙 Dark</button>
+          <button type="button" class="theme-btn active" data-theme="light">☀️ Light</button>
+        </div>
+      </div>
+
+      <!-- ===================================================================
+           VIEW 1: 🏠 EXECUTIVE COCKPIT
+      ==================================================================== -->
+      <section class="view-content" id="view-cockpit">
+        <div class="section-title-wrap">
+          <h2 class="section-title">🏠 Executive Intelligence Cockpit</h2>
+          <p class="section-subtitle">Real-time health, operational volume, and distribution telemetry</p>
+        </div>
+
+        <!-- 4 Luxury KPI Cards -->
+        <div class="kpi-grid">
+          <!-- Card 1: Total Sales Transactions -->
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon-wrap">📦</div>
+              <span class="kpi-badge cyan">ENTERPRISE VOLUME</span>
+            </div>
+            <div class="kpi-label">TOTAL SALES TRANSACTIONS</div>
+            <div class="kpi-value">82,034</div>
+            <div class="kpi-subtext">Validated SAP billing entries</div>
+            <div class="kpi-bar-track">
+              <div class="kpi-bar-fill cyan" style="width: 100%;"></div>
+            </div>
+          </div>
+
+          <!-- Card 2: Data Completeness Index -->
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon-wrap">🛡️</div>
+              <span class="kpi-badge emerald">OPERATIONAL</span>
+            </div>
+            <div class="kpi-label">DATA COMPLETENESS INDEX</div>
+            <div class="kpi-value">94.99%</div>
+            <div class="kpi-subtext">Baseline benchmark: 95.0%</div>
+            <div class="kpi-bar-track">
+              <div class="kpi-bar-fill emerald" style="width: 95%;"></div>
+            </div>
+          </div>
+
+          <!-- Card 3: Duplicate Records -->
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon-wrap">🔄</div>
+              <span class="kpi-badge rose">5.44% OF FLEET</span>
+            </div>
+            <div class="kpi-label">DUPLICATE RECORDS</div>
+            <div class="kpi-value">4,463</div>
+            <div class="kpi-subtext">Dedup candidate rows</div>
+            <div class="kpi-bar-track">
+              <div class="kpi-bar-fill rose" style="width: 94.5%;"></div>
+            </div>
+          </div>
+
+          <!-- Card 4: Missing Cell Volume -->
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon-wrap">⚠️</div>
+              <span class="kpi-badge amber">5.01% NULL DENSITY</span>
+            </div>
+            <div class="kpi-label">MISSING CELL VOLUME</div>
+            <div class="kpi-value">94,435</div>
+            <div class="kpi-subtext">23 affected dimensions</div>
+            <div class="kpi-bar-track">
+              <div class="kpi-bar-fill amber" style="width: 75%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 1: Monthly Trend + Completeness Gauge -->
+        <div class="charts-row-2col">
+          <div class="chart-card">
+            <div class="subpanel-title">📈 Transaction Volume Trend (Monthly)</div>
+            <div class="chart-wrapper" id="chartMonthlyTrend"></div>
+          </div>
+          <div class="chart-card">
+            <div class="subpanel-title">🛡️ Data Completeness Health</div>
+            <div class="chart-wrapper" id="chartCompletenessGauge"></div>
+          </div>
+        </div>
+
+        <!-- Row 2: Segment Breakdown + Tonnage Analysis -->
+        <div class="charts-row-equal">
+          <div class="chart-card">
+            <div class="subpanel-title">🥧 Business Segment Market Share</div>
+            <div class="chart-wrapper" id="chartSegmentShare"></div>
+          </div>
+          <div class="chart-card">
+            <div class="subpanel-title">🏢 Regional Branch Allocation (Volume)</div>
+            <div class="chart-wrapper" id="chartBranchBar"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           VIEW 2: 🎯 AI DEMAND FORECASTING STUDIO
+      ==================================================================== -->
+      <section class="view-content" id="view-forecasting" style="display: none;">
+        <div class="section-title-wrap">
+          <h2 class="section-title">🎯 AI Demand Forecasting Studio</h2>
+          <p class="section-subtitle">Predict forward demand velocity by SKU &amp; Regional Branch using Statistical &amp; Machine Learning algorithms</p>
+        </div>
+
+        <div class="forecasting-layout">
+          <!-- Controls Column -->
+          <div class="forecast-controls-sidebar">
+            <div class="glass-panel filter-card-inner">
+              <div class="subpanel-title"><span>⚙️</span> Forecasting Controls</div>
+
+              <div class="form-group">
+                <label for="forecastBranchSelect">1. Regional Branch Horizon:</label>
+                <select id="forecastBranchSelect" class="custom-select">
+                  <option value="ALL">All 5 Branches (Consolidated)</option>
+                  <option value="BLR">Bangalore (BLR)</option>
+                  <option value="MAA">Chennai (MAA)</option>
+                  <option value="COK">Cochin (COK)</option>
+                  <option value="SBD">Secunderabad (SBD)</option>
+                  <option value="SBD1">Vijayawada (SBD1)</option>
+                </select>
+              </div>
+
+              <!-- Branch Demand Share Pill -->
+              <div class="demand-share-badge">
+                <div class="label">Branch Demand Share</div>
+                <div class="val" id="branchDemandShare">91,504 units (100.0%)</div>
+              </div>
+
+              <div class="form-group">
+                <label for="forecastSkuSelect">2. Target SKU (Material):</label>
+                <select id="forecastSkuSelect" class="custom-select">
+                  <option value="ALL">All High-Volume SKUs</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="forecastModelSelect">3. Algorithm Engine:</label>
+                <select id="forecastModelSelect" class="custom-select">
+                  <option value="ARIMA">ARIMA(1,1,1) Time-Series Model</option>
+                  <option value="SARIMA">SARIMA Seasonal Adjustments</option>
+                  <option value="HoltWinters">Exponential Smoothing (Holt-Winters)</option>
+                  <option value="RandomForest">Random Forest Regressor (ML)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="forecastConfidenceSelect">4. Confidence Bounds:</label>
+                <select id="forecastConfidenceSelect" class="custom-select">
+                  <option value="0.95">95% Confidence Interval</option>
+                  <option value="0.90">90% Confidence Interval</option>
+                  <option value="0.80">80% Confidence Interval</option>
+                </select>
+              </div>
+
+              <button type="button" class="btn btn-primary" id="runForecastBtn" style="width: 100%;">
+                ⚡ Recalibrate Forecast
+              </button>
+            </div>
+          </div>
+
+          <!-- Visuals & KPIs Column -->
+          <div>
+            <!-- 4 Engine KPIs -->
+            <div class="engine-kpi-strip">
+              <div class="engine-kpi-item">
+                <span class="label">Total Projected Demand</span>
+                <span class="val cyan" id="kpiTotalQty">91,504</span>
+                <span class="sub">Tonnage / Units Projected</span>
+              </div>
+              <div class="engine-kpi-item">
+                <span class="label">Peak Weekly Demand</span>
+                <span class="val emerald" id="kpiPeakQty">--</span>
+                <span class="sub" id="kpiPeakWeek">Week --</span>
+              </div>
+              <div class="engine-kpi-item">
+                <span class="label">Avg Weekly Run-Rate</span>
+                <span class="val purple" id="kpiAvgQty">--</span>
+                <span class="sub">Units / Week</span>
+              </div>
+              <div class="engine-kpi-item">
+                <span class="label">Active SKU Slices</span>
+                <span class="val amber" id="kpiSkuCount">15</span>
+                <span class="sub">Product Configurations</span>
+              </div>
+            </div>
+
+            <!-- Plotly Forecast Chart -->
+            <div class="chart-card">
+              <div class="chart-wrapper" id="chartForecast"></div>
+            </div>
+
+            <!-- Tabular Slice Preview & Export -->
+            <div class="table-preview-section">
+              <div class="table-preview-header">
+                <div>
+                  <h4 style="font-size: 14px; font-weight: 700;">Forecast Data Slice Preview</h4>
+                  <span style="font-size: 11.5px; color: var(--text-muted);" id="forecastRowCount">Showing 504 forecast entries</span>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" id="exportForecastCsvBtn">
+                  📥 Export Filtered CSV
+                </button>
+              </div>
+              <div class="table-scroll-container">
+                <table class="data-table" id="forecastTable">
+                  <thead>
+                    <tr>
+                      <th>Branch</th>
+                      <th>SKU Code</th>
+                      <th>Forecast Week</th>
+                      <th>Week Start Date</th>
+                      <th>Forecast Quantity</th>
+                    </tr>
+                  </thead>
+                  <tbody id="forecastTableBody">
+                    <!-- Populated via app.js -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           VIEW 3: 🛡️ DATA QUALITY RADAR
+      ==================================================================== -->
+      <section class="view-content" id="view-radar" style="display: none;">
+        <div class="section-title-wrap">
+          <h2 class="section-title">🛡️ Data Quality &amp; Integrity Diagnostics</h2>
+          <p class="section-subtitle">Multi-dimensional audit of enterprise completeness, null variance, and attribute schemas</p>
+        </div>
+
+        <div class="kpi-grid" style="grid-template-columns: repeat(3, 1fr);">
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon-wrap">🏆</div>
+              <span class="kpi-badge emerald">CERTIFIED</span>
+            </div>
+            <div class="kpi-label">OVERALL DATA QUALITY INDEX</div>
+            <div class="kpi-value">95.0/100</div>
+            <div class="kpi-subtext">Fleet-wide aggregate rating</div>
+            <div class="kpi-bar-track">
+              <div class="kpi-bar-fill emerald" style="width: 95%;"></div>
+            </div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon-wrap">⚠️</div>
+              <span class="kpi-badge amber">7 OF 23 COLS</span>
+            </div>
+            <div class="kpi-label">ANOMALOUS ATTRIBUTE FIELDS</div>
+            <div class="kpi-value">7</div>
+            <div class="kpi-subtext">Attributes with missing density</div>
+            <div class="kpi-bar-track">
+              <div class="kpi-bar-fill amber" style="width: 30%;"></div>
+            </div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon-wrap">🔄</div>
+              <span class="kpi-badge rose">5.44% OF FLEET</span>
+            </div>
+            <div class="kpi-label">DEDUP CANDIDATE ROWS</div>
+            <div class="kpi-value">4,463</div>
+            <div class="kpi-subtext">Redundant transactions flagged</div>
+            <div class="kpi-bar-track">
+              <div class="kpi-bar-fill rose" style="width: 94.5%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-card" style="margin-bottom: 22px;">
+          <div class="subpanel-title">📊 Missing Value Volume by Column Dimension</div>
+          <div class="chart-wrapper" id="chartMissingBars"></div>
+        </div>
+
+        <!-- Schema Audit Table -->
+        <div class="glass-panel">
+          <div class="subpanel-title">📋 Column-Level Schema Integrity &amp; Audit Log</div>
           <div class="table-scroll-container">
-            <table class="data-table" id="forecastDataTable">
+            <table class="data-table" id="qualitySchemaTable">
               <thead>
                 <tr>
-                  <th>Branch</th>
-                  <th>SKU Code</th>
-                  <th>Forecast Week</th>
-                  <th>Week Start Date</th>
-                  <th>Forecast Quantity</th>
+                  <th>Dimension</th>
+                  <th>Total Rows</th>
+                  <th>Missing Count</th>
+                  <th>Missing %</th>
+                  <th>Integrity Status</th>
                 </tr>
               </thead>
-              <tbody id="forecastTableBody">
-                <!-- Dynamically populated via JS -->
+              <tbody id="qualitySchemaTableBody">
+                <!-- Populated via JS -->
               </tbody>
             </table>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Visual Module Showcase Section -->
-    <section class="section container" id="modules">
-      <div class="section-header">
-        <span class="section-tag">Interactive Feature Tour</span>
-        <h2 class="section-title">Comprehensive Analytical Modules</h2>
-        <p class="section-description">
-          Explore the 6 core pillars engineered for Daikin leadership and operations teams.
-        </p>
-      </div>
-
-      <!-- Module Selection Tabs -->
-      <div class="module-tabs">
-        <button class="module-tab-btn active" data-module="cockpit">📊 Executive Cockpit</button>
-        <button class="module-tab-btn" data-module="radar">🛡️ Data Quality Radar</button>
-        <button class="module-tab-btn" data-module="cleaning">🧼 Cleaning Studio</button>
-        <button class="module-tab-btn" data-module="statistical">📈 Statistical Engine</button>
-        <button class="module-tab-btn" data-module="explorer">🔍 Detailed Explorer</button>
-        <button class="module-tab-btn" data-module="forecasting">🔮 Predictive Forecasting</button>
-      </div>
-
-      <!-- Module Showcase Card -->
-      <div class="module-display-card">
-        <div class="module-image-container" title="Click to enlarge view">
-          <img id="moduleImage" src="assets/verified_light_cockpit.png" alt="Executive Cockpit Dashboard View">
+      <!-- ===================================================================
+           VIEW 4: 🧹 DATA CLEANING STUDIO
+      ==================================================================== -->
+      <section class="view-content" id="view-cleaning" style="display: none;">
+        <div class="section-title-wrap">
+          <h2 class="section-title">🧹 Automated Data Hygiene Pipeline</h2>
+          <p class="section-subtitle">Intelligent deduplication, imputation roadmaps, and schema standardization</p>
         </div>
 
-        <div class="module-info-panel">
-          <div class="module-info-content">
-            <h3 id="moduleTitle">Executive Cockpit &amp; Sales Telemetry</h3>
-            <p id="moduleDesc">
-              Real-time bird’s-eye monitoring of total order volume, monthly tonnage distributions, channel splits, and regional branch performance across South India.
-            </p>
-            <ul class="module-features-list" id="moduleFeatures">
-              <li><span class="check">✓</span><span>Multi-metric KPI cards with dynamic trend calculations</span></li>
-              <li><span class="check">✓</span><span>Interactive Plotly monthly volume vs. tonnage time series</span></li>
-              <li><span class="check">✓</span><span>Sales channel distribution (Dealers, Direct, Projects)</span></li>
-              <li><span class="check">✓</span><span>Executive telemetry with dynamic theme engine</span></li>
+        <div class="charts-row-equal">
+          <div class="glass-panel">
+            <div class="subpanel-title" style="color: var(--primary-color);">✨ Recommended Hygiene Actions</div>
+            <ul class="panel-bullet-list">
+              <li><span class="check-icon">✓</span> <span>Prune <strong>4,463</strong> redundant duplicate transaction rows.</span></li>
+              <li><span class="check-icon">✓</span> <span>Impute or isolate <strong>94,435</strong> null values across Star Rating &amp; Segment.</span></li>
+              <li><span class="check-icon">✓</span> <span>Normalize schema across <strong>7</strong> partially populated dimensions.</span></li>
+              <li><span class="check-icon">✓</span> <span>Cast Billing Date string representations to standardized ISO Datetime format.</span></li>
             </ul>
           </div>
 
-          <div style="display: flex; gap: 10px;">
-            <a href="#engine" class="btn btn-primary" style="width: 100%;">Test in Live Engine</a>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Deliverables & Downloads Section -->
-    <section class="section container" id="deliverables">
-      <div class="section-header">
-        <span class="section-tag">Executive Deliverables</span>
-        <h2 class="section-title">Reports, Presentations &amp; Model Data</h2>
-        <p class="section-description">
-          Download executive-ready presentation decks, data quality briefing documents, and time-series model projections.
-        </p>
-      </div>
-
-      <div class="download-grid">
-        <div class="download-card">
-          <div>
-            <div class="download-header">
-              <div class="download-icon pdf">📄</div>
-              <div class="download-title-group">
-                <h4>Executive Briefing Report</h4>
-                <span>PDF Document &bull; 528 KB</span>
+          <div class="glass-panel">
+            <div class="subpanel-title" style="color: #10B981;">⚡ Sanitization Impact Preview</div>
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+              <div style="display: flex; justify-content: space-between; font-size: 13px;">
+                <span>Raw Record Volume:</span>
+                <strong>82,034 rows</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 13px;">
+                <span>Sanitized Clean Volume:</span>
+                <strong style="color: #10B981;">77,571 rows (-5.44%)</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 13px;">
+                <span>Post-Cleaning Completeness:</span>
+                <strong style="color: #10B981;">99.8% Certified</strong>
               </div>
             </div>
-            <p>
-              Comprehensive executive report covering baseline dataset profiling, missing value distributions, data hygiene certifications, and strategic recommendations.
-            </p>
-          </div>
-          <a href="assets/Daikin_Executive_Report.pdf" download="Daikin_Executive_Report.pdf" class="btn btn-emerald">
-            📥 Download Report (.pdf)
-          </a>
-        </div>
-
-        <div class="download-card">
-          <div>
-            <div class="download-header">
-              <div class="download-icon pptx">📊</div>
-              <div class="download-title-group">
-                <h4>Presentation Slide Deck</h4>
-                <span>PowerPoint Deck &bull; 830 KB</span>
-              </div>
+            <div style="margin-top: 18px;">
+              <button type="button" class="btn btn-emerald" id="downloadCleanDataBtn" style="width: 100%;">
+                📥 Export Sanitized Clean Dataset (CSV)
+              </button>
             </div>
-            <p>
-              Professional slide deck featuring high-resolution captures of the 6 dashboard modules, methodology diagrams, branch comparisons, and key executive takeaways.
-            </p>
           </div>
-          <a href="assets/Daikin_Presentation_Deck.pptx" download="Daikin_Presentation_Deck.pptx" class="btn btn-primary">
-            📥 Download Slides (.pptx)
-          </a>
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           VIEW 5: 📈 STATISTICAL DEEP-DIVE
+      ==================================================================== -->
+      <section class="view-content" id="view-statistical" style="display: none;">
+        <div class="section-title-wrap">
+          <h2 class="section-title">📈 Statistical Deep-Dive</h2>
+          <p class="section-subtitle">Multi-variate numerical distributions, correlation matrices, and variance spread</p>
         </div>
 
-        <div class="download-card">
-          <div>
-            <div class="download-header">
-              <div class="download-icon csv">📈</div>
-              <div class="download-title-group">
-                <h4>ARIMA Forecast Dataset</h4>
-                <span>CSV Export &bull; 17 KB</span>
-              </div>
+        <!-- Numerical Describe Table -->
+        <div class="glass-panel">
+          <div class="subpanel-title">📊 Descriptive Numerical Summary</div>
+          <div class="table-scroll-container">
+            <table class="data-table" id="statDescribeTable">
+              <thead>
+                <tr>
+                  <th>Metric</th>
+                  <th>Billing Qty ODU</th>
+                  <th>Billing Qty IDU</th>
+                  <th>Tonnage</th>
+                  <th>Year</th>
+                  <th>Month</th>
+                </tr>
+              </thead>
+              <tbody id="statDescribeTableBody">
+                <!-- Populated via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="chart-card" style="margin-bottom: 22px;">
+          <div class="subpanel-title">🔥 Feature Correlation Heatmap</div>
+          <div class="chart-wrapper" id="chartCorrelation"></div>
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           VIEW 6: 🔍 INTELLIGENCE EXPLORER
+      ==================================================================== -->
+      <section class="view-content" id="view-explorer" style="display: none;">
+        <div class="section-title-wrap">
+          <h2 class="section-title">🔍 Data Intelligence Explorer</h2>
+          <p class="section-subtitle">Multi-dimensional column slice-and-dice, attribute profiling, and search</p>
+        </div>
+
+        <div class="glass-panel">
+          <div style="display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 16px;">
+            <div style="flex: 2; min-width: 200px;">
+              <input type="text" id="explorerSearchInput" class="custom-input" placeholder="🔍 Search by Material, Customer, or Billing Doc...">
             </div>
-            <p>
-              Curated model projection outputs including predicted tonnage, 95% upper and lower confidence bounds, baseline metrics, and regional branch allocations.
-            </p>
+            <div style="flex: 1; min-width: 150px;">
+              <select id="explorerBranchFilter" class="custom-select">
+                <option value="ALL">Filter Branch (All)</option>
+                <option value="BLR">Bangalore (BLR)</option>
+                <option value="MAA">Chennai (MAA)</option>
+                <option value="COK">Cochin (COK)</option>
+                <option value="SBD">Secunderabad (SBD)</option>
+                <option value="SBD1">Vijayawada (SBD1)</option>
+              </select>
+            </div>
           </div>
-          <a href="assets/ARIMA_Forecast_Results.csv" download="ARIMA_Forecast_Results.csv" class="btn btn-secondary">
-            📥 Download Projections (.csv)
-          </a>
+
+          <div class="table-scroll-container">
+            <table class="data-table" id="explorerTable">
+              <thead>
+                <tr>
+                  <th>Billing Doc</th>
+                  <th>Date</th>
+                  <th>Branch</th>
+                  <th>Material (SKU)</th>
+                  <th>Segment</th>
+                  <th>ODU Qty</th>
+                  <th>Tonnage</th>
+                  <th>Dealer Name</th>
+                </tr>
+              </thead>
+              <tbody id="explorerTableBody">
+                <!-- Populated via JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pagination-controls">
+            <span id="explorerPaginationInfo">Showing records 1 - 25</span>
+            <div class="page-btn-group">
+              <button type="button" class="btn btn-secondary btn-sm" id="prevPageBtn">Previous</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="nextPageBtn">Next</button>
+            </div>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Architecture & Vercel Deployment Section -->
-    <section class="section container" id="architecture">
-      <div class="section-header">
-        <span class="section-tag">Production Setup</span>
-        <h2 class="section-title">100% Serverless Vercel Architecture</h2>
-        <p class="section-description">
-          A high-performance, self-contained deployment model engineered for instant global accessibility, zero cold starts, and zero external hosting dependencies.
-        </p>
-      </div>
-
-      <div class="arch-grid">
-        <div class="arch-step-card">
-          <span class="step-number">01</span>
-          <h4>Vercel Edge Global CDN</h4>
-          <p>
-            Vercel serves the complete application from global edge locations worldwide, delivering sub-second load times (&lt;200ms), automated SSL encryption, and 100% uptime.
-          </p>
-          <div class="code-box">vercel.com (Static Edge)</div>
+      <!-- ===================================================================
+           VIEW 7: 📄 C-SUITE REPORTS
+      ==================================================================== -->
+      <section class="view-content" id="view-reports" style="display: none;">
+        <div class="section-title-wrap">
+          <h2 class="section-title">📄 Executive Reports &amp; Data Export Center</h2>
+          <p class="section-subtitle">Generate automated C-Suite PDF briefing documents and presentation slide decks</p>
         </div>
 
-        <div class="arch-step-card">
-          <span class="step-number">02</span>
-          <h4>Native Client-Side Analytics</h4>
-          <p>
-            In-browser Plotly.js analytics engine executes multi-dimensional filtering, statistical aggregations, and dynamic time-series visualizations with zero server latency.
-          </p>
-          <div class="code-box">Plotly.js + Edge CSV</div>
-        </div>
+        <div class="charts-row-equal">
+          <div class="glass-panel">
+            <div class="subpanel-title" style="color: var(--primary-color);">📑 Executive Report Structure</div>
+            <ol class="panel-bullet-list" style="margin-left: 10px;">
+              <li><strong>1. Executive Summary:</strong> High-level strategic briefing on South Region sales velocity.</li>
+              <li><strong>2. Data Integrity Audit:</strong> Completeness ratios, missing field density, and schema metrics.</li>
+              <li><strong>3. Predictive Modeling:</strong> ARIMA &amp; Machine Learning 180-day forecast outputs.</li>
+              <li><strong>4. Strategic Directives:</strong> Actionable inventory buffers and branch allocations.</li>
+            </ol>
+          </div>
 
-        <div class="arch-step-card">
-          <span class="step-number">03</span>
-          <h4>Executive Deliverables Hub</h4>
-          <p>
-            Instant direct downloads of audited executive reports (PDF), presentation decks (PPTX), and ARIMA forecasting projections (CSV) directly from the edge cache.
-          </p>
-          <div class="code-box">1-Click Deliverables</div>
+          <div class="glass-panel">
+            <div class="subpanel-title" style="color: #10B981;">📥 Executive Deliverables (1-Click Downloads)</div>
+            <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px;">
+              <a href="assets/Executive_Report.pdf" download="Executive_Report.pdf" class="btn btn-primary">
+                📄 Download Executive Report (.pdf &bull; 528 KB)
+              </a>
+              <a href="assets/Presentation_Deck.pptx" download="Presentation_Deck.pptx" class="btn btn-secondary">
+                📊 Download Presentation Deck (.pptx &bull; 830 KB)
+              </a>
+              <a href="assets/ARIMA_Forecast_Results.csv" download="ARIMA_Forecast_Results.csv" class="btn btn-emerald">
+                📈 Download ARIMA Forecast Dataset (.csv &bull; 17 KB)
+              </a>
+            </div>
+          </div>
         </div>
-      </div>
-    </section>
-  </main>
+      </section>
 
-  <!-- Image Zoom Modal -->
-  <div class="modal-overlay" id="imageModal">
-    <div class="modal-content">
-      <button class="modal-close-btn" id="modalCloseBtn" aria-label="Close image preview">&times;</button>
-      <img id="modalImage" src="" alt="Expanded View">
-    </div>
+    </main>
   </div>
 
-  <!-- Footer -->
-  <footer class="footer">
-    <div class="container footer-content">
-      <div class="brand-wrapper">
-        <div class="brand-badge" style="width: 36px; height: 36px; font-size: 18px;">⚡</div>
-        <span style="font-weight: 700; font-family: var(--font-heading); color: #FFFFFF;">Daikin AI Intelligence &bull; ISB Capstone</span>
-      </div>
-      <div class="footer-links">
-        <a href="#overview">Overview</a> &bull;
-        <a href="#engine">Live Engine</a> &bull;
-        <a href="#modules">Modules</a> &bull;
-        <a href="#deliverables">Downloads</a> &bull;
-        <a href="https://github.com/saiprash711/ISB_Capstone_Project" target="_blank" rel="noopener">GitHub Repository</a>
-      </div>
-      <p class="footer-credits">
-        Developed for ISB Advanced Management Programme in Business Analytics (AMPBA) &bull; Daikin South Region Sales Analytics.
-      </p>
-    </div>
-  </footer>
-
-  <!-- Client Script -->
+  <!-- Main JavaScript Engine -->
   <script src="app.js"></script>
 </body>
 </html>
