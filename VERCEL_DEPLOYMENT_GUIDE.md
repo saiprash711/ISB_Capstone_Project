@@ -1,5 +1,5 @@
 # 🚀 100% Standalone Vercel Deployment Guide
-## ISB Capstone Project: Daikin AI Intelligence & Demand Forecasting
+## ISB Capstone Project: AI Intelligence & Demand Forecasting
 
 This repository is configured for **1-Click Standalone Vercel Deployment**. It requires **no external server, no Streamlit Cloud, and zero backend maintenance**.
 

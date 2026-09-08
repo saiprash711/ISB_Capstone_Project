@@ -1,4 +1,4 @@
-# 📊 ISB Capstone Project: Daikin Sales & Distribution EDA & Analytics Dashboard
+# 📊 ISB Capstone Project: Sales & Distribution EDA & Analytics Dashboard
 
 An enterprise-grade, interactive analytics and forecasting dashboard built with **Streamlit**, **Plotly**, and **Python** for Exploratory Data Analysis (EDA), Data Quality auditing, and Predictive Demand Forecasting.
 
@@ -24,13 +24,13 @@ ISB_Capstone_Project/
 ├── vercel.json                              # Vercel deployment configuration & edge routing
 ├── VERCEL_DEPLOYMENT_GUIDE.md               # 1-Click Vercel & Streamlit dual deployment guide
 ├── public/                                  # Vercel Executive Web Portal & Global CDN Assets
-│   ├── index.html                           # Modern responsive Daikin executive web portal
+│   ├── index.html                           # Modern responsive executive web portal
 │   ├── styles.css                           # Glassmorphic executive UI design system
 │   ├── app.js                               # Interactive client engine & Streamlit controller
 │   └── assets/                              # Deliverables: PDF report, PPTX deck, forecast CSV, screenshots
 ├── 2024 July to 2025 June.xlsx              # Raw baseline sales dataset (July 2024 - June 2025)
 ├── Capstone Weekly Update- Format.docx      # Weekly project documentation & update template
-├── Daikin Capstone Weekly Report (1).pdf    # Project milestones & weekly briefing report
+├── Capstone Weekly Report (1).pdf           # Project milestones & weekly briefing report
 ├── requirements.txt                         # Root Python dependencies
 ├── .streamlit/
 │   └── config.toml                          # Global Streamlit theming & server configuration
