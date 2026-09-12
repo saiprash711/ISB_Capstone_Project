@@ -1702,14 +1702,13 @@ def render_isb_technical_dossier(metrics_dict, selected_model, selected_sku, bra
     st.markdown("<div style='height: 24px;'></div>", unsafe_allow_html=True)
     st.markdown("""
     <div class="subpanel-title" style="margin-bottom: 12px; font-size: 1.15rem; letter-spacing: 0.5px;">
-        🔬 ISB Capstone Technical Model & Feature Engineering Dossier
+        🔬 Technical Model Specifications & Feature Engineering Dossier
     </div>
     """, unsafe_allow_html=True)
     
-    tab_feat, tab_models, tab_defense = st.tabs([
+    tab_feat, tab_models = st.tabs([
         "⚙️ Feature Engineering Matrix & Gini Importance",
-        "📐 Model Mathematical Formulations & Hyperparameters",
-        "🎓 ISB Defense Script & APICS Supply Chain Guide"
+        "📐 Model Mathematical Formulations & Hyperparameters"
     ])
     
     with tab_feat:
@@ -1858,53 +1857,6 @@ def render_isb_technical_dossier(metrics_dict, selected_model, selected_sku, bra
                     <li><strong>Estimation Method</strong>: Maximum Likelihood Estimation (MLE) with Conditional Sum of Squares</li>
                     <li><strong>Role in Capstone</strong>: Serves as the <strong>Standard Operational Baseline</strong>. Proves the quantifiable accuracy gain of incorporating feature engineering, seasonality, and machine learning.</li>
                 </ul>
-            </div>
-            """, unsafe_allow_html=True)
-            
-    with tab_defense:
-        st.markdown("##### 🎓 ISB Capstone Defense Q&A & Talking Points Guide")
-        st.caption("Strategic answers to core methodology questions anticipated from the ISB evaluation panel.")
-        
-        q1, q2 = st.columns(2)
-        with q1:
-            st.markdown(f"""
-            <div style="background: {'rgba(19, 28, 49, 0.6)' if is_dark else '#F8FAFC'}; border: 1px solid {'rgba(255,255,255,0.1)' if is_dark else '#E2E8F0'}; border-radius: 8px; padding: 16px; margin-bottom: 14px;">
-                <h4 style="margin: 0 0 8px 0; color: {'#00E5FF' if is_dark else '#0284C7'}; font-size: 13.5px;">Q1: Why use Volume-Weighted MAPE (WMAPE) instead of Naive MAPE?</h4>
-                <p style="font-size: 12px; line-height: 1.6; margin: 0; color: {'#CBD5E1' if is_dark else '#334155'};">
-                    <strong>The Monsoon Trough Distortion</strong>: In seasonal HVAC demand, summer peak sales reach 9,200+ units/week, but plunge to ~300 units/week during monsoon arrival. Classical MAPE calculates <code>|y - ŷ| / y</code>. When <code>y = 305</code> and error is 1,800 units, naive percentage error explodes to <strong>547.5%</strong>, mathematically collapsing model accuracy to 0%.<br><br>
-                    <strong>The APICS Solution</strong>: Volume-Weighted MAPE calculates <code>(Σ |y - ŷ|) / (Σ y) * 100%</code>. It weights forecast errors by physical business volume, adhering to APICS and CSCMP global supply chain standards.
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown(f"""
-            <div style="background: {'rgba(19, 28, 49, 0.6)' if is_dark else '#F8FAFC'}; border: 1px solid {'rgba(255,255,255,0.1)' if is_dark else '#E2E8F0'}; border-radius: 8px; padding: 16px;">
-                <h4 style="margin: 0 0 8px 0; color: {'#00E5FF' if is_dark else '#0284C7'}; font-size: 13.5px;">Q2: How did you eliminate data leakage in lag feature engineering?</h4>
-                <p style="font-size: 12px; line-height: 1.6; margin: 0; color: {'#CBD5E1' if is_dark else '#334155'};">
-                    <strong>Temporal Validation Protocol</strong>: We avoided random k-fold cross-validation, which corrupts time causality. Instead, a strict <strong>80/20 chronological time-series split</strong> was applied.<br><br>
-                    All lag features (<code>Lag 1, 2, 4, 12</code>) and rolling windows (<code>rolling_mean_4, rolling_std_4</code>) are strictly retrospective (computed on <code>t-1</code> to <code>t-k</code>). Forward multi-step horizons are produced via recursive autoregression, dynamically updating future lags with forecasted outputs.
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with q2:
-            st.markdown(f"""
-            <div style="background: {'rgba(19, 28, 49, 0.6)' if is_dark else '#F8FAFC'}; border: 1px solid {'rgba(255,255,255,0.1)' if is_dark else '#E2E8F0'}; border-radius: 8px; padding: 16px; margin-bottom: 14px;">
-                <h4 style="margin: 0 0 8px 0; color: {'#00E5FF' if is_dark else '#0284C7'}; font-size: 13.5px;">Q3: Why does Random Forest outperform ARIMA by ~15-20% accuracy?</h4>
-                <p style="font-size: 12px; line-height: 1.6; margin: 0; color: {'#CBD5E1' if is_dark else '#334155'};">
-                    <strong>Linear vs Non-Linear Physics</strong>: Linear ARIMA assumes stationary Gaussian innovations and linear combinations of past errors. Real HVAC sales exhibit <strong>non-linear step-function triggers</strong> (e.g. ambient temperatures exceeding 38°C + dealer pre-season financing schemes trigger non-linear order jumps).<br><br>
-                    Random Forest constructs orthogonal decision boundaries across rolling volatility, lags, and calendar quarters, capturing multi-modal demand shifts without suffering multicollinearity between lags and moving averages.
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown(f"""
-            <div style="background: {'rgba(19, 28, 49, 0.6)' if is_dark else '#F8FAFC'}; border: 1px solid {'rgba(255,255,255,0.1)' if is_dark else '#E2E8F0'}; border-radius: 8px; padding: 16px;">
-                <h4 style="margin: 0 0 8px 0; color: {'#00E5FF' if is_dark else '#0284C7'}; font-size: 13.5px;">Q4: What is the quantifiable dollar impact on Daikin's Supply Chain?</h4>
-                <p style="font-size: 12px; line-height: 1.6; margin: 0; color: {'#CBD5E1' if is_dark else '#334155'};">
-                    <strong>Safety Stock & Working Capital Optimization</strong>: Under King's safety stock equation <code>SS = Z * √(L) * σ_D</code>, demand forecast error directly determines safety inventory buffer.<br><br>
-                    Improving forecast accuracy from 84.4% (ARIMA) to 88.2% (Random Forest) lowers forecast variance by 24.3%. Across Daikin's 5 South Region depots (Chennai, Bangalore, Cochin, Secunderabad, Vijayawada), this releases an estimated <strong>₹18.4 Million to ₹24.2 Million in trapped working capital</strong> while elevating On-Time In-Full (OTIF) fulfillment from 89% to 96%.
-                </p>
             </div>
             """, unsafe_allow_html=True)
 

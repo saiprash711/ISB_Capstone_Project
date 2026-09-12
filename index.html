@@ -1711,14 +1711,13 @@ button {
                 <div style="display: flex; align-items: center; gap: 12px;">
                   <span style="font-size: 24px;">🔬</span>
                   <div>
-                    <h3 style="font-size: 15px; font-weight: 700; color: var(--text-primary); margin: 0;">ISB Capstone Technical Model &amp; Feature Engineering Dossier</h3>
-                    <span style="font-size: 12px; color: var(--text-muted);">Comprehensive feature dictionary, mathematical formulations, and evaluation defense guide for ISB Review</span>
+                    <h3 style="font-size: 15px; font-weight: 700; color: var(--text-primary); margin: 0;">Technical Model Specifications &amp; Feature Engineering Dossier</h3>
+                    <span style="font-size: 12px; color: var(--text-muted);">Comprehensive feature dictionary, temporal signals, and model architectural formulations</span>
                   </div>
                 </div>
                 <div class="dossier-nav-tabs">
                   <button type="button" class="dossier-tab-btn active" data-tab="tab-features" onclick="switchDossierTab('tab-features')">⚙️ Feature Engineering (13 Signals)</button>
                   <button type="button" class="dossier-tab-btn" data-tab="tab-models" onclick="switchDossierTab('tab-models')">📐 Mathematical Model Formulations</button>
-                  <button type="button" class="dossier-tab-btn" data-tab="tab-defense" onclick="switchDossierTab('tab-defense')">🎓 ISB Review Defense Guide</button>
                 </div>
               </div>
 
@@ -1943,43 +1942,6 @@ button {
                       <li><strong>Estimation Method</strong>: Maximum Likelihood Estimation (MLE) with Conditional Sum of Squares</li>
                       <li><strong>Role in Capstone</strong>: Serves as the <strong>Standard Operational Baseline</strong>, proving the quantifiable accuracy gain of ML feature engineering.</li>
                     </ul>
-                  </div>
-                </div>
-              </div>
-
-              <!-- TAB 3: ISB DEFENSE SCRIPT -->
-              <div class="dossier-tab-content" id="tab-defense">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                  <div style="background: rgba(0, 229, 255, 0.03); border: 1px solid rgba(0, 229, 255, 0.15); border-radius: 10px; padding: 16px;">
-                    <h4 style="font-size: 13.5px; font-weight: 700; color: var(--primary-color); margin-bottom: 8px;">Q1: Why use Volume-Weighted MAPE (WMAPE) instead of naive MAPE?</h4>
-                    <p style="font-size: 12px; line-height: 1.6; color: var(--text-secondary); margin: 0;">
-                      <strong>The Monsoon Trough Distortion</strong>: In seasonal HVAC demand, summer peak sales reach 9,200+ units/week, but plunge to ~300 units/week during monsoon arrival. Classical MAPE calculates <code>|y - ŷ| / y</code>. When actuals drop to <code>305</code> units, a normal absolute miss of 1,800 units creates a <strong>547.5% error</strong>, destroying arithmetic averages and forcing model accuracy to 0%.<br><br>
-                      <strong>The APICS Standard</strong>: Volume-Weighted MAPE calculates <code>(Σ |y - ŷ|) / (Σ y) * 100%</code>. By weighting error by physical business volume, it adheres to APICS and CSCMP global supply chain best practices.
-                    </p>
-                  </div>
-
-                  <div style="background: rgba(0, 229, 255, 0.03); border: 1px solid rgba(0, 229, 255, 0.15); border-radius: 10px; padding: 16px;">
-                    <h4 style="font-size: 13.5px; font-weight: 700; color: var(--primary-color); margin-bottom: 8px;">Q2: How was data leakage eliminated during feature engineering?</h4>
-                    <p style="font-size: 12px; line-height: 1.6; color: var(--text-secondary); margin: 0;">
-                      <strong>Temporal Validation Protocol</strong>: We strictly avoided random k-fold cross-validation, which corrupts temporal order and causes future leakage. Instead, an <strong>80/20 chronological time-series split</strong> was applied.<br><br>
-                      All lag features (<code>Lag 1, 2, 4, 12</code>) and rolling stats (<code>rolling_mean_4, rolling_std_4</code>) are computed on retrospective <code>t-1</code> to <code>t-k</code> data. Forward predictions use recursive autoregression, dynamically feeding predicted outputs into subsequent feature vectors.
-                    </p>
-                  </div>
-
-                  <div style="background: rgba(0, 229, 255, 0.03); border: 1px solid rgba(0, 229, 255, 0.15); border-radius: 10px; padding: 16px;">
-                    <h4 style="font-size: 13.5px; font-weight: 700; color: var(--primary-color); margin-bottom: 8px;">Q3: Why does Random Forest outperform linear ARIMA by ~15-20%?</h4>
-                    <p style="font-size: 12px; line-height: 1.6; color: var(--text-secondary); margin: 0;">
-                      <strong>Non-Linear Demand Step-Functions</strong>: Linear ARIMA assumes stationary Gaussian residuals and linear combinations of past errors. Real HVAC sales exhibit <strong>non-linear thresholds</strong> (e.g. temperatures exceeding 38°C + pre-season dealer stocking incentives trigger exponential demand jumps).<br><br>
-                      Random Forest builds orthogonal decision partitions across rolling volatility, lags, and calendar quarters, handling multi-modal seasonality without succumbing to multicollinearity between lags and moving averages.
-                    </p>
-                  </div>
-
-                  <div style="background: rgba(0, 229, 255, 0.03); border: 1px solid rgba(0, 229, 255, 0.15); border-radius: 10px; padding: 16px;">
-                    <h4 style="font-size: 13.5px; font-weight: 700; color: var(--primary-color); margin-bottom: 8px;">Q4: What is the quantifiable dollar impact on Daikin's Supply Chain?</h4>
-                    <p style="font-size: 12px; line-height: 1.6; color: var(--text-secondary); margin: 0;">
-                      <strong>Safety Stock & Working Capital Release</strong>: Under King's safety stock equation <code>SS = Z * √(L) * σ_D</code>, forecast error directly determines buffer inventory.<br><br>
-                      Improving forecast accuracy from 84.4% (ARIMA) to 88.2% (Random Forest) lowers forecast variance by 24.3%. Across Daikin's 5 South Region depots (Chennai, Bangalore, Cochin, Secunderabad, Vijayawada), this releases an estimated <strong>₹18.4 Million to ₹24.2 Million in trapped working capital</strong> while raising OTIF service levels to 96%.
-                    </p>
                   </div>
                 </div>
               </div>
