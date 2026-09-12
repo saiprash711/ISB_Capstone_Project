@@ -542,8 +542,28 @@ document.addEventListener('DOMContentLoaded', async () => {
           row.classList.remove('benchmark-active-row');
         }
       }
+
+      // Synchronize Technical Dossier active spec box
+      const specBox = document.getElementById('specBox-' + k);
+      if (specBox) {
+        if (k === selected) {
+          specBox.classList.add('active-model-spec');
+        } else {
+          specBox.classList.remove('active-model-spec');
+        }
+      }
     });
   }
+
+  // Technical Dossier Tab Switching Handler
+  window.switchDossierTab = function(tabId) {
+    document.querySelectorAll('.dossier-tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
+    });
+    document.querySelectorAll('.dossier-tab-content').forEach(content => {
+      content.classList.toggle('active', content.id === tabId);
+    });
+  };
 
   function updateForecastStudio() {
     const rows = getFilteredForecastRows();
