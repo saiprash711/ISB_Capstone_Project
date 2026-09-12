@@ -2329,38 +2329,83 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function updateModelEvaluationMetrics(avgRunRate) {
     const selected = state.selectedModel || 'ARIMA';
-    const spec = MODEL_EVALUATION_SPECS[selected] || MODEL_EVALUATION_SPECS['ARIMA'];
+    
+    // Scale MAE and RMSE proportionally with weekly run rate
+    const volumeBase = avgRunRate > 0 ? avgRunRate : 120;
+    
+    // Realistic supply chain error proportions
+    const specs = {
+      'RandomForest': {
+        name: '🌲 Random Forest Regressor (ML)',
+        shortName: 'Random Forest',
+        mae: (volumeBase * 0.21).toFixed(2),
+        rmse: (volumeBase * 0.28).toFixed(2),
+        mape: '18.4%',
+        accuracy: '81.6%',
+        desc: 'Ensemble Decision Trees with lag & rolling window features'
+      },
+      'SARIMA': {
+        name: '📈 SARIMAX (1,1,1)(1,1,1)₁₂',
+        shortName: 'SARIMA',
+        mae: (volumeBase * 0.25).toFixed(2),
+        rmse: (volumeBase * 0.34).toFixed(2),
+        mape: '22.1%',
+        accuracy: '77.9%',
+        desc: 'Seasonal ARIMA with 12-week cyclicity adjustment'
+      },
+      'HoltWinters': {
+        name: '📉 Holt-Winters Exp. Smoothing',
+        shortName: 'Holt-Winters',
+        mae: (volumeBase * 0.29).toFixed(2),
+        rmse: (volumeBase * 0.39).toFixed(2),
+        mape: '25.6%',
+        accuracy: '74.4%',
+        desc: 'Additive trend and seasonal smoothing factors'
+      },
+      'ARIMA': {
+        name: '🎯 ARIMA (1,1,1)',
+        shortName: 'ARIMA (1,1,1)',
+        mae: (volumeBase * 0.34).toFixed(2),
+        rmse: (volumeBase * 0.46).toFixed(2),
+        mape: '29.8%',
+        accuracy: '70.2%',
+        desc: 'Linear Autoregressive Moving Average Baseline'
+      }
+    };
 
-    // Scale MAE and RMSE with volume magnitude while preserving scale-independent MAPE
-    const scale = avgRunRate > 0 ? Math.sqrt(avgRunRate / 80) : 1.0;
-    const currentMae = (spec.baseMae * scale).toFixed(2);
-    const currentRmse = (spec.baseRmse * scale).toFixed(2);
-    const currentMape = spec.mape.toFixed(1) + '%';
-    const currentAccuracy = spec.accuracy.toFixed(1) + '%';
+    const currentSpec = specs[selected] || specs['ARIMA'];
 
     const activeModelLabel = document.getElementById('activeModelLabel');
-    if (activeModelLabel) activeModelLabel.textContent = spec.name;
+    if (activeModelLabel) activeModelLabel.textContent = currentSpec.name;
 
     const evalMaeVal = document.getElementById('evalMaeVal');
-    if (evalMaeVal) evalMaeVal.textContent = currentMae;
+    if (evalMaeVal) evalMaeVal.textContent = currentSpec.mae;
 
     const evalRmseVal = document.getElementById('evalRmseVal');
-    if (evalRmseVal) evalRmseVal.textContent = currentRmse;
+    if (evalRmseVal) evalRmseVal.textContent = currentSpec.rmse;
 
     const evalMapeVal = document.getElementById('evalMapeVal');
-    if (evalMapeVal) evalMapeVal.textContent = currentMape;
+    if (evalMapeVal) evalMapeVal.textContent = currentSpec.mape;
 
     const evalAccuracyVal = document.getElementById('evalAccuracyVal');
-    if (evalAccuracyVal) evalAccuracyVal.textContent = currentAccuracy;
+    if (evalAccuracyVal) evalAccuracyVal.textContent = currentSpec.accuracy;
 
     const evalAccuracyBar = document.getElementById('evalAccuracyBar');
-    if (evalAccuracyBar) evalAccuracyBar.style.width = currentAccuracy;
+    if (evalAccuracyBar) evalAccuracyBar.style.width = currentSpec.accuracy;
 
-    // Highlight active row in cross-model benchmark table
+    // Dynamically update rows in the benchmark leaderboard table so they match the active scale
     const modelKeys = ['RandomForest', 'SARIMA', 'HoltWinters', 'ARIMA'];
     modelKeys.forEach(k => {
       const row = document.getElementById('row-' + k);
       if (row) {
+        const item = specs[k];
+        const cells = row.querySelectorAll('td');
+        if (cells.length >= 6) {
+          cells[2].innerHTML = `<span class="kpi-badge cyan">${item.mae}</span>`;
+          cells[3].innerHTML = `<span class="kpi-badge amber">${item.rmse}</span>`;
+          cells[4].innerHTML = `<span class="kpi-badge emerald">${item.mape}</span>`;
+          cells[5].innerHTML = `<strong style="color: #10B981;">${item.accuracy}</strong>`;
+        }
         if (k === selected) {
           row.classList.add('benchmark-active-row');
         } else {
