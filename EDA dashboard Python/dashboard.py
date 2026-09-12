@@ -945,6 +945,29 @@ def inject_theme_css(theme="dark"):
             background: {scrollbar_thumb};
             border-radius: 4px;
         }}
+
+        /* EXPLICIT PLOTLY HIGH-CONTRAST AXIS, TICK AND LABEL TYPOGRAPHY */
+        .js-plotly-plot .xtick text,
+        .js-plotly-plot .ytick text,
+        .js-plotly-plot .g-xtitle text,
+        .js-plotly-plot .g-ytitle text,
+        .js-plotly-plot text.legendtext,
+        .js-plotly-plot text.annotation-text,
+        .js-plotly-plot text.bartext {{
+            fill: {text_primary} !important;
+            color: {text_primary} !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+        }}
+
+        code {{
+            background: {"rgba(255, 255, 255, 0.08)" if is_dark else "#F1F5F9"} !important;
+            color: {"#00E5FF" if is_dark else "#0284C7"} !important;
+            border: 1px solid {"rgba(255, 255, 255, 0.12)" if is_dark else "#CBD5E1"} !important;
+            border-radius: 4px !important;
+            padding: 2px 6px !important;
+            font-family: 'JetBrains Mono', monospace !important;
+            font-size: 0.9em !important;
+        }}
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
@@ -961,14 +984,14 @@ def apply_custom_chart_theme(fig, height=400, title="", theme=None):
         theme = st.session_state.get('theme', 'dark')
     is_dark = (theme == 'dark')
     
-    paper_bg = 'rgba(0,0,0,0)'
-    plot_bg = 'rgba(19, 28, 49, 0.45)' if is_dark else 'rgba(241, 245, 249, 0.6)'
+    paper_bg = 'rgba(0,0,0,0)' if is_dark else '#FFFFFF'
+    plot_bg = 'rgba(19, 28, 49, 0.45)' if is_dark else '#FFFFFF'
     text_color = '#E2E8F0' if is_dark else '#0F172A'
     title_color = '#FFFFFF' if is_dark else '#0F172A'
-    grid_color = 'rgba(255, 255, 255, 0.08)' if is_dark else 'rgba(15, 23, 42, 0.08)'
-    hover_bg = 'rgba(15, 23, 42, 0.98)' if is_dark else 'rgba(255, 255, 255, 0.98)'
+    grid_color = 'rgba(255, 255, 255, 0.08)' if is_dark else 'rgba(15, 23, 42, 0.12)'
+    hover_bg = 'rgba(15, 23, 42, 0.98)' if is_dark else '#FFFFFF'
     hover_text = '#FFFFFF' if is_dark else '#0F172A'
-    hover_border = 'rgba(0, 229, 255, 0.6)' if is_dark else 'rgba(2, 132, 199, 0.6)'
+    hover_border = 'rgba(0, 229, 255, 0.6)' if is_dark else '#0284C7'
 
     clean_title = title if title else (fig.layout.title.text if (fig.layout and fig.layout.title and fig.layout.title.text and str(fig.layout.title.text).strip() != 'undefined') else "")
 
@@ -1698,7 +1721,12 @@ def run_ml_model(sku_data, model_name, forecast_periods, confidence_level, branc
 # -----------------------------------------------------------------------------
 # ISB CAPSTONE TECHNICAL DOSSIER & FEATURE ENGINEERING INSPECTOR
 # -----------------------------------------------------------------------------
-def render_isb_technical_dossier(metrics_dict, selected_model, selected_sku, branch_label, is_dark=True):
+def render_isb_technical_dossier(metrics_dict, selected_model, selected_sku, branch_label, is_dark=None):
+    # Dynamically read active theme from session_state for bulletproof light/dark compatibility
+    if is_dark is None:
+        active_theme = st.session_state.get('theme', 'dark')
+        is_dark = (active_theme == 'dark')
+
     st.markdown("<div style='height: 24px;'></div>", unsafe_allow_html=True)
     st.markdown("""
     <div class="subpanel-title" style="margin-bottom: 12px; font-size: 1.15rem; letter-spacing: 0.5px;">
@@ -1735,35 +1763,66 @@ def render_isb_technical_dossier(metrics_dict, selected_model, selected_sku, bra
             
         col_chart, col_talk = st.columns([1, 1])
         with col_chart:
+            bar_palette = ['#6366F1', '#00E5FF', '#10B981'] if is_dark else ['#0284C7', '#2563EB', '#059669']
+            axis_text_color = '#E2E8F0' if is_dark else '#0F172A'
+            axis_title_color = '#FFFFFF' if is_dark else '#0F172A'
+            grid_color = 'rgba(255, 255, 255, 0.1)' if is_dark else 'rgba(15, 23, 42, 0.15)'
+            plot_bg = 'rgba(19, 28, 49, 0.45)' if is_dark else '#FFFFFF'
+            paper_bg = 'rgba(0,0,0,0)' if is_dark else '#FFFFFF'
+            
             fig_imp = px.bar(
                 feat_df.sort_values('Importance', ascending=True),
                 x='Importance',
                 y='Feature',
                 orientation='h',
                 color='Importance',
-                color_continuous_scale=['#6366F1', '#00E5FF', '#10B981'],
+                color_continuous_scale=bar_palette,
                 labels={'Importance': 'Gini Importance (MDI %)', 'Feature': 'Engineered Feature'}
             )
-            fig_imp.update_layout(
-                plot_bgcolor='rgba(0,0,0,0)',
-                paper_bgcolor='rgba(0,0,0,0)',
-                font=dict(color='#CBD5E1' if is_dark else '#1E293B', size=11),
-                margin=dict(l=10, r=10, t=30, b=30),
-                coloraxis_showscale=False,
-                height=380
+            fig_imp.update_traces(
+                texttemplate='%{x:.1f}%',
+                textposition='outside',
+                textfont=dict(color=axis_text_color, size=11, family="Plus Jakarta Sans, sans-serif")
             )
-            st.plotly_chart(fig_imp, use_container_width=True)
+            fig_imp.update_layout(
+                template="plotly_dark" if is_dark else "plotly_white",
+                plot_bgcolor=plot_bg,
+                paper_bgcolor=paper_bg,
+                font=dict(color=axis_text_color, size=11, family="Plus Jakarta Sans, sans-serif"),
+                margin=dict(l=10, r=45, t=30, b=30),
+                coloraxis_showscale=False,
+                height=390
+            )
+            fig_imp.update_xaxes(
+                showgrid=True,
+                gridcolor=grid_color,
+                zerolinecolor=grid_color,
+                tickfont=dict(color=axis_text_color, size=11, family="Plus Jakarta Sans, sans-serif"),
+                title_font=dict(color=axis_title_color, size=12, family="Outfit, sans-serif")
+            )
+            fig_imp.update_yaxes(
+                showgrid=False,
+                tickfont=dict(color=axis_text_color, size=11, family="Plus Jakarta Sans, sans-serif"),
+                title_font=dict(color=axis_title_color, size=12, family="Outfit, sans-serif")
+            )
+            st.plotly_chart(fig_imp, use_container_width=True, theme=None)
             
         with col_talk:
+            head_color = '#00E5FF' if is_dark else '#0284C7'
+            body_color = '#E2E8F0' if is_dark else '#0F172A'
+            box_bg = 'rgba(19, 28, 49, 0.65)' if is_dark else '#FFFFFF'
+            box_border = 'rgba(255, 255, 255, 0.1)' if is_dark else '#CBD5E1'
+            box_shadow = 'none' if is_dark else '0 2px 12px rgba(0,0,0,0.06)'
+            
             st.markdown(f"""
-            <div style="background: {'rgba(19, 28, 49, 0.6)' if is_dark else '#F8FAFC'}; border: 1px solid {'rgba(255,255,255,0.1)' if is_dark else '#E2E8F0'}; border-radius: 8px; padding: 14px 18px; margin-top: 20px;">
-                <h4 style="margin: 0 0 10px 0; color: {'#00E5FF' if is_dark else '#0284C7'}; font-size: 14px;">🎯 Defense Talking Points: Why These Features Matter</h4>
-                <ul style="font-size: 12.5px; line-height: 1.6; margin: 0; padding-left: 18px; color: {'#E2E8F0' if is_dark else '#334155'};">
-                    <li><strong>Short-Term Velocity Dominates (33.0%)</strong>: <code>rolling_mean_4</code> captures the moving sell-out run-rate, filtering erratic single-week invoice batching.</li>
-                    <li><strong>Volatility Penalty (28.5%)</strong>: <code>rolling_std_4</code> measures demand turbulence, enabling models to adapt during monsoon troughs and heatwave ramps.</li>
-                    <li><strong>Distributor Order Rhythm (16.8% Combined)</strong>: <code>Lag 2</code> and <code>Lag 4</code> correspond to the 14-day and 28-day dealer stock replenishment cycle.</li>
-                    <li><strong>Macro Seasonality (15.1% Combined)</strong>: <code>rolling_mean_12</code> and <code>Lag 12</code> capture the 3-month quarterly transition between pre-summer stocking and monsoon lull.</li>
-                    <li><strong>Exogenous Catalysts</strong>: <code>Festival Flag</code> and <code>Promotion Flag</code> inject impulse shifts for Diwali, Pongal, and pre-season dealer schemes.</li>
+            <div style="background: {box_bg}; border: 1px solid {box_border}; border-radius: 8px; padding: 16px 18px; margin-top: 10px; box-shadow: {box_shadow};">
+                <h4 style="margin: 0 0 10px 0; color: {head_color}; font-size: 14px; font-weight: 700;">🎯 Feature Engineering Business Rationale</h4>
+                <ul style="font-size: 12.5px; line-height: 1.6; margin: 0; padding-left: 18px; color: {body_color};">
+                    <li><strong style="color: {body_color};">Short-Term Velocity Dominates (33.0%)</strong>: <code>rolling_mean_4</code> captures the moving sell-out run-rate, filtering erratic single-week invoice batching.</li>
+                    <li><strong style="color: {body_color};">Volatility Penalty (28.5%)</strong>: <code>rolling_std_4</code> measures demand turbulence, enabling models to adapt during monsoon troughs and heatwave ramps.</li>
+                    <li><strong style="color: {body_color};">Distributor Order Rhythm (16.8% Combined)</strong>: <code>Lag 2</code> and <code>Lag 4</code> correspond to the 14-day and 28-day dealer stock replenishment cycle.</li>
+                    <li><strong style="color: {body_color};">Macro Seasonality (15.1% Combined)</strong>: <code>rolling_mean_12</code> and <code>Lag 12</code> capture the 3-month quarterly transition between pre-summer stocking and monsoon lull.</li>
+                    <li><strong style="color: {body_color};">Exogenous Catalysts</strong>: <code>Festival Flag</code> and <code>Promotion Flag</code> inject impulse shifts for Diwali, Pongal, and pre-season dealer schemes.</li>
                 </ul>
             </div>
             """, unsafe_allow_html=True)
@@ -1790,72 +1849,84 @@ def render_isb_technical_dossier(metrics_dict, selected_model, selected_sku, bra
     with tab_models:
         st.markdown("##### 📐 Mathematical Specifications, Hyperparameters & Diagnostics Across All 4 Models")
         
+        card_bg = 'rgba(19, 28, 49, 0.7)' if is_dark else '#FFFFFF'
+        card_border_base = 'rgba(255, 255, 255, 0.12)' if is_dark else '#CBD5E1'
+        formula_bg = 'rgba(0, 0, 0, 0.35)' if is_dark else '#F1F5F9'
+        formula_border = 'rgba(255, 255, 255, 0.1)' if is_dark else '#CBD5E1'
+        text_strong = '#E2E8F0' if is_dark else '#0F172A'
+        text_sub = '#94A3B8' if is_dark else '#475569'
+        card_shadow = 'none' if is_dark else '0 2px 12px rgba(0,0,0,0.06)'
+        
         m_rf, m_sarima = st.columns(2)
         with m_rf:
+            rf_color = '#00E5FF' if is_dark else '#059669'
             st.markdown(f"""
-            <div style="background: {'rgba(19, 28, 49, 0.7)' if is_dark else '#F8FAFC'}; border: 1px solid {'rgba(0, 229, 255, 0.3)' if is_dark else '#CBD5E1'}; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
-                <h4 style="margin: 0 0 8px 0; color: {'#00E5FF' if is_dark else '#0284C7'};">🌲 Random Forest Regressor (ML Ensemble)</h4>
-                <p style="font-size: 12px; color: {'#94A3B8' if is_dark else '#64748B'}; margin-bottom: 10px;">Ensemble of de-correlated decision trees with recursive mean squared error (MSE) variance reduction.</p>
-                <div style="background: {'rgba(0,0,0,0.3)' if is_dark else '#FFFFFF'}; padding: 8px 12px; border-radius: 6px; font-family: monospace; font-size: 11.5px; margin-bottom: 10px;">
+            <div style="background: {card_bg}; border: 1px solid {card_border_base}; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: {card_shadow};">
+                <h4 style="margin: 0 0 8px 0; color: {rf_color}; font-size: 15px; font-weight: 700;">🌲 Random Forest Regressor (ML Ensemble)</h4>
+                <p style="font-size: 12px; color: {text_sub}; margin-bottom: 10px;">Ensemble of de-correlated decision trees with recursive mean squared error (MSE) variance reduction.</p>
+                <div style="background: {formula_bg}; border: 1px solid {formula_border}; padding: 8px 12px; border-radius: 6px; font-family: monospace; font-size: 11.5px; margin-bottom: 10px; color: {rf_color}; font-weight: 600;">
                     ŷ(x) = (1/B) Σ_{{b=1}}^B T_b(x)
                 </div>
-                <ul style="font-size: 12px; line-height: 1.5; padding-left: 16px; margin: 0; color: {'#E2E8F0' if is_dark else '#334155'};">
-                    <li><strong>Feature Input Space</strong>: 13-dimensional vector [Lags 1,2,4,12, Rolling Mean 4W/12W, Rolling Std, Month, Quarter, Branch, Category, Festival, Promo]</li>
-                    <li><strong>Hyperparameters</strong>: <code>n_estimators=100</code>, <code>max_depth=10</code>, <code>min_samples_split=4</code>, <code>max_features='sqrt'</code></li>
-                    <li><strong>Splitting Criterion</strong>: Mean Squared Error (MSE) / Variance Reduction</li>
-                    <li><strong>Key Advantage</strong>: Non-linear thresholding; correctly captures heatwave step-changes and promotional demand surges without overfitting.</li>
+                <ul style="font-size: 12px; line-height: 1.55; padding-left: 16px; margin: 0; color: {text_strong};">
+                    <li><strong style="color: {text_strong};">Feature Input Space</strong>: 13-dimensional vector [Lags 1,2,4,12, Rolling Mean 4W/12W, Rolling Std, Month, Quarter, Branch, Category, Festival, Promo]</li>
+                    <li><strong style="color: {text_strong};">Hyperparameters</strong>: <code>n_estimators=100</code>, <code>max_depth=10</code>, <code>min_samples_split=4</code>, <code>max_features='sqrt'</code></li>
+                    <li><strong style="color: {text_strong};">Splitting Criterion</strong>: Mean Squared Error (MSE) / Variance Reduction</li>
+                    <li><strong style="color: {text_strong};">Key Advantage</strong>: Non-linear thresholding; correctly captures heatwave step-changes and promotional demand surges without overfitting.</li>
                 </ul>
             </div>
             """, unsafe_allow_html=True)
             
         with m_sarima:
+            sarima_color = '#818CF8' if is_dark else '#4F46E5'
             st.markdown(f"""
-            <div style="background: {'rgba(19, 28, 49, 0.7)' if is_dark else '#F8FAFC'}; border: 1px solid {'rgba(99, 102, 241, 0.3)' if is_dark else '#CBD5E1'}; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
-                <h4 style="margin: 0 0 8px 0; color: {'#818CF8' if is_dark else '#4F46E5'};">📈 SARIMAX (1,1,1)(1,1,1)₁₂ (Seasonal Time-Series)</h4>
-                <p style="font-size: 12px; color: {'#94A3B8' if is_dark else '#64748B'}; margin-bottom: 10px;">Box-Jenkins seasonal autoregressive integrated moving average with exogenous promotional regressors.</p>
-                <div style="background: {'rgba(0,0,0,0.3)' if is_dark else '#FFFFFF'}; padding: 8px 12px; border-radius: 6px; font-family: monospace; font-size: 11.5px; margin-bottom: 10px;">
+            <div style="background: {card_bg}; border: 1px solid {card_border_base}; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: {card_shadow};">
+                <h4 style="margin: 0 0 8px 0; color: {sarima_color}; font-size: 15px; font-weight: 700;">📈 SARIMAX (1,1,1)(1,1,1)₁₂ (Seasonal Time-Series)</h4>
+                <p style="font-size: 12px; color: {text_sub}; margin-bottom: 10px;">Box-Jenkins seasonal autoregressive integrated moving average with exogenous promotional regressors.</p>
+                <div style="background: {formula_bg}; border: 1px solid {formula_border}; padding: 8px 12px; border-radius: 6px; font-family: monospace; font-size: 11.5px; margin-bottom: 10px; color: {sarima_color}; font-weight: 600;">
                     Φ_P(B^s)φ_p(B)(1-B)^d(1-B^s)^D y_t = Θ_Q(B^s)θ_q(B)ε_t + Σ β_k X_{{k,t}}
                 </div>
-                <ul style="font-size: 12px; line-height: 1.5; padding-left: 16px; margin: 0; color: {'#E2E8F0' if is_dark else '#334155'};">
-                    <li><strong>Order Specification</strong>: Non-seasonal (p=1, d=1, q=1), Seasonal (P=1, D=1, Q=1), Periodicity s=12 weeks</li>
-                    <li><strong>Exogenous Regressors (X_t)</strong>: Festival Flag and Promotional Dealer Scheme indicator</li>
-                    <li><strong>Stationarity Diagnostic</strong>: Augmented Dickey-Fuller (ADF) Unit Root Test (p &lt; 0.05 confirmed after first differencing)</li>
-                    <li><strong>Residual Diagnostic</strong>: Ljung-Box Q Test verifies residual white noise ε_t ~ WN(0, σ²) with no autocorrelation.</li>
+                <ul style="font-size: 12px; line-height: 1.55; padding-left: 16px; margin: 0; color: {text_strong};">
+                    <li><strong style="color: {text_strong};">Order Specification</strong>: Non-seasonal (p=1, d=1, q=1), Seasonal (P=1, D=1, Q=1), Periodicity s=12 weeks</li>
+                    <li><strong style="color: {text_strong};">Exogenous Regressors (X_t)</strong>: Festival Flag and Promotional Dealer Scheme indicator</li>
+                    <li><strong style="color: {text_strong};">Stationarity Diagnostic</strong>: Augmented Dickey-Fuller (ADF) Unit Root Test (p &lt; 0.05 confirmed after first differencing)</li>
+                    <li><strong style="color: {text_strong};">Residual Diagnostic</strong>: Ljung-Box Q Test verifies residual white noise ε_t ~ WN(0, σ²) with no autocorrelation.</li>
                 </ul>
             </div>
             """, unsafe_allow_html=True)
             
         m_hw, m_arima = st.columns(2)
         with m_hw:
+            hw_color = '#F59E0B' if is_dark else '#D97706'
             st.markdown(f"""
-            <div style="background: {'rgba(19, 28, 49, 0.7)' if is_dark else '#F8FAFC'}; border: 1px solid {'rgba(245, 158, 11, 0.3)' if is_dark else '#CBD5E1'}; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
-                <h4 style="margin: 0 0 8px 0; color: {'#F59E0B' if is_dark else '#D97706'};">📉 Holt-Winters Exponential Smoothing (Triple Additive ETS)</h4>
-                <p style="font-size: 12px; color: {'#94A3B8' if is_dark else '#64748B'}; margin-bottom: 10px;">State-space level, linear trend, and seasonal smoothing decomposition.</p>
-                <div style="background: {'rgba(0,0,0,0.3)' if is_dark else '#FFFFFF'}; padding: 8px 12px; border-radius: 6px; font-family: monospace; font-size: 11px; margin-bottom: 10px;">
+            <div style="background: {card_bg}; border: 1px solid {card_border_base}; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: {card_shadow};">
+                <h4 style="margin: 0 0 8px 0; color: {hw_color}; font-size: 15px; font-weight: 700;">📉 Holt-Winters Exponential Smoothing (Triple Additive ETS)</h4>
+                <p style="font-size: 12px; color: {text_sub}; margin-bottom: 10px;">State-space level, linear trend, and seasonal smoothing decomposition.</p>
+                <div style="background: {formula_bg}; border: 1px solid {formula_border}; padding: 8px 12px; border-radius: 6px; font-family: monospace; font-size: 11px; margin-bottom: 10px; color: {hw_color}; font-weight: 600;">
                     ℓ_t = α(y_t - s_{{t-m}}) + (1-α)(ℓ_{{t-1}} + b_{{t-1}})<br>
                     b_t = β(ℓ_t - ℓ_{{t-1}}) + (1-β)b_{{t-1}}<br>
                     s_t = γ(y_t - ℓ_{{t-1}} - b_{{t-1}}) + (1-γ)s_{{t-m}}
                 </div>
-                <ul style="font-size: 12px; line-height: 1.5; padding-left: 16px; margin: 0; color: {'#E2E8F0' if is_dark else '#334155'};">
-                    <li><strong>Smoothing Weights</strong>: Level α ≈ 0.28, Trend β ≈ 0.05, Seasonal γ ≈ 0.42</li>
-                    <li><strong>Seasonal Cycle Length</strong>: m = 12 weeks (quarterly cyclicality)</li>
-                    <li><strong>Key Advantage</strong>: Ultra-fast computational speed, zero matrix inversion required, ideal for edge inventory replenishment nodes.</li>
+                <ul style="font-size: 12px; line-height: 1.55; padding-left: 16px; margin: 0; color: {text_strong};">
+                    <li><strong style="color: {text_strong};">Smoothing Weights</strong>: Level α ≈ 0.28, Trend β ≈ 0.05, Seasonal γ ≈ 0.42</li>
+                    <li><strong style="color: {text_strong};">Seasonal Cycle Length</strong>: m = 12 weeks (quarterly cyclicality)</li>
+                    <li><strong style="color: {text_strong};">Key Advantage</strong>: Ultra-fast computational speed, zero matrix inversion required, ideal for edge inventory replenishment nodes.</li>
                 </ul>
             </div>
             """, unsafe_allow_html=True)
             
         with m_arima:
+            arima_color = '#10B981' if is_dark else '#0284C7'
             st.markdown(f"""
-            <div style="background: {'rgba(19, 28, 49, 0.7)' if is_dark else '#F8FAFC'}; border: 1px solid {'rgba(16, 185, 129, 0.3)' if is_dark else '#CBD5E1'}; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
-                <h4 style="margin: 0 0 8px 0; color: {'#10B981' if is_dark else '#059669'};">🎯 ARIMA (1,1,1) (Linear Autoregressive Baseline)</h4>
-                <p style="font-size: 12px; color: {'#94A3B8' if is_dark else '#64748B'}; margin-bottom: 10px;">Classical Box-Jenkins linear un-seasonal benchmark model.</p>
-                <div style="background: {'rgba(0,0,0,0.3)' if is_dark else '#FFFFFF'}; padding: 8px 12px; border-radius: 6px; font-family: monospace; font-size: 11.5px; margin-bottom: 10px;">
+            <div style="background: {card_bg}; border: 1px solid {card_border_base}; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: {card_shadow};">
+                <h4 style="margin: 0 0 8px 0; color: {arima_color}; font-size: 15px; font-weight: 700;">🎯 ARIMA (1,1,1) (Linear Autoregressive Baseline)</h4>
+                <p style="font-size: 12px; color: {text_sub}; margin-bottom: 10px;">Classical Box-Jenkins linear un-seasonal benchmark model.</p>
+                <div style="background: {formula_bg}; border: 1px solid {formula_border}; padding: 8px 12px; border-radius: 6px; font-family: monospace; font-size: 11.5px; margin-bottom: 10px; color: {arima_color}; font-weight: 600;">
                     (1 - φ_1 B)(1 - B) y_t = c + (1 + θ_1 B) ε_t
                 </div>
-                <ul style="font-size: 12px; line-height: 1.5; padding-left: 16px; margin: 0; color: {'#E2E8F0' if is_dark else '#334155'};">
-                    <li><strong>Parameters</strong>: AR(1) autoregressive coefficient φ_1, MA(1) error damping θ_1, Differencing order d=1</li>
-                    <li><strong>Estimation Method</strong>: Maximum Likelihood Estimation (MLE) with Conditional Sum of Squares</li>
-                    <li><strong>Role in Capstone</strong>: Serves as the <strong>Standard Operational Baseline</strong>. Proves the quantifiable accuracy gain of incorporating feature engineering, seasonality, and machine learning.</li>
+                <ul style="font-size: 12px; line-height: 1.55; padding-left: 16px; margin: 0; color: {text_strong};">
+                    <li><strong style="color: {text_strong};">Parameters</strong>: AR(1) autoregressive coefficient φ_1, MA(1) error damping θ_1, Differencing order d=1</li>
+                    <li><strong style="color: {text_strong};">Estimation Method</strong>: Maximum Likelihood Estimation (MLE) with Conditional Sum of Squares</li>
+                    <li><strong style="color: {text_strong};">Role in Capstone</strong>: Serves as the <strong>Standard Operational Baseline</strong>. Proves the quantifiable accuracy gain of incorporating feature engineering, seasonality, and machine learning.</li>
                 </ul>
             </div>
             """, unsafe_allow_html=True)
@@ -2241,11 +2312,11 @@ def show_overview(df, metrics):
         with st.container():
             fig_time = create_time_series_chart(df)
             if fig_time:
-                st.plotly_chart(fig_time, use_container_width=True)
+                st.plotly_chart(fig_time, use_container_width=True, theme=None)
     with row1_c2:
         with st.container():
             fig_gauge = create_data_completeness_gauge(metrics['completeness'])
-            st.plotly_chart(fig_gauge, use_container_width=True)
+            st.plotly_chart(fig_gauge, use_container_width=True, theme=None)
             
     # Visualizations Row 2
     row2_c1, row2_c2 = st.columns([2, 3])
@@ -2253,12 +2324,12 @@ def show_overview(df, metrics):
         with st.container():
             fig_segment = create_segment_analysis(df)
             if fig_segment:
-                st.plotly_chart(fig_segment, use_container_width=True)
+                st.plotly_chart(fig_segment, use_container_width=True, theme=None)
     with row2_c2:
         with st.container():
             fig_tonnage = create_tonnage_analysis(df)
             if fig_tonnage:
-                st.plotly_chart(fig_tonnage, use_container_width=True)
+                st.plotly_chart(fig_tonnage, use_container_width=True, theme=None)
 
 # -----------------------------------------------------------------------------
 # PAGE 2: 🎯 AI DEMAND FORECASTING
@@ -2430,7 +2501,7 @@ def show_demand_forecasting(df):
                             color_discrete_sequence=['#00E5FF', '#6366F1', '#10B981', '#F59E0B', '#EC4899']
                         )
                         apply_custom_chart_theme(fig_donut, height=260, title=f"Branch Split: {selected_sku}")
-                        st.plotly_chart(fig_donut, use_container_width=True)
+                        st.plotly_chart(fig_donut, use_container_width=True, theme=None)
                     with dist_c2:
                         st.dataframe(
                             b_summary[['Branch', 'Billing Quantity ODU', 'Share %']].rename(columns={'Billing Quantity ODU': 'Units Sold'}),
@@ -2471,7 +2542,7 @@ def show_demand_forecasting(df):
                         )
                         
                     # Forecast Plot
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, theme=None)
                     
                     # Performance Metrics Scorecard
                     st.markdown("""
@@ -2642,7 +2713,7 @@ def show_demand_forecasting(df):
                 ))
                 
                 apply_custom_chart_theme(fig_hist, height=420, title=f"Historical Demand Velocity: {selected_sku} | {branch_label}")
-                st.plotly_chart(fig_hist, use_container_width=True)
+                st.plotly_chart(fig_hist, use_container_width=True, theme=None)
                 
                 st.info("👆 Adjust parameters in the Control Bar on the left and click 'Execute Forecast Simulation' to generate forward predictive curves.")
                 
@@ -2704,7 +2775,7 @@ def show_data_quality(df, metrics):
     with diag_c1:
         fig_missing = create_missing_data_chart(df)
         if fig_missing:
-            st.plotly_chart(fig_missing, use_container_width=True)
+            st.plotly_chart(fig_missing, use_container_width=True, theme=None)
         else:
             st.success("✅ Clean Record: Zero missing values detected across dataset attributes.")
             
@@ -2743,7 +2814,7 @@ def show_data_quality(df, metrics):
         textfont=dict(color="#FFFFFF" if is_dark else "#0F172A", family="Plus Jakarta Sans")
     )
     apply_custom_chart_theme(fig_dtypes, height=360)
-    st.plotly_chart(fig_dtypes, use_container_width=True)
+    st.plotly_chart(fig_dtypes, use_container_width=True, theme=None)
 
 # -----------------------------------------------------------------------------
 # PAGE 4: 🧹 DATA CLEANING STUDIO
@@ -2811,7 +2882,7 @@ def show_data_cleaning(df, metrics):
                 textfont=dict(color="#FFFFFF" if is_dark else "#0F172A", family="Plus Jakarta Sans")
             )])
             apply_custom_chart_theme(fig_dup, height=360, title="Duplicate vs Unique Transaction Density")
-            st.plotly_chart(fig_dup, use_container_width=True)
+            st.plotly_chart(fig_dup, use_container_width=True, theme=None)
         else:
             st.success("✅ Zero duplicate transaction rows discovered in active dataset.")
             
@@ -2883,7 +2954,7 @@ def show_statistical_analysis(df):
     st.markdown("---")
     fig_corr = create_correlation_heatmap(df)
     if fig_corr:
-        st.plotly_chart(fig_corr, use_container_width=True)
+        st.plotly_chart(fig_corr, use_container_width=True, theme=None)
         
     st.markdown("---")
     st.markdown("""
@@ -2897,13 +2968,13 @@ def show_statistical_analysis(df):
         stat_c1, stat_c2 = st.columns(2)
         with stat_c1:
             fig_dist = create_distribution_chart(df, selected_col)
-            st.plotly_chart(fig_dist, use_container_width=True)
+            st.plotly_chart(fig_dist, use_container_width=True, theme=None)
         with stat_c2:
             fig_box = px.box(df, y=selected_col, title=f"Box Plot Spread: {selected_col}")
             box_accent = '#00E5FF' if is_dark else '#0369A1'
             fig_box.update_traces(marker_color=box_accent, line=dict(color=box_accent))
             apply_custom_chart_theme(fig_box, height=400)
-            st.plotly_chart(fig_box, use_container_width=True)
+            st.plotly_chart(fig_box, use_container_width=True, theme=None)
             
         m1, m2, m3, m4 = st.columns(4)
         with m1:
@@ -2966,7 +3037,7 @@ def show_detailed_exploration(df):
         with c_prof2:
             if analysis_col:
                 fig = create_distribution_chart(df, analysis_col)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, theme=None)
                 
     st.markdown("---")
     st.markdown("""
