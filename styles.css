@@ -1068,3 +1068,20 @@ button {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+
+/* Benchmark Leaderboard Active Row Highlight */
+.benchmark-active-row {
+  background: rgba(2, 132, 199, 0.1) !important;
+  box-shadow: inset 4px 0 0 var(--primary-color);
+}
+
+.benchmark-active-row td {
+  font-weight: 700 !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .benchmark-active-row {
+  background: rgba(0, 229, 255, 0.14) !important;
+  box-shadow: inset 4px 0 0 var(--primary-color);
+}
