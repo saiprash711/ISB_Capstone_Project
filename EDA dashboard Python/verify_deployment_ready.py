@@ -6,6 +6,9 @@ Verifies all files are properly configured for deployment
 import os
 import sys
 
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+
 def check_file_exists(filepath, description):
     """Check if a file exists"""
     exists = os.path.exists(filepath)

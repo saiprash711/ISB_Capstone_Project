@@ -1,0 +1,513 @@
+{
+  "RKM50UV16VA_BLR_Naive_v1": {
+    "model_id": "RKM50UV16VA_BLR_Naive_v1",
+    "sku": "RKM50UV16VA",
+    "branch": "BLR",
+    "model_name": "Naive",
+    "version": 1,
+    "registered_at": "2026-09-18 10:47:58",
+    "validation_metrics": {
+      "model_name": "Naive",
+      "version": 1,
+      "assigned_date": "2026-09-18 10:47:58",
+      "wape": 73.87,
+      "rmse": 87.89,
+      "bias_pct": 73.87,
+      "stability_score": 72.8,
+      "demand_type": "Smooth",
+      "selection_reason": "Lowest backtested WAPE (73.9%) across rolling folds with stable bias.",
+      "status": "ACTIVE_CHAMPION"
+    },
+    "hyperparameters": {
+      "horizon": 12,
+      "n_folds": 2
+    },
+    "feature_list": [
+      "iso_week",
+      "date",
+      "year_actual",
+      "week_actual",
+      "month_actual",
+      "quarter_actual",
+      "sku",
+      "branch",
+      "segment",
+      "star_rating",
+      "material_group",
+      "sbu",
+      "quantity_odu",
+      "quantity_idu",
+      "total_demand",
+      "tonnage",
+      "demand_nonzero"
+    ],
+    "status": "RETIRED",
+    "retired_at": "2026-09-18 11:09:58",
+    "superseded_by": "RKM50UV16VA_BLR_Moving_Average_v2"
+  },
+  "RKM50UV16VA_BLR_Moving_Average_v2": {
+    "model_id": "RKM50UV16VA_BLR_Moving_Average_v2",
+    "sku": "RKM50UV16VA",
+    "branch": "BLR",
+    "model_name": "Moving Average",
+    "version": 2,
+    "demand_class": "Smooth",
+    "registered_at": "2026-09-18 11:09:58",
+    "validation_metrics": {},
+    "hyperparameters": {
+      "horizon": 12,
+      "n_folds": 2
+    },
+    "feature_list": [
+      "iso_week",
+      "date",
+      "year_actual",
+      "week_actual",
+      "month_actual",
+      "quarter_actual",
+      "sku",
+      "branch",
+      "segment",
+      "star_rating",
+      "material_group",
+      "sbu",
+      "quantity_odu",
+      "quantity_idu",
+      "total_demand",
+      "tonnage",
+      "demand_nonzero"
+    ],
+    "status": "RETIRED",
+    "retired_at": "2026-09-18 11:14:22",
+    "superseded_by": "RKM50UV16VA_BLR_ARIMA_v3"
+  },
+  "RKM50UV16VA_BLR_ARIMA_v3": {
+    "model_id": "RKM50UV16VA_BLR_ARIMA_v3",
+    "sku": "RKM50UV16VA",
+    "branch": "BLR",
+    "model_name": "ARIMA",
+    "version": 3,
+    "demand_class": "Smooth",
+    "registered_at": "2026-09-18 11:14:22",
+    "validation_metrics": {
+      "model_name": "ARIMA",
+      "version": 1,
+      "assigned_date": "2026-09-18 11:14:21",
+      "wape": 18.48,
+      "rmse": 26.31,
+      "bias_pct": 7.2,
+      "stability_score": 72.2,
+      "demand_type": "Smooth",
+      "selection_reason": "Tournament winner with lowest WAPE (18.5%) and stability 72.2.",
+      "status": "ACTIVE_CHAMPION"
+    },
+    "hyperparameters": {
+      "horizon": 12,
+      "n_folds": 2
+    },
+    "feature_list": [
+      "iso_week",
+      "date",
+      "year_actual",
+      "week_actual",
+      "month_actual",
+      "quarter_actual",
+      "sku",
+      "branch",
+      "segment",
+      "star_rating",
+      "material_group",
+      "sbu",
+      "quantity_odu",
+      "quantity_idu",
+      "total_demand",
+      "tonnage",
+      "demand_nonzero"
+    ],
+    "status": "RETIRED",
+    "retired_at": "2026-09-18 11:14:54",
+    "superseded_by": "RKM50UV16VA_BLR_ARIMA_v4"
+  },
+  "RKM50UV16VA_BLR_ARIMA_v4": {
+    "model_id": "RKM50UV16VA_BLR_ARIMA_v4",
+    "sku": "RKM50UV16VA",
+    "branch": "BLR",
+    "model_name": "ARIMA",
+    "version": 4,
+    "demand_class": "Smooth",
+    "registered_at": "2026-09-18 11:14:54",
+    "validation_metrics": {
+      "model_name": "ARIMA",
+      "version": 1,
+      "assigned_date": "2026-09-18 11:14:54",
+      "wape": 18.48,
+      "rmse": 26.31,
+      "bias_pct": 7.2,
+      "stability_score": 72.2,
+      "demand_type": "Smooth",
+      "selection_reason": "Tournament winner with lowest WAPE (18.5%) and stability 72.2.",
+      "status": "ACTIVE_CHAMPION"
+    },
+    "hyperparameters": {
+      "horizon": 12,
+      "n_folds": 2
+    },
+    "feature_list": [
+      "iso_week",
+      "date",
+      "year_actual",
+      "week_actual",
+      "month_actual",
+      "quarter_actual",
+      "sku",
+      "branch",
+      "segment",
+      "star_rating",
+      "material_group",
+      "sbu",
+      "quantity_odu",
+      "quantity_idu",
+      "total_demand",
+      "tonnage",
+      "demand_nonzero"
+    ],
+    "status": "RETIRED",
+    "retired_at": "2026-09-18 12:24:05",
+    "superseded_by": "RKM50UV16VA_BLR_ARIMA_v5"
+  },
+  "RKM50UV16VA_MAA_Naive_v1": {
+    "model_id": "RKM50UV16VA_MAA_Naive_v1",
+    "sku": "RKM50UV16VA",
+    "branch": "MAA",
+    "model_name": "Naive",
+    "version": 1,
+    "demand_class": "Trending",
+    "registered_at": "2026-09-18 12:23:26",
+    "validation_metrics": {
+      "model_name": "Naive",
+      "version": 1,
+      "assigned_date": "2026-09-18 12:23:26",
+      "wape": 70.33,
+      "rmse": 545.39,
+      "bias_pct": 18.61,
+      "stability_score": 65.1,
+      "demand_type": "Trending",
+      "selection_reason": "Tournament winner with lowest WAPE (70.3%) and stability 65.1.",
+      "status": "ACTIVE_CHAMPION"
+    },
+    "hyperparameters": {
+      "horizon": 8,
+      "n_folds": 5
+    },
+    "feature_list": [
+      "date",
+      "total_demand",
+      "sku",
+      "branch"
+    ],
+    "status": "RETIRED",
+    "retired_at": "2026-09-18 12:37:19",
+    "superseded_by": "RKM50UV16VA_MAA_Naive_v2"
+  },
+  "RKM50UV16VA_BLR_ARIMA_v5": {
+    "model_id": "RKM50UV16VA_BLR_ARIMA_v5",
+    "sku": "RKM50UV16VA",
+    "branch": "BLR",
+    "model_name": "ARIMA",
+    "version": 5,
+    "demand_class": "Smooth",
+    "registered_at": "2026-09-18 12:24:05",
+    "validation_metrics": {
+      "model_name": "ARIMA",
+      "version": 1,
+      "assigned_date": "2026-09-18 12:24:04",
+      "wape": 18.48,
+      "rmse": 26.31,
+      "bias_pct": 7.2,
+      "stability_score": 72.2,
+      "demand_type": "Smooth",
+      "selection_reason": "Tournament winner with lowest WAPE (18.5%) and stability 72.2.",
+      "status": "ACTIVE_CHAMPION"
+    },
+    "hyperparameters": {
+      "horizon": 12,
+      "n_folds": 2
+    },
+    "feature_list": [
+      "iso_week",
+      "date",
+      "year_actual",
+      "week_actual",
+      "month_actual",
+      "quarter_actual",
+      "sku",
+      "branch",
+      "segment",
+      "star_rating",
+      "material_group",
+      "sbu",
+      "quantity_odu",
+      "quantity_idu",
+      "total_demand",
+      "tonnage",
+      "demand_nonzero"
+    ],
+    "status": "ACTIVE_CHAMPION"
+  },
+  "RKM50UV16VA_SBD_Ensemble_(Consensus)_v1": {
+    "model_id": "RKM50UV16VA_SBD_Ensemble_(Consensus)_v1",
+    "sku": "RKM50UV16VA",
+    "branch": "SBD",
+    "model_name": "Ensemble (Consensus)",
+    "version": 1,
+    "demand_class": "Erratic",
+    "registered_at": "2026-09-18 12:36:12",
+    "validation_metrics": {
+      "model_name": "Ensemble (Consensus)",
+      "version": 1,
+      "assigned_date": "2026-09-18 12:36:12",
+      "wape": 65.4,
+      "rmse": 603.6,
+      "bias_pct": 35.98,
+      "stability_score": 30.9,
+      "demand_type": "Erratic",
+      "selection_reason": "Tournament winner assigned provisionally: WAPE (65.4%) or bias (36.0%) requires manual operational review.",
+      "status": "PROVISIONAL_CHAMPION"
+    },
+    "hyperparameters": {
+      "horizon": 8,
+      "n_folds": 4
+    },
+    "feature_list": [
+      "date",
+      "total_demand",
+      "sku",
+      "branch"
+    ],
+    "status": "PROVISIONAL_CHAMPION"
+  },
+  "RKM50UV16VA_SBD1_Naive_v1": {
+    "model_id": "RKM50UV16VA_SBD1_Naive_v1",
+    "sku": "RKM50UV16VA",
+    "branch": "SBD1",
+    "model_name": "Naive",
+    "version": 1,
+    "demand_class": "Trending",
+    "registered_at": "2026-09-18 12:36:26",
+    "validation_metrics": {
+      "model_name": "Naive",
+      "version": 1,
+      "assigned_date": "2026-09-18 12:36:26",
+      "wape": 104.5,
+      "rmse": 1173.6,
+      "bias_pct": 70.74,
+      "stability_score": 18.2,
+      "demand_type": "Trending",
+      "selection_reason": "Tournament winner assigned provisionally: WAPE (104.5%) or bias (70.7%) requires manual operational review.",
+      "status": "PROVISIONAL_CHAMPION"
+    },
+    "hyperparameters": {
+      "horizon": 8,
+      "n_folds": 4
+    },
+    "feature_list": [
+      "date",
+      "total_demand",
+      "sku",
+      "branch"
+    ],
+    "status": "PROVISIONAL_CHAMPION"
+  },
+  "RL50UV16U2_MAA_Naive_v1": {
+    "model_id": "RL50UV16U2_MAA_Naive_v1",
+    "sku": "RL50UV16U2",
+    "branch": "MAA",
+    "model_name": "Naive",
+    "version": 1,
+    "demand_class": "Erratic",
+    "registered_at": "2026-09-18 12:36:39",
+    "validation_metrics": {
+      "model_name": "Naive",
+      "version": 1,
+      "assigned_date": "2026-09-18 12:36:39",
+      "wape": 191.57,
+      "rmse": 384.77,
+      "bias_pct": 67.75,
+      "stability_score": 1.1,
+      "demand_type": "Erratic",
+      "selection_reason": "Tournament winner assigned provisionally: WAPE (191.6%) or bias (67.8%) requires manual operational review.",
+      "status": "PROVISIONAL_CHAMPION"
+    },
+    "hyperparameters": {
+      "horizon": 8,
+      "n_folds": 5
+    },
+    "feature_list": [
+      "date",
+      "total_demand",
+      "sku",
+      "branch"
+    ],
+    "status": "PROVISIONAL_CHAMPION"
+  },
+  "RKL50UV16V3_MAA_Moving_Average_v1": {
+    "model_id": "RKL50UV16V3_MAA_Moving_Average_v1",
+    "sku": "RKL50UV16V3",
+    "branch": "MAA",
+    "model_name": "Moving Average",
+    "version": 1,
+    "demand_class": "Trending",
+    "registered_at": "2026-09-18 12:36:52",
+    "validation_metrics": {
+      "model_name": "Moving Average",
+      "version": 1,
+      "assigned_date": "2026-09-18 12:36:52",
+      "wape": 335.15,
+      "rmse": 17.2,
+      "bias_pct": 262.79,
+      "stability_score": 0.0,
+      "demand_type": "Trending",
+      "selection_reason": "Tournament winner assigned provisionally: WAPE (335.1%) or bias (262.8%) requires manual operational review.",
+      "status": "PROVISIONAL_CHAMPION"
+    },
+    "hyperparameters": {
+      "horizon": 8,
+      "n_folds": 5
+    },
+    "feature_list": [
+      "date",
+      "total_demand",
+      "sku",
+      "branch"
+    ],
+    "status": "PROVISIONAL_CHAMPION"
+  },
+  "RKL50UV16VA_SBD_Naive_v1": {
+    "model_id": "RKL50UV16VA_SBD_Naive_v1",
+    "sku": "RKL50UV16VA",
+    "branch": "SBD",
+    "model_name": "Naive",
+    "version": 1,
+    "demand_class": "Trending",
+    "registered_at": "2026-09-18 12:36:56",
+    "validation_metrics": {
+      "model_name": "Naive",
+      "version": 1,
+      "assigned_date": "2026-09-18 12:36:56",
+      "wape": 1439.68,
+      "rmse": 94.75,
+      "bias_pct": 1396.41,
+      "stability_score": 15.5,
+      "demand_type": "Trending",
+      "selection_reason": "Tournament winner assigned provisionally: WAPE (1439.7%) or bias (1396.4%) requires manual operational review.",
+      "status": "PROVISIONAL_CHAMPION"
+    },
+    "hyperparameters": {
+      "horizon": 8,
+      "n_folds": 2
+    },
+    "feature_list": [
+      "date",
+      "total_demand",
+      "sku",
+      "branch"
+    ],
+    "status": "PROVISIONAL_CHAMPION"
+  },
+  "RKM50UV16V_SBD_Naive_v1": {
+    "model_id": "RKM50UV16V_SBD_Naive_v1",
+    "sku": "RKM50UV16V",
+    "branch": "SBD",
+    "model_name": "Naive",
+    "version": 1,
+    "demand_class": "Lumpy",
+    "registered_at": "2026-09-18 12:37:08",
+    "validation_metrics": {
+      "model_name": "Naive",
+      "version": 1,
+      "assigned_date": "2026-09-18 12:37:08",
+      "wape": 60.0,
+      "rmse": 46.14,
+      "bias_pct": 60.0,
+      "stability_score": 27.2,
+      "demand_type": "Lumpy",
+      "selection_reason": "Tournament winner assigned provisionally: WAPE (60.0%) or bias (60.0%) requires manual operational review.",
+      "status": "PROVISIONAL_CHAMPION"
+    },
+    "hyperparameters": {
+      "horizon": 8,
+      "n_folds": 5
+    },
+    "feature_list": [
+      "date",
+      "total_demand",
+      "sku",
+      "branch"
+    ],
+    "status": "PROVISIONAL_CHAMPION"
+  },
+  "RKM50UV16VA_MAA_Naive_v2": {
+    "model_id": "RKM50UV16VA_MAA_Naive_v2",
+    "sku": "RKM50UV16VA",
+    "branch": "MAA",
+    "model_name": "Naive",
+    "version": 2,
+    "demand_class": "Trending",
+    "registered_at": "2026-09-18 12:37:19",
+    "validation_metrics": {
+      "model_name": "Naive",
+      "version": 1,
+      "assigned_date": "2026-09-18 12:37:19",
+      "wape": 68.9,
+      "rmse": 544.11,
+      "bias_pct": 19.26,
+      "stability_score": 64.5,
+      "demand_type": "Trending",
+      "selection_reason": "Tournament winner with lowest WAPE (68.9%) and stability 64.5.",
+      "status": "ACTIVE_CHAMPION"
+    },
+    "hyperparameters": {
+      "horizon": 8,
+      "n_folds": 5
+    },
+    "feature_list": [
+      "date",
+      "total_demand",
+      "sku",
+      "branch"
+    ],
+    "status": "ACTIVE_CHAMPION"
+  },
+  "RKL50UV16VA_MAA_Naive_v1": {
+    "model_id": "RKL50UV16VA_MAA_Naive_v1",
+    "sku": "RKL50UV16VA",
+    "branch": "MAA",
+    "model_name": "Naive",
+    "version": 1,
+    "demand_class": "Erratic",
+    "registered_at": "2026-09-18 12:37:23",
+    "validation_metrics": {
+      "model_name": "Naive",
+      "version": 1,
+      "assigned_date": "2026-09-18 12:37:23",
+      "wape": 156.12,
+      "rmse": 236.66,
+      "bias_pct": 61.92,
+      "stability_score": 49.3,
+      "demand_type": "Erratic",
+      "selection_reason": "Tournament winner assigned provisionally: WAPE (156.1%) or bias (61.9%) requires manual operational review.",
+      "status": "PROVISIONAL_CHAMPION"
+    },
+    "hyperparameters": {
+      "horizon": 8,
+      "n_folds": 2
+    },
+    "feature_list": [
+      "date",
+      "total_demand",
+      "sku",
+      "branch"
+    ],
+    "status": "PROVISIONAL_CHAMPION"
+  }
+}

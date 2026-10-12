@@ -1,0 +1,159 @@
+==================================================================
+ISB MID-REVIEW PRESENTATION - QUICK START GUIDE
+==================================================================
+
+FILE TO USE: Capstone_PPT_Enhanced_v2.pptx
+(15 slides - matches your design exactly)
+
+==================================================================
+TONIGHT - 30 MINUTES PREPARATION
+==================================================================
+
+1. OPEN & REVIEW (10 min)
+   - Open: Capstone_PPT_Enhanced_v2.pptx
+   - Confirm: Slide 2 has content (progress metrics)
+   - Check: New slides (2, 13, 14, 15) match your design
+   - Verify: All 15 slides look consistent
+
+2. PRACTICE KEY SLIDE (15 min)
+   - Focus on: Slide 13 (Challenges & Learnings)
+   - Timing: 3-4 minutes
+   - Key message: "Every challenge led to a solution"
+   - Talk through: Challenge → Solution mapping
+
+3. TEST DEMO (5 min)
+   - Open dashboard in browser
+   - Test that it loads
+   - Practice 3-minute walkthrough (optional)
+
+==================================================================
+TOMORROW - PRESENTATION
+==================================================================
+
+TIMING (30 minutes total)
+├─ 5 min: Slides 1-2 (Opening & Progress)
+├─ 8 min: Slides 3-6 (Problem & Context)
+├─ 10 min: Slides 7-12 (Solution & Results)
+├─ 5 min: Slides 13-14 (Learnings & Capabilities)
+└─ 2 min: Slide 15 (Technical & Wrap)
+
+OPENING LINES:
+"Good morning. We're building AI-powered demand forecasting for 
+154 SKUs across South India. Today is our mid-review — we're 75% 
+through with all core deliverables functional."
+
+HERO SLIDE (Slide 13):
+Spend 3-4 minutes here. Show challenges and solutions side-by-side.
+"Every challenge we faced led to a technical solution..."
+
+OPTIONAL DEMO:
+After Slide 14, show dashboard for 3 minutes:
+1. Overview page (20 sec)
+2. Data Quality (20 sec)  
+3. Forecasting (90 sec) - Show SKU selection, run forecast
+4. Export Reports (30 sec)
+
+==================================================================
+KEY NUMBERS TO REMEMBER
+==================================================================
+
+82,034 records analyzed
+154 SKUs in scope
+5 regional hubs
+70% lumpy demand
+95% → 98.5% data quality improvement
+42 branch-SKU series forecasted
+91,504 units forecast
+12 weeks forward horizon
+18% faster model training
+7 dashboard pages
+5 forecasting models
+
+==================================================================
+Q&A PREPARATION
+==================================================================
+
+Q: "Why aren't ML models scored yet?"
+A: "We prioritized statistical models for production first. 
+   ARIMA is running live on 42 series. ML models are built 
+   and in validation."
+
+Q: "What about the 28.77% data gap?"
+A: "We've documented this structural issue in Q1 FY24-25. 
+   Our models train on available history. Closing this gap 
+   is in next-steps roadmap."
+
+Q: "How do you handle lumpy demand?"
+A: "We classified SKUs using Syntetos-Boylan first. 70% 
+   are lumpy, which ruled out standard methods. That's 
+   why we built both statistical and ML tracks."
+
+Q: "Is this production-ready?"
+A: "The dashboard is deployable today. ARIMA forecasts 
+   are export-ready for 42 series. Next phase is scaling 
+   SKU coverage."
+
+==================================================================
+FILES REFERENCE
+==================================================================
+
+Capstone_PPT_Enhanced_v2.pptx       - Use this for presentation
+FINAL_PRESENTATION_SUMMARY.md       - Complete guide
+PRESENTATION_CHEAT_SHEET.md         - Quick reference
+QUICK_START_GUIDE.txt               - This file
+
+==================================================================
+BEFORE YOU LEAVE HOME
+==================================================================
+
+□ Presentation file on USB drive (backup)
+□ Dashboard URL bookmarked (if doing demo)
+□ Laptop fully charged
+□ HDMI adapter/cable
+□ Water bottle
+□ This quick guide printed
+
+==================================================================
+CONFIDENCE BOOSTERS
+==================================================================
+
+YOU BUILT:
+✓ Functional 7-page dashboard
+✓ 5 forecasting models (1 live, 4 in validation)
+✓ Data quality improvement (95% → 98.5%)
+✓ Production-grade architecture
+✓ 6 comprehensive documentation guides
+
+YOU HAVE:
+✓ Enhanced 15-slide presentation
+✓ Exact design match to your style
+✓ Strategic mid-review content
+✓ Complete preparation guides
+
+YOU'RE READY:
+✓ Know your data challenges
+✓ Know your solutions
+✓ Know your results
+✓ Know your next steps
+
+==================================================================
+THE ONE THING TO REMEMBER
+==================================================================
+
+Slide 13 (Challenges & Learnings) is your secret weapon.
+
+Most teams only show what they built.
+You're showing what was hard and how you solved it.
+
+THAT'S what ISB faculty want to see at mid-review.
+
+==================================================================
+
+Good luck! You've built something impressive.
+Now show it with confidence.
+
+==================================================================
+ISB Capstone Project
+Supply Chain Intelligence - AI Demand Forecasting
+Team: Sai Prashanth, Arvind, Hariharan, Vani, Vedika
+==================================================================

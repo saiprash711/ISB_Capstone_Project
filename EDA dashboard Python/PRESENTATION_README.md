@@ -1,9 +1,9 @@
 # 🎨 Stunning Dashboard Presentation
 
 ## 📊 Overview
-A professionally designed PowerPoint presentation showcasing the **Daikin AI Intelligence & Demand Forecasting Dashboard**.
+A professionally designed PowerPoint presentation showcasing the **AI Intelligence & Demand Forecasting Dashboard**.
 
-**File:** `Daikin_EDA_Dashboard_Presentation.pptx`
+**File:** `EDA_Dashboard_Presentation.pptx`
 
 ---
 
@@ -109,7 +109,7 @@ A professionally designed PowerPoint presentation showcasing the **Daikin AI Int
 ## 🚀 How to Use
 
 ### Presenting the Deck
-1. Open `Daikin_EDA_Dashboard_Presentation.pptx`
+1. Open `EDA_Dashboard_Presentation.pptx`
 2. Press **F5** for full-screen presentation mode
 3. Navigate with arrow keys or click
 4. Use Presenter View for notes (if added)
@@ -196,7 +196,7 @@ If you need to recreate or modify the presentation:
 python create_presentation.py
 ```
 
-This will generate a new `Daikin_EDA_Dashboard_Presentation.pptx` file.
+This will generate a new `EDA_Dashboard_Presentation.pptx` file.
 
 ---
 
@@ -230,7 +230,7 @@ Use these colors when customizing slides:
 ## 🙋 Support
 
 - **Script**: `create_presentation.py`
-- **Output**: `Daikin_EDA_Dashboard_Presentation.pptx`
+- **Output**: `EDA_Dashboard_Presentation.pptx`
 - **Library**: python-pptx 1.0.2
 
 ---

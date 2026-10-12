@@ -1,6 +1,6 @@
 """
-Stunning PowerPoint Presentation Generator for EDA Dashboard
-Creates a professional, visually appealing presentation showcasing the dashboard
+ISB Capstone Mid-Review Presentation Generator
+Enhanced version for ISB mid-review meeting with comprehensive project showcase
 """
 
 from pptx import Presentation
@@ -164,7 +164,7 @@ def create_presentation():
     # Main title
     title_box = slide1.shapes.add_textbox(Inches(1), Inches(2), Inches(8), Inches(1.5))
     title_frame = title_box.text_frame
-    title_frame.text = "⚡ Daikin AI Intelligence &\nDemand Forecasting Dashboard"
+    title_frame.text = "⚡ AI Intelligence &\nDemand Forecasting Dashboard"
     p = title_frame.paragraphs[0]
     p.font.size = Pt(40)
     p.font.bold = True
@@ -936,7 +936,7 @@ def create_presentation():
     # Subtitle
     sub_box = slide13.shapes.add_textbox(Inches(2), Inches(3.7), Inches(6), Inches(0.6))
     sub_frame = sub_box.text_frame
-    sub_frame.text = "Daikin AI Intelligence & Demand Forecasting Dashboard"
+    sub_frame.text = "AI Intelligence & Demand Forecasting Dashboard"
     p = sub_frame.paragraphs[0]
     p.font.size = Pt(18)
     p.font.color.rgb = COLOR_TEXT_SECONDARY
@@ -971,7 +971,7 @@ def create_presentation():
     line.line.fill.background()
     
     # Save presentation
-    output_file = "Daikin_EDA_Dashboard_Presentation.pptx"
+    output_file = "EDA_Dashboard_Presentation.pptx"
     prs.save(output_file)
     print(f"\n✅ Presentation created successfully!")
     print(f"📁 File: {output_file}")

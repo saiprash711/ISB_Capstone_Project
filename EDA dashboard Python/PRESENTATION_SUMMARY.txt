@@ -4,7 +4,7 @@
 
 📊 PRESENTATION FILE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  File Name: Daikin_EDA_Dashboard_Presentation.pptx
+  File Name: EDA_Dashboard_Presentation.pptx
   File Size: 830 KB
   Total Slides: 13
   Theme: Dark Gradient (Purple/Blue/Cyan)
@@ -109,7 +109,7 @@
 
   OPEN & PRESENT:
   ───────────────
-  1. Open: Daikin_EDA_Dashboard_Presentation.pptx
+  1. Open: EDA_Dashboard_Presentation.pptx
   2. Press F5 for full-screen presentation mode
   3. Navigate with arrow keys or mouse clicks
   4. Impress your audience! 🎤

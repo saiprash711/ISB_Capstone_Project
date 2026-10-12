@@ -1,0 +1,79 @@
+# Data Configuration
+# Controls data pipeline parameters
+
+data:
+  # Input file
+  input_file: "Filtered.csv"
+  
+  # Valid branch codes (South Region)
+  valid_branches:
+    - BLR    # Bangalore
+    - MAA    # Chennai
+    - COK    # Cochin
+    - SBD    # Secunderabad
+    - SBD1   # Vijayawada
+  
+  # Grain for analysis
+  analysis_grain: "SKU × BRANCH × WEEK"
+  
+  # Minimum weeks of history required for a SKU
+  min_history_weeks: 8
+  
+  # Date parsing
+  date_format: "%d/%m/%Y"
+  
+  # Quantity columns
+  quantity_columns:
+    - quantity_odu    # Original Design Unit
+    - quantity_idu    # Intermediate Design Unit
+  
+  # Demand definition (combination of quantities)
+  demand_definition:
+    type: "sum"
+    columns: ["quantity_odu", "quantity_idu"]
+  
+  # Weight column
+  weight_column: "tonnage"
+
+# Data quality thresholds
+quality:
+  # Minimum data completeness (0-1)
+  min_completeness: 0.7
+  
+  # Maximum allowed missing value percentage per column
+  max_missing_pct: 0.2
+  
+  # Threshold for flagging data drift
+  drift_threshold: 0.15  # 15% change from baseline
+
+# Aggregation rules
+aggregation:
+  # How to aggregate quantities
+  quantity_agg: "sum"
+  
+  # How to aggregate weights
+  weight_agg: "sum"
+  
+  # Categorical columns (take first non-null value)
+  categorical_cols:
+    - segment
+    - star_rating
+    - material_group
+    - sbu
+
+# Data transformations
+transformations:
+  # Remove duplicates
+  remove_duplicates: true
+  
+  # Standardize column names
+  standardize_columns: true
+  
+  # Standardize categorical values
+  standardize_values: true
+  
+  # Handle negative values
+  remove_negative_quantities: true
+  
+  # Impute missing tonnage using average weight per unit
+  impute_tonnage: true

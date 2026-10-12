@@ -14,7 +14,7 @@ Repository: https://github.com/saiprash711/ISB_Capstone_Project.git
 
 🎨 PRESENTATION FILES (5 files):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ✅ Daikin_EDA_Dashboard_Presentation.pptx (830 KB)
+  ✅ EDA_Dashboard_Presentation.pptx (830 KB)
      → 13 professionally designed slides
      → Dark gradient theme
      → Ready to present!
@@ -114,7 +114,7 @@ VERIFICATION RESULTS:
 
 As a bonus, I also created a STUNNING PowerPoint presentation:
 
-FILE: Daikin_EDA_Dashboard_Presentation.pptx
+FILE: EDA_Dashboard_Presentation.pptx
 SLIDES: 13 professional slides
 THEME: Dark gradient (purple/blue/cyan)
 CONTENT:

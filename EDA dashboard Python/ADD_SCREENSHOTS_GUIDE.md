@@ -46,7 +46,7 @@ This will:
 
 1. **Open the Presentation**
    ```
-   Open: Daikin_EDA_Dashboard_Presentation.pptx
+   Open: EDA_Dashboard_Presentation.pptx
    ```
 
 2. **Go to Slide 4 (Overview Page)**

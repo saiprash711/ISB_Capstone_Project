@@ -1,0 +1,146 @@
+# Business Configuration
+# Controls business logic and decision parameters
+
+# Company/Project information
+project:
+  name: "Demand Intelligence & Forecasting Platform"
+  company: "Daikin (ISB Capstone)"
+  region: "South Region"
+  description: "SKU-level demand forecasting with inventory optimization"
+
+# Inventory optimization parameters
+inventory:
+  # Service level target (0-1)
+  target_service_level: 0.95
+  
+  # Lead time (weeks)
+  lead_time_weeks: 2
+  
+  # Demand variability threshold (CV %)
+  demand_variability_high_threshold: 0.5  # >50% = high variability
+  
+  # Holding cost (per unit per week)
+  holding_cost_per_unit_week: 0.1  # Default; can be overridden per SKU
+  
+  # Stockout cost (per unit)
+  stockout_cost_per_unit: 5.0  # Default; can be overridden per SKU
+  
+  # Safety stock calculation method
+  # Options: "normal_distribution", "adjusted_normal", "demand_variability"
+  safety_stock_method: "adjusted_normal"
+  
+  # Reorder point calculation method
+  # Options: "lead_time_demand", "service_level", "rop_formula"
+  reorder_point_method: "service_level"
+
+# Forecast thresholds and alerts
+forecasting_alerts:
+  # Flag if forecast bias exceeds this percentage
+  bias_alert_threshold: 0.1  # ±10%
+  
+  # Flag if WAPE increases from training to recent periods
+  accuracy_degradation_threshold: 0.05  # 5% increase
+  
+  # Flag if demand volatility increases significantly
+  volatility_increase_threshold: 0.2  # 20% increase
+  
+  # Forecast confidence
+  low_confidence_threshold: 0.5  # % of prediction interval width
+
+# Model health monitoring
+model_monitoring:
+  # Retraining frequency
+  retrain_frequency_weeks: 4
+  
+  # Data freshness requirement (weeks)
+  data_freshness_weeks: 1
+  
+  # Performance thresholds for "healthy" status
+  healthy_wape_threshold: 0.25  # <25% WAPE = healthy
+  watch_wape_threshold: 0.35  # 25-35% = watch
+  retrain_required_threshold: 0.40  # >40% = retrain required
+  
+  # Drift detection thresholds
+  drift_detection:
+    # Statistical test for distribution shift
+    test: "kolmogorov_smirnov"  # or "anderson_darling"
+    p_value_threshold: 0.05
+    
+    # Practical drift threshold (mean shift)
+    mean_shift_threshold: 0.2  # 20% mean shift = drift
+
+# Scenario analysis parameters
+scenarios:
+  # Pre-defined scenarios
+  base_case:
+    name: "Base Case"
+    description: "Latest historical patterns"
+    adjustment: 0.0  # No adjustment
+  
+  high_demand:
+    name: "High Demand"
+    description: "+20% demand increase"
+    adjustment: 0.2
+  
+  low_demand:
+    name: "Low Demand"
+    description: "-20% demand decrease"
+    adjustment: -0.2
+  
+  demand_shock:
+    name: "Demand Shock"
+    description: "+50% sudden demand spike"
+    adjustment: 0.5
+  
+  # Custom scenarios can be added via UI
+
+# Business rules
+business_rules:
+  # Minimum order quantity (if applicable)
+  min_order_quantity: 1
+  
+  # Maximum stockout risk tolerance (%)
+  max_stockout_risk: 0.05  # 5%
+  
+  # Minimum forecast coverage (% of SKUs with forecasts)
+  min_forecast_coverage: 0.90
+  
+  # SKU to focus on (high-value, strategic)
+  strategic_skus: []  # Can be populated from business logic
+
+# Report generation
+reports:
+  # Frequency of automated reports
+  executive_report_frequency: "weekly"
+  detailed_report_frequency: "bi-weekly"
+  
+  # Report recipients
+  recipients:
+    executive: ["leadership@company.com"]
+    operations: ["ops@company.com"]
+    supply_chain: ["supply.chain@company.com"]
+  
+  # Report options
+  include_recommendations: true
+  include_risk_analysis: true
+  include_model_explanations: true
+
+# Visibility and transparency
+ui:
+  # Show model explanation on forecast pages
+  show_model_explanation: true
+  
+  # Show prediction intervals/confidence bounds
+  show_prediction_intervals: true
+  
+  # Show model health status
+  show_model_health: true
+  
+  # Show forecast vs actual comparison
+  show_forecast_accuracy: true
+  
+  # Show inventory recommendations
+  show_inventory_recommendations: true
+  
+  # Show data quality score
+  show_data_quality: true

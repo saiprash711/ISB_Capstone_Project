@@ -1,0 +1,45 @@
+{
+  "$schema": "https://repomix.com/schemas/config.json",
+  "output": {
+    "filePath": "repomix-output.xml",
+    "style": "xml",
+    "removeComments": false,
+    "removeEmptyLines": false,
+    "topFilesLength": 10
+  },
+  "ignore": {
+    "useGitignore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": [
+      "*.csv",
+      "*.xlsx",
+      "*.pptx",
+      "*.pdf",
+      "*.png",
+      "*.jpg",
+      "*.jpeg",
+      "*.log",
+      "*.zip",
+      ".pytest_cache/**",
+      "__pycache__/**",
+      "repomix-output.xml",
+      "repomix-output.txt",
+      "repomix-output.json",
+      "create_presentation.py",
+      "enhance_mid_review_ppt.py",
+      "match_design_ppt.py",
+      "Redesign.MD",
+      "PHASE_*.md",
+      "COMPLETION_SUMMARY.md",
+      "FINAL_PRESENTATION_SUMMARY.md",
+      "PUSH_COMPLETE_SUMMARY.txt",
+      "PRESENTATION_*.txt",
+      "STREAMLIT_PATH_FIX.txt",
+      "CORRECT_STREAMLIT_SETTINGS.txt",
+      ".env*",
+      "*key*",
+      "gemini_evaluator.py",
+      "review_result_*.md"
+    ]
+  }
+}
