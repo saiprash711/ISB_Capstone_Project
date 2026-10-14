@@ -72,7 +72,7 @@ st.set_page_config(
     page_title="AI Intelligence & Demand Forecasting | ISB Capstone",
     page_icon="⚡",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # -----------------------------------------------------------------------------
@@ -691,15 +691,17 @@ def inject_theme_css(theme="dark"):
             font-weight: 700 !important;
         }}
 
-        [data-testid="stSidebar"] {{
-            background-color: {sidebar_bg} !important;
-            background-image: {sidebar_grad} !important;
-            border-right: 1px solid {border_glass} !important;
-        }}
-
-        [data-testid="stSidebar"] .block-container {{
-            padding-top: 1.5rem !important;
-        }}
+        /* COMPLETELY HIDE SIDEBAR & TOGGLE CONTROLS */
+        [data-testid="stSidebar"],
+        [data-testid="collapsedControl"],
+        section[data-testid="stSidebar"],
+        div[data-testid="stSidebarCollapseButton"] {
+            display: none !important;
+            visibility: hidden !important;
+            width: 0 !important;
+            min-width: 0 !important;
+            max-width: 0 !important;
+        }
 
         /* RADIO BUTTONS (SIDEBAR NAVIGATION & OPTIONS) */
         [data-testid="stRadio"] label,
@@ -2527,45 +2529,26 @@ def main():
         st.session_state['theme'] = 'dark'
         
     theme_label = "🌙 Dark" if st.session_state['theme'] == 'dark' else "☀️ Light"
-    if 'sidebar_theme_segmented' not in st.session_state:
-        st.session_state['sidebar_theme_segmented'] = theme_label
     if 'top_theme_segmented' not in st.session_state:
         st.session_state['top_theme_segmented'] = theme_label
 
     # Initialize navigation session state
     if 'current_view' not in st.session_state:
         st.session_state['current_view'] = NAV_OPTIONS[0]
-    if 'sidebar_radio_selector' not in st.session_state:
-        st.session_state['sidebar_radio_selector'] = st.session_state['current_view']
     if 'top_segmented_selector' not in st.session_state:
         st.session_state['top_segmented_selector'] = st.session_state['current_view']
 
-    # Callbacks for seamless two-way synchronization
+    # Callbacks for seamless navigation and theme controls
     def on_top_theme_change():
         val = st.session_state.get('top_theme_segmented')
         if val:
             new_theme = 'dark' if 'Dark' in val else 'light'
             st.session_state['theme'] = new_theme
-            st.session_state['sidebar_theme_segmented'] = "🌙 Dark" if new_theme == 'dark' else "☀️ Light"
-
-    def on_sidebar_theme_change():
-        val = st.session_state.get('sidebar_theme_segmented')
-        if val:
-            new_theme = 'dark' if 'Dark' in val else 'light'
-            st.session_state['theme'] = new_theme
-            st.session_state['top_theme_segmented'] = "🌙 Dark" if new_theme == 'dark' else "☀️ Light"
 
     def on_top_nav_change():
         val = st.session_state.get('top_segmented_selector')
         if val:
             st.session_state['current_view'] = val
-            st.session_state['sidebar_radio_selector'] = val
-
-    def on_sidebar_nav_change():
-        val = st.session_state.get('sidebar_radio_selector')
-        if val:
-            st.session_state['current_view'] = val
-            st.session_state['top_segmented_selector'] = val
 
     # Inject dynamic CSS based on active theme
     inject_theme_css(st.session_state['theme'])
@@ -2621,97 +2604,7 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
-    # Synchronized Sidebar Controls
-    with st.sidebar:
-        st.markdown("""
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
-            <div style="font-size: 24px;">🎛️</div>
-            <div>
-                <h3 style="margin: 0; font-family: 'Outfit'; color: var(--text-primary); font-size: 18px;">Control Hub</h3>
-                <p style="margin: 0; font-size: 12px; color: var(--text-secondary);">Executive Command Center</p>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Sidebar Theme Toggle
-        st.markdown("""
-        <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 6px;">
-            🎨 Appearance Theme
-        </div>
-        """, unsafe_allow_html=True)
-        sidebar_theme = st.segmented_control(
-            "Theme Mode",
-            ["🌙 Dark", "☀️ Light"],
-            key="sidebar_theme_segmented",
-            on_change=on_sidebar_theme_change,
-            label_visibility="collapsed"
-        )
-            
-        st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 6px;">
-            Navigation Views
-        </div>
-        """, unsafe_allow_html=True)
-        sidebar_pick = st.radio(
-            "Executive Views:",
-            NAV_OPTIONS,
-            key="sidebar_radio_selector",
-            on_change=on_sidebar_nav_change,
-            label_visibility="collapsed"
-        )
-        
-        st.markdown("---")
-        
-        # Dataset summary badge in sidebar
-        st.markdown(f"""
-        <div class="glass-panel" style="padding: 16px; margin-bottom: 16px;">
-            <div style="font-size: 11px; font-weight: 700; color: {'#00E5FF' if is_dark else '#0369A1'}; text-transform: uppercase; margin-bottom: 8px;">
-                Enterprise Fleet Stats
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12.5px;">
-                <span style="color: var(--text-secondary);">Total Transactions</span>
-                <strong style="color: var(--text-primary);">{metrics['total_records']:,}</strong>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12.5px;">
-                <span style="color: var(--text-secondary);">Active Attributes</span>
-                <strong style="color: var(--text-primary);">{metrics['total_columns']} Cols</strong>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12.5px;">
-                <span style="color: var(--text-secondary);">Completeness</span>
-                <strong style="color: {'#10B981' if is_dark else '#047857'};">{metrics['completeness']:.2f}%</strong>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 12.5px;">
-                <span style="color: var(--text-secondary);">Duplicate Rows</span>
-                <strong style="color: {'#10B981' if metrics['duplicate_rows']==0 else '#B45309'};">{metrics['duplicate_rows']:,}</strong>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px;">
-            Executive Shortcuts
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if st.button("📄 Jump to C-Suite PDF", use_container_width=True, key="shortcut_pdf"):
-            st.session_state['current_view'] = "📄 C-Suite Reports"
-            st.session_state['sidebar_radio_selector'] = "📄 C-Suite Reports"
-            st.session_state['top_segmented_selector'] = "📄 C-Suite Reports"
-            st.rerun()
-            
-        if st.button("🎯 Jump to AI Forecasting", use_container_width=True, key="shortcut_forecast"):
-            st.session_state['current_view'] = "🎯 AI Demand Forecasting"
-            st.session_state['sidebar_radio_selector'] = "🎯 AI Demand Forecasting"
-            st.session_state['top_segmented_selector'] = "🎯 AI Demand Forecasting"
-            st.rerun()
 
-        st.markdown("""
-        <div style="text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 20px;">
-            Supply Chain Analytics & ISB &bull; 2024-2025
-        </div>
-        """, unsafe_allow_html=True)
 
     # Top Navigation Row with View Selector and Theme Toggle
     nav_col, theme_col = st.columns([5.4, 1.6])

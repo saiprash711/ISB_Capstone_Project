@@ -173,11 +173,12 @@ button {
 .app-container {
   display: flex;
   min-height: 100vh;
-  width: 100vw;
+  width: 100%; max-width: 100%;
 }
 
 /* ----------------- SIDEBAR: CONTROL HUB ----------------- */
 .sidebar {
+  display: none !important;
   width: 280px;
   min-width: 280px;
   background: var(--sidebar-grad);
@@ -402,7 +403,7 @@ button {
 
 /* Mobile Toggle */
 .mobile-nav-toggle {
-  display: none;
+  display: none !important;
   position: fixed;
   bottom: 20px;
   right: 20px;
@@ -1304,92 +1305,7 @@ button {
 </head>
 <body>
 
-  <!-- Floating Mobile Menu Toggle -->
-  <button class="mobile-nav-toggle" id="mobileNavToggle" aria-label="Toggle Navigation">☰</button>
-
   <div class="app-container">
-
-    <!-- =====================================================================
-         SIDEBAR: CONTROL HUB - EXECUTIVE COMMAND CENTER
-    ====================================================================== -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-header">
-        <div class="sidebar-icon">🎛️</div>
-        <div class="sidebar-brand">
-          <h3>Control Hub</h3>
-          <p>Executive Command Center</p>
-        </div>
-      </div>
-
-      <!-- Theme Switcher Segmented Control -->
-      <div class="sidebar-section-title">🎨 Appearance Theme</div>
-      <div class="theme-switch-control" id="sidebarThemeControl">
-        <button type="button" class="theme-btn" data-theme="dark">🌙 Dark</button>
-        <button type="button" class="theme-btn active" data-theme="light">☀️ Light</button>
-      </div>
-
-      <!-- Navigation Views -->
-      <div class="sidebar-section-title">Navigation Views</div>
-      <nav class="sidebar-nav-list" id="sidebarNavList">
-        <button type="button" class="nav-item-btn active" data-target="cockpit">
-          <span class="nav-icon">🏠</span> <span>Executive Cockpit</span>
-        </button>
-        <button type="button" class="nav-item-btn" data-target="forecasting">
-          <span class="nav-icon">🎯</span> <span>AI Demand Forecasting</span>
-        </button>
-        <button type="button" class="nav-item-btn" data-target="radar">
-          <span class="nav-icon">🛡️</span> <span>Data Quality Radar</span>
-        </button>
-        <button type="button" class="nav-item-btn" data-target="cleaning">
-          <span class="nav-icon">🧹</span> <span>Data Cleaning Studio</span>
-        </button>
-        <button type="button" class="nav-item-btn" data-target="statistical">
-          <span class="nav-icon">📈</span> <span>Statistical Deep-Dive</span>
-        </button>
-        <button type="button" class="nav-item-btn" data-target="explorer">
-          <span class="nav-icon">🔍</span> <span>Intelligence Explorer</span>
-        </button>
-        <button type="button" class="nav-item-btn" data-target="reports">
-          <span class="nav-icon">📄</span> <span>C-Suite Reports</span>
-        </button>
-      </nav>
-
-      <!-- Enterprise Fleet Stats Panel -->
-      <div class="sidebar-stat-panel">
-        <div class="sidebar-stat-header">Enterprise Fleet Stats</div>
-        <div class="sidebar-stat-row">
-          <span class="label">Total Transactions</span>
-          <strong>82,034</strong>
-        </div>
-        <div class="sidebar-stat-row">
-          <span class="label">Active Attributes</span>
-          <strong>23 Cols</strong>
-        </div>
-        <div class="sidebar-stat-row">
-          <span class="label">Completeness</span>
-          <strong style="color: #10B981;">94.99%</strong>
-        </div>
-        <div class="sidebar-stat-row">
-          <span class="label">Duplicate Rows</span>
-          <strong style="color: #D97706;">4,463</strong>
-        </div>
-      </div>
-
-      <!-- Executive Shortcuts -->
-      <div class="sidebar-section-title">Executive Shortcuts</div>
-      <div class="sidebar-shortcuts">
-        <button type="button" class="shortcut-btn" id="shortcutPdfBtn">
-          📄 Jump to C-Suite PDF
-        </button>
-        <button type="button" class="shortcut-btn" id="shortcutForecastBtn">
-          🎯 Jump to AI Forecasting
-        </button>
-      </div>
-
-      <div class="sidebar-footer">
-        Supply Chain Analytics &amp; ISB &bull; 2024-2025
-      </div>
-    </aside>
 
     <!-- =====================================================================
          MAIN CANVAS AREA

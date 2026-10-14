@@ -252,7 +252,9 @@
       "tonnage",
       "demand_nonzero"
     ],
-    "status": "ACTIVE_CHAMPION"
+    "status": "RETIRED",
+    "retired_at": "2026-10-13 10:13:55",
+    "superseded_by": "RKM50UV16VA_BLR_ARIMA_v6"
   },
   "RKM50UV16VA_SBD_Ensemble_(Consensus)_v1": {
     "model_id": "RKM50UV16VA_SBD_Ensemble_(Consensus)_v1",
@@ -509,5 +511,161 @@
       "branch"
     ],
     "status": "PROVISIONAL_CHAMPION"
+  },
+  "RKM50UV16VA_SBD_Ensemble_(Consensus)_v2": {
+    "model_id": "RKM50UV16VA_SBD_Ensemble_(Consensus)_v2",
+    "sku": "RKM50UV16VA",
+    "branch": "SBD",
+    "model_name": "Ensemble (Consensus)",
+    "version": 2,
+    "demand_class": "Erratic",
+    "registered_at": "2026-10-12 20:21:55",
+    "validation_metrics": {
+      "model_name": "Ensemble (Consensus)",
+      "version": 1,
+      "assigned_date": "2026-10-12 20:21:55",
+      "wape": 65.4,
+      "rmse": 603.6,
+      "bias_pct": 35.98,
+      "stability_score": 30.9,
+      "demand_type": "Erratic",
+      "selection_reason": "Tournament winner assigned provisionally: WAPE (65.4%) or bias (36.0%) requires manual operational review.",
+      "status": "PROVISIONAL_CHAMPION"
+    },
+    "hyperparameters": {
+      "horizon": 8,
+      "n_folds": 4
+    },
+    "feature_list": [
+      "date",
+      "total_demand",
+      "sku",
+      "branch"
+    ],
+    "status": "PROVISIONAL_CHAMPION"
+  },
+  "RKM50UV16VA_SBD1_Naive_v2": {
+    "model_id": "RKM50UV16VA_SBD1_Naive_v2",
+    "sku": "RKM50UV16VA",
+    "branch": "SBD1",
+    "model_name": "Naive",
+    "version": 2,
+    "demand_class": "Trending",
+    "registered_at": "2026-10-12 20:22:15",
+    "validation_metrics": {
+      "model_name": "Naive",
+      "version": 1,
+      "assigned_date": "2026-10-12 20:22:15",
+      "wape": 104.5,
+      "rmse": 1173.6,
+      "bias_pct": 70.74,
+      "stability_score": 18.2,
+      "demand_type": "Trending",
+      "selection_reason": "Tournament winner assigned provisionally: WAPE (104.5%) or bias (70.7%) requires manual operational review.",
+      "status": "PROVISIONAL_CHAMPION"
+    },
+    "hyperparameters": {
+      "horizon": 8,
+      "n_folds": 4
+    },
+    "feature_list": [
+      "date",
+      "total_demand",
+      "sku",
+      "branch"
+    ],
+    "status": "PROVISIONAL_CHAMPION"
+  },
+  "RKM50UV16VA_BLR_ARIMA_v6": {
+    "model_id": "RKM50UV16VA_BLR_ARIMA_v6",
+    "sku": "RKM50UV16VA",
+    "branch": "BLR",
+    "model_name": "ARIMA",
+    "version": 6,
+    "demand_class": "Smooth",
+    "registered_at": "2026-10-13 10:13:55",
+    "validation_metrics": {
+      "model_name": "ARIMA",
+      "version": 1,
+      "assigned_date": "2026-10-13 10:13:53",
+      "wape": 18.48,
+      "rmse": 26.31,
+      "bias_pct": 7.2,
+      "stability_score": 72.2,
+      "demand_type": "Smooth",
+      "selection_reason": "Tournament winner with lowest WAPE (18.5%) and stability 72.2.",
+      "status": "ACTIVE_CHAMPION"
+    },
+    "hyperparameters": {
+      "horizon": 12,
+      "n_folds": 2
+    },
+    "feature_list": [
+      "iso_week",
+      "date",
+      "year_actual",
+      "week_actual",
+      "month_actual",
+      "quarter_actual",
+      "sku",
+      "branch",
+      "segment",
+      "star_rating",
+      "material_group",
+      "sbu",
+      "quantity_odu",
+      "quantity_idu",
+      "total_demand",
+      "tonnage",
+      "demand_nonzero"
+    ],
+    "status": "RETIRED",
+    "retired_at": "2026-10-14 16:19:01",
+    "superseded_by": "RKM50UV16VA_BLR_ARIMA_v7"
+  },
+  "RKM50UV16VA_BLR_ARIMA_v7": {
+    "model_id": "RKM50UV16VA_BLR_ARIMA_v7",
+    "sku": "RKM50UV16VA",
+    "branch": "BLR",
+    "model_name": "ARIMA",
+    "version": 7,
+    "demand_class": "Smooth",
+    "registered_at": "2026-10-14 16:19:01",
+    "validation_metrics": {
+      "model_name": "ARIMA",
+      "version": 1,
+      "assigned_date": "2026-10-14 16:18:56",
+      "wape": 18.48,
+      "rmse": 26.31,
+      "bias_pct": 7.2,
+      "stability_score": 72.2,
+      "demand_type": "Smooth",
+      "selection_reason": "Tournament winner with lowest WAPE (18.5%) and stability 72.2.",
+      "status": "ACTIVE_CHAMPION"
+    },
+    "hyperparameters": {
+      "horizon": 12,
+      "n_folds": 2
+    },
+    "feature_list": [
+      "iso_week",
+      "date",
+      "year_actual",
+      "week_actual",
+      "month_actual",
+      "quarter_actual",
+      "sku",
+      "branch",
+      "segment",
+      "star_rating",
+      "material_group",
+      "sbu",
+      "quantity_odu",
+      "quantity_idu",
+      "total_demand",
+      "tonnage",
+      "demand_nonzero"
+    ],
+    "status": "ACTIVE_CHAMPION"
   }
 }
