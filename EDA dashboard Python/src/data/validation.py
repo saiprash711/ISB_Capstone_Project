@@ -217,7 +217,7 @@ class DataValidator:
         # Check for invalid dates
         if 'Billing Date' in self.df.columns:
             try:
-                dates = pd.to_datetime(self.df['Billing Date'], errors='coerce')
+                dates = pd.to_datetime(self.df['Billing Date'], dayfirst=True, errors='coerce')
                 invalid_dates = dates.isnull().sum()
                 if invalid_dates > 0:
                     result = ValidationResult(
@@ -277,7 +277,7 @@ class DataValidator:
         """Check for missing time periods."""
         if 'Billing Date' in self.df.columns:
             try:
-                dates = pd.to_datetime(self.df['Billing Date'], errors='coerce')
+                dates = pd.to_datetime(self.df['Billing Date'], dayfirst=True, errors='coerce')
                 date_range = (dates.max() - dates.min()).days
                 expected_weeks = date_range / 7
                 actual_weeks = self.df['Week'].nunique() if 'Week' in self.df.columns else 0

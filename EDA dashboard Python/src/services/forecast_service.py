@@ -22,6 +22,9 @@ from src.explainability.shap_analysis import ForecastExplainer
 logger = logging.getLogger(__name__)
 
 
+_GLOBAL_FORECAST_CACHE: Dict[str, Dict[str, Any]] = {}
+
+
 class ForecastService:
     """
     Central operational service consumed by all dashboard views, CLI runners, and pipelines.
@@ -38,12 +41,11 @@ class ForecastService:
         self.monitor = ForecastMonitor()
         self.drift_detector = DriftDetector()
         self.explainer = ForecastExplainer()
-        self._forecast_cache: Dict[str, Dict[str, Any]] = {}
+        self._forecast_cache: Dict[str, Dict[str, Any]] = _GLOBAL_FORECAST_CACHE
 
     def set_data(self, df: pd.DataFrame):
-        """Update dataset reference and clear ephemeral caches."""
+        """Update dataset reference."""
         self.df = df
-        self._forecast_cache.clear()
 
     def get_forecast(self, sku: str, branch: str, horizon: int = 12,
                      target_service_level: float = 0.95,

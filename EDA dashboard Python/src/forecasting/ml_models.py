@@ -34,7 +34,7 @@ except ImportError:
 class RandomForestForecaster:
     """Random Forest time series forecasting."""
     
-    def __init__(self, n_estimators: int = 100, max_depth: int = 20):
+    def __init__(self, n_estimators: int = 50, max_depth: int = 12):
         """Initialize Random Forest forecaster."""
         if not SKLEARN_AVAILABLE:
             raise ImportError("scikit-learn required for Random Forest")
@@ -85,7 +85,7 @@ class RandomForestForecaster:
 class GradientBoostingForecaster:
     """Gradient Boosting Machine time series forecasting."""
     
-    def __init__(self, n_estimators: int = 100, learning_rate: float = 0.1):
+    def __init__(self, n_estimators: int = 50, learning_rate: float = 0.1, max_depth: int = 4):
         """Initialize Gradient Boosting forecaster."""
         if not SKLEARN_AVAILABLE:
             raise ImportError("scikit-learn required for Gradient Boosting")
@@ -93,6 +93,7 @@ class GradientBoostingForecaster:
         self.model = GradientBoostingRegressor(
             n_estimators=n_estimators,
             learning_rate=learning_rate,
+            max_depth=max_depth,
             random_state=42
         )
     
@@ -120,7 +121,7 @@ class GradientBoostingForecaster:
 class XGBoostForecaster:
     """XGBoost time series forecasting."""
     
-    def __init__(self, n_estimators: int = 100, learning_rate: float = 0.1, max_depth: int = 6):
+    def __init__(self, n_estimators: int = 50, learning_rate: float = 0.1, max_depth: int = 4):
         """Initialize XGBoost forecaster."""
         if not XGBOOST_AVAILABLE:
             raise ImportError("XGBoost required")
@@ -129,7 +130,8 @@ class XGBoostForecaster:
             n_estimators=n_estimators,
             learning_rate=learning_rate,
             max_depth=max_depth,
-            random_state=42
+            random_state=42,
+            verbosity=0
         )
     
     def fit(self, X: np.ndarray, y: np.ndarray) -> Dict:
@@ -156,7 +158,7 @@ class XGBoostForecaster:
 class LightGBMForecaster:
     """LightGBM time series forecasting."""
     
-    def __init__(self, n_estimators: int = 100, learning_rate: float = 0.05):
+    def __init__(self, n_estimators: int = 50, learning_rate: float = 0.05, max_depth: int = 4):
         """Initialize LightGBM forecaster."""
         if not LIGHTGBM_AVAILABLE:
             raise ImportError("LightGBM required")
@@ -164,7 +166,9 @@ class LightGBMForecaster:
         self.model = lgb.LGBMRegressor(
             n_estimators=n_estimators,
             learning_rate=learning_rate,
-            random_state=42
+            max_depth=max_depth,
+            random_state=42,
+            verbosity=-1
         )
     
     def fit(self, X: np.ndarray, y: np.ndarray) -> Dict:

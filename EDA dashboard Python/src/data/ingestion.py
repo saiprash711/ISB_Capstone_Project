@@ -71,7 +71,7 @@ def get_dataset_info(df: pd.DataFrame) -> dict:
     date_range = "N/A"
     if 'Billing Date' in df.columns:
         try:
-            dates = pd.to_datetime(df['Billing Date'], errors='coerce')
+            dates = pd.to_datetime(df['Billing Date'], dayfirst=True, errors='coerce')
             date_range = f"{dates.min()} to {dates.max()}"
         except:
             date_range = "Unable to parse dates"

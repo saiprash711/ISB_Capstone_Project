@@ -30,22 +30,21 @@ class ARIMAModel:
         
         try:
             if self.auto:
-                # Auto-select order using AIC
+                # Efficient order selection across canonical time-series candidates
                 best_aic = np.inf
-                best_order = (0, 0, 0)
+                best_order = (1, 1, 1)
+                candidate_orders = [(1, 1, 1), (1, 0, 1), (0, 1, 1), (1, 0, 0)]
                 
-                for p in range(3):
-                    for d in range(2):
-                        for q in range(3):
-                            try:
-                                model = ARIMA(y, order=(p, d, q))
-                                fitted = model.fit()
-                                if fitted.aic < best_aic:
-                                    best_aic = fitted.aic
-                                    best_order = (p, d, q)
-                                    self.fitted_model = fitted
-                            except:
-                                pass
+                for candidate in candidate_orders:
+                    try:
+                        model = ARIMA(y, order=candidate)
+                        fitted = model.fit()
+                        if fitted.aic < best_aic:
+                            best_aic = fitted.aic
+                            best_order = candidate
+                            self.fitted_model = fitted
+                    except Exception:
+                        pass
                 
                 self.order = best_order
                 return {'status': 'success', 'order': best_order, 'aic': best_aic}

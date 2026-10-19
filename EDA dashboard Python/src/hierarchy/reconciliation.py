@@ -106,11 +106,16 @@ class HierarchicalReconciler:
                 
             coherency_results[branch] = {
                 'branch': branch,
+                'sku_sum_total': float(np.sum(branch_sku_sum)),
+                'branch_total': float(np.sum(b_forecast)),
                 'max_divergence': round(max_diff, 4),
-                'coherent': is_branch_coherent
+                'max_discrepancy': round(max_diff, 4),
+                'coherent': is_branch_coherent,
+                'is_coherent': is_branch_coherent
             }
 
         return {
             'overall_coherent': overall_coherent,
-            'branch_details': coherency_results
+            'branch_details': coherency_results,
+            'details': coherency_results
         }
