@@ -1103,9 +1103,16 @@ if __name__ == '__main__':
     shutil.copyfile(file1_name, os.path.join(reports_dir, file1_name))
     print(f"Copied {file1_name} to {reports_dir}/")
     
-    # 2. Generate Contribution Report
-    generate_contribution_report(file2_name)
-    shutil.copyfile(file2_name, os.path.join(reports_dir, file2_name))
-    print(f"Copied {file2_name} to {reports_dir}/")
+    # 2. Generate Contribution Report (Official ISB Template Format)
+    try:
+        import update_individual_contribution_report
+        update_individual_contribution_report.populate_docx()
+        update_individual_contribution_report.convert_docx_to_pdf()
+        print(f"Generated official ISB template contribution report and synced to {reports_dir}/")
+    except Exception as e:
+        print(f"Word COM export failed ({e}), falling back to ReportLab builder...")
+        generate_contribution_report(file2_name)
+        shutil.copyfile(file2_name, os.path.join(reports_dir, file2_name))
+        print(f"Copied {file2_name} to {reports_dir}/")
     
     print("\n[ALL CALIBRATED PDF GENERATIONS COMPLETED SUCCESSFULLY!]")

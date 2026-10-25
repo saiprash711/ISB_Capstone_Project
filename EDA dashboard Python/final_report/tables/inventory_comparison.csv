@@ -1,0 +1,7 @@
+model,safety_stock_units,cycle_service_pct,fill_rate_pct,excess_units_per_cycle,ss_change_vs_ma_pct,ss_value_inr_cr,annual_holding_inr_lakh
+Naive,27037.95349025457,90.4,85.7,27947.0,15.8,67.59,1013.9
+Moving Average (8w),23345.421824292367,92.2,87.8,27804.0,0.0,58.36,875.5
+SBA,25221.076611479017,90.7,82.9,28388.0,8.0,63.05,945.8
+Seasonal SBA,26818.561796411428,92.2,85.9,30955.0,14.9,67.05,1005.7
+LightGBM,23065.830461009195,92.6,87.8,22468.0,-1.2,57.66,865.0
+Ensemble (LightGBM + Seasonal SBA),23618.863908212363,91.9,86.5,25447.0,1.2,59.05,885.7

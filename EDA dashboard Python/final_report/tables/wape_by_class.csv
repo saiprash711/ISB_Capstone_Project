@@ -1,0 +1,13 @@
+model,Erratic,Intermittent,Lumpy,Smooth
+"ARIMA(1,1,1)",87.1,112.8,149.6,133.1
+Croston,89.5,191.9,179.5,128.4
+Ensemble (LightGBM + Seasonal SBA),72.9,165.1,159.0,37.9
+LightGBM,72.8,106.6,122.8,32.7
+Moving Average (8w),92.5,113.4,140.4,133.1
+Naive,91.5,101.1,130.2,102.7
+Random Forest,79.6,183.3,174.4,28.0
+SBA,88.2,186.2,174.6,116.9
+SES,86.3,105.3,135.2,127.1
+Seasonal Naive,102.8,159.8,251.5,102.7
+Seasonal SBA,80.1,225.2,201.1,52.7
+TSB,88.8,117.0,145.7,129.3

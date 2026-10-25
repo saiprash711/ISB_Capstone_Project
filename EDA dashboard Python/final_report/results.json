@@ -1,0 +1,1063 @@
+{
+  "quality": {
+    "rows": 82034,
+    "columns": 24,
+    "cells": 1968816,
+    "null_cells": 176313,
+    "completeness_pct": 91.04,
+    "completeness_excl_unnamed_pct": 94.99,
+    "null_by_column": {
+      "Material": 1,
+      "Unnamed: 1": 81878,
+      "Billing Doc.": 23604,
+      "Item": 23604,
+      "SALES OFFICE CODE": 1,
+      "EXT MAT GROUP": 1,
+      "MatGroup3": 1,
+      "Star Rating": 1,
+      "Segment": 1,
+      "Star Rating.1": 1,
+      "Stor. Location": 23604,
+      "SALES OFFICE CODE.1": 1,
+      "SBU": 1,
+      "Year": 1,
+      "Month": 1,
+      "Week": 1,
+      "Billing Date": 1,
+      "Customer": 1,
+      "Material.1": 1,
+      "Billing Quantity ODU": 1,
+      "Billing Quantity IDU": 1,
+      "Tonnage": 1,
+      "Dealer Name": 23604,
+      "Tonnage.1": 1
+    },
+    "blank_rows": 1,
+    "date_min": "2022-07-16",
+    "date_max": "2024-06-30",
+    "rows_by_fy": {
+      "23-24": 40551,
+      "24-25 Q1": 23603,
+      "22-23": 17879
+    },
+    "q1_fy25_share_pct": 28.77,
+    "exact_duplicates": 4463,
+    "duplicates_by_fy": {
+      "24-25 Q1": 4463
+    },
+    "duplicates_pct": 5.44,
+    "materials_total": 154,
+    "materials_by_group": {
+      "RA-IDU": 84,
+      "RA-ODU": 70
+    },
+    "customers": 2352,
+    "dealers": 510,
+    "branches": {
+      "MAA": 28832,
+      "COK": 15110,
+      "SBD": 13971,
+      "SBD1": 13733,
+      "BLR": 10387
+    },
+    "neg_odu_rows": 1436,
+    "neg_idu_rows": 299,
+    "gross_odu": 729297.0,
+    "gross_idu": 173094.0,
+    "idu_qty_before_q1": 0.0,
+    "idu_rows_before_q1": 0,
+    "star_label_inconsistency": 41
+  },
+  "cleaning_steps": [
+    [
+      "Raw ERP rows",
+      82034
+    ],
+    [
+      "Blank row removed",
+      82033
+    ],
+    [
+      "Exact duplicates removed",
+      77570
+    ],
+    [
+      "IDU component lines set aside",
+      67985
+    ],
+    [
+      "Return / credit lines set aside",
+      66579
+    ],
+    [
+      "Zero-quantity lines removed",
+      66336
+    ]
+  ],
+  "returns": {
+    "rows": 1406,
+    "units": 5819.5,
+    "rate_pct": 0.83
+  },
+  "clean": {
+    "odu_lines": 66336,
+    "odu_units": 698904.5,
+    "odu_skus": 70,
+    "idu_lines_set_aside": 9585,
+    "zero_lines": 243
+  },
+  "q1_volume": {
+    "dedup_units": 137992.0,
+    "with_duplicates_units": 174268.0
+  },
+  "eda": {
+    "weeks": 103,
+    "first_week": "2022-07-17",
+    "last_week": "2024-06-30",
+    "monthly_units": {
+      "2022-07": 3052.5,
+      "2022-08": 7856.0,
+      "2022-09": 12248.0,
+      "2022-10": 8869.0,
+      "2022-11": 9477.0,
+      "2022-12": 44386.0,
+      "2023-01": 19427.5,
+      "2023-02": 32804.0,
+      "2023-03": 36598.0,
+      "2023-04": 41477.5,
+      "2023-05": 32603.0,
+      "2023-06": 18499.5,
+      "2023-07": 10873.5,
+      "2023-08": 19295.0,
+      "2023-09": 20884.0,
+      "2023-10": 21099.0,
+      "2023-11": 19097.5,
+      "2023-12": 57258.5,
+      "2024-01": 25747.0,
+      "2024-02": 41826.5,
+      "2024-03": 77533.5,
+      "2024-04": 76969.0,
+      "2024-05": 43179.0,
+      "2024-06": 17844.0
+    },
+    "weekly_mean": 6785.5,
+    "weekly_cv": 0.91,
+    "weekly_max": 24938.0,
+    "weekly_max_week": "2023-12-31",
+    "weekly_min": 136.5,
+    "yoy_jul_mar": {
+      "fy23": 174718.0,
+      "fy24": 293614.5,
+      "growth_pct": 68.1
+    },
+    "yoy_apr_jun": {
+      "fy24": 92580.0,
+      "fy25": 137992.0,
+      "growth_pct": 49.1
+    },
+    "season_index": {
+      "Jul22-Jun23": {
+        "1": 0.87,
+        "2": 1.47,
+        "3": 1.64,
+        "4": 1.86,
+        "5": 1.46,
+        "6": 0.83,
+        "7": 0.14,
+        "8": 0.35,
+        "9": 0.55,
+        "10": 0.4,
+        "11": 0.43,
+        "12": 1.99
+      },
+      "Jul23-Jun24": {
+        "1": 0.72,
+        "2": 1.16,
+        "3": 2.16,
+        "4": 2.14,
+        "5": 1.2,
+        "6": 0.5,
+        "7": 0.3,
+        "8": 0.54,
+        "9": 0.58,
+        "10": 0.59,
+        "11": 0.53,
+        "12": 1.59
+      }
+    },
+    "peak_months_share_pct": 54.8,
+    "dec_share_pct": 14.5,
+    "branch_units": {
+      "MAA": 245242.5,
+      "SBD": 197950.5,
+      "SBD1": 109650.0,
+      "COK": 75374.0,
+      "BLR": 70687.5
+    },
+    "branch_share_pct": {
+      "MAA": 35.1,
+      "SBD": 28.3,
+      "SBD1": 15.7,
+      "COK": 10.8,
+      "BLR": 10.1
+    },
+    "branch_growth_pct": {
+      "MAA": 52.4,
+      "SBD": 53.5,
+      "SBD1": 121.3,
+      "COK": 143.7,
+      "BLR": 48.1
+    },
+    "segment_share_pct": {
+      "Inverter": 80.7,
+      "Non Inv": 19.3
+    },
+    "star_share_pct": {
+      "I3S": 48.9,
+      "I5S": 31.6,
+      "IOT": 0.1,
+      "N1S": 2.5,
+      "N2S": 0.0,
+      "N3S": 16.8
+    },
+    "tonnage_share_pct": {
+      "0.75": 1.5,
+      "0.8": 2.1,
+      "0.9": 0.0,
+      "1.0": 19.8,
+      "1.5": 65.6,
+      "1.8": 7.3,
+      "2.0": 0.0,
+      "2.2": 3.5
+    },
+    "sku_count": 70,
+    "skus_for_80pct": 16,
+    "top10_sku_share_pct": 66.4,
+    "top20pct_sku_share_pct": 77.0,
+    "pareto_curve": [
+      0.1511,
+      0.2371,
+      0.3222,
+      0.3936,
+      0.4635,
+      0.5142,
+      0.5555,
+      0.593,
+      0.6283,
+      0.6635,
+      0.6969,
+      0.7248,
+      0.7475,
+      0.7697,
+      0.7907,
+      0.81,
+      0.8285,
+      0.8469,
+      0.8651,
+      0.8824,
+      0.8978,
+      0.9127,
+      0.9274,
+      0.9411,
+      0.9504,
+      0.9585,
+      0.965,
+      0.9703,
+      0.9751,
+      0.9787,
+      0.9822,
+      0.9843,
+      0.986,
+      0.9876,
+      0.9892,
+      0.9904,
+      0.9915,
+      0.9924,
+      0.993,
+      0.9936,
+      0.9941,
+      0.9946,
+      0.995,
+      0.9955,
+      0.9959,
+      0.9963,
+      0.9966,
+      0.997,
+      0.9973,
+      0.9976,
+      0.998,
+      0.9983,
+      0.9986,
+      0.9988,
+      0.999,
+      0.9992,
+      0.9993,
+      0.9995,
+      0.9996,
+      0.9997,
+      0.9998,
+      0.9999,
+      0.9999,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "customers_odu": 2351,
+    "top10_customer_share_pct": 36.6,
+    "top50_customer_share_pct": 67.3,
+    "line_qty": {
+      "median": 4.0,
+      "mean": 10.54,
+      "p90": 25.0,
+      "p99": 120.0,
+      "max": 180.0,
+      "skew": 4.07
+    },
+    "line_size_bands": {
+      "1": 12522,
+      "2": 11467,
+      "3-5": 18534,
+      "6-10": 9809,
+      "11-20": 6081,
+      "21-50": 5738,
+      "51-100": 1377,
+      ">100": 808
+    }
+  },
+  "classification": {
+    "series": 273,
+    "skus": 70,
+    "by_class": [
+      {
+        "cls": "Erratic",
+        "series": 57,
+        "volume": 418291.0,
+        "series_pct": 20.9,
+        "volume_pct": 59.8
+      },
+      {
+        "cls": "Intermittent",
+        "series": 65,
+        "volume": 5581.5,
+        "series_pct": 23.8,
+        "volume_pct": 0.8
+      },
+      {
+        "cls": "Lumpy",
+        "series": 139,
+        "volume": 250970.0,
+        "series_pct": 50.9,
+        "volume_pct": 35.9
+      },
+      {
+        "cls": "Smooth",
+        "series": 12,
+        "volume": 24062.0,
+        "series_pct": 4.4,
+        "volume_pct": 3.4
+      }
+    ],
+    "median_zero_share_pct": 64.5,
+    "series_full_history": 2,
+    "series_started_q1": 44,
+    "sku_level": {
+      "Lumpy": 34,
+      "Erratic": 22,
+      "Intermittent": 9,
+      "Smooth": 5
+    }
+  },
+  "backtest_design": {
+    "origins": [
+      "2023-11-26",
+      "2023-12-24",
+      "2024-01-21",
+      "2024-02-18",
+      "2024-03-17",
+      "2024-04-14",
+      "2024-05-12",
+      "2024-06-09"
+    ],
+    "horizon": 4,
+    "folds": 8,
+    "test_start": "2023-11-26",
+    "test_end": "2024-06-30"
+  },
+  "leaderboard": [
+    {
+      "model": "LightGBM",
+      "wape": 84.69,
+      "bias": -10.26,
+      "mase": 1.36,
+      "wape_4wk_bucket": 62.68,
+      "wape_branch_week": 51.15
+    },
+    {
+      "model": "Ensemble (LightGBM + Seasonal SBA)",
+      "wape": 94.03,
+      "bias": 2.12,
+      "mase": 1.48,
+      "wape_4wk_bucket": 69.15,
+      "wape_branch_week": 51.44
+    },
+    {
+      "model": "SES",
+      "wape": 98.83,
+      "bias": 3.97,
+      "mase": 1.37,
+      "wape_4wk_bucket": 73.61,
+      "wape_branch_week": 67.4
+    },
+    {
+      "model": "Naive",
+      "wape": 101.16,
+      "bias": -13.11,
+      "mase": 1.36,
+      "wape_4wk_bucket": 87.91,
+      "wape_branch_week": 68.76
+    },
+    {
+      "model": "Random Forest",
+      "wape": 102.73,
+      "bias": 26.74,
+      "mase": 3.09,
+      "wape_4wk_bucket": 74.68,
+      "wape_branch_week": 61.96
+    },
+    {
+      "model": "ARIMA(1,1,1)",
+      "wape": 103.09,
+      "bias": 4.94,
+      "mase": 1.36,
+      "wape_4wk_bucket": 79.23,
+      "wape_branch_week": 67.44
+    },
+    {
+      "model": "TSB",
+      "wape": 103.36,
+      "bias": 0.7,
+      "mase": 1.37,
+      "wape_4wk_bucket": 79.96,
+      "wape_branch_week": 71.61
+    },
+    {
+      "model": "Moving Average (8w)",
+      "wape": 104.81,
+      "bias": 10.08,
+      "mase": 1.41,
+      "wape_4wk_bucket": 81.94,
+      "wape_branch_week": 73.68
+    },
+    {
+      "model": "Seasonal SBA",
+      "wape": 110.18,
+      "bias": 14.5,
+      "mase": 1.66,
+      "wape_4wk_bucket": 81.82,
+      "wape_branch_week": 59.54
+    },
+    {
+      "model": "SBA",
+      "wape": 110.19,
+      "bias": 4.63,
+      "mase": 1.53,
+      "wape_4wk_bucket": 87.27,
+      "wape_branch_week": 72.62
+    },
+    {
+      "model": "Croston",
+      "wape": 112.58,
+      "bias": 10.14,
+      "mase": 1.56,
+      "wape_4wk_bucket": 88.98,
+      "wape_branch_week": 73.78
+    },
+    {
+      "model": "Seasonal Naive",
+      "wape": 139.47,
+      "bias": 32.56,
+      "mase": 1.55,
+      "wape_4wk_bucket": 119.14,
+      "wape_branch_week": 72.12
+    }
+  ],
+  "backtest_points": 6968,
+  "backtest_series": 233,
+  "backtest_actual_units": 294395.5,
+  "ml_training_rows_last_fold": 57216,
+  "wape_by_class": {
+    "ARIMA(1,1,1)": {
+      "Erratic": 87.1,
+      "Intermittent": 112.8,
+      "Lumpy": 149.6,
+      "Smooth": 133.1
+    },
+    "Croston": {
+      "Erratic": 89.5,
+      "Intermittent": 191.9,
+      "Lumpy": 179.5,
+      "Smooth": 128.4
+    },
+    "Ensemble (LightGBM + Seasonal SBA)": {
+      "Erratic": 72.9,
+      "Intermittent": 165.1,
+      "Lumpy": 159.0,
+      "Smooth": 37.9
+    },
+    "LightGBM": {
+      "Erratic": 72.8,
+      "Intermittent": 106.6,
+      "Lumpy": 122.8,
+      "Smooth": 32.7
+    },
+    "Moving Average (8w)": {
+      "Erratic": 92.5,
+      "Intermittent": 113.4,
+      "Lumpy": 140.4,
+      "Smooth": 133.1
+    },
+    "Naive": {
+      "Erratic": 91.5,
+      "Intermittent": 101.1,
+      "Lumpy": 130.2,
+      "Smooth": 102.7
+    },
+    "Random Forest": {
+      "Erratic": 79.6,
+      "Intermittent": 183.3,
+      "Lumpy": 174.4,
+      "Smooth": 28.0
+    },
+    "SBA": {
+      "Erratic": 88.2,
+      "Intermittent": 186.2,
+      "Lumpy": 174.6,
+      "Smooth": 116.9
+    },
+    "SES": {
+      "Erratic": 86.3,
+      "Intermittent": 105.3,
+      "Lumpy": 135.2,
+      "Smooth": 127.1
+    },
+    "Seasonal Naive": {
+      "Erratic": 102.8,
+      "Intermittent": 159.8,
+      "Lumpy": 251.5,
+      "Smooth": 102.7
+    },
+    "Seasonal SBA": {
+      "Erratic": 80.1,
+      "Intermittent": 225.2,
+      "Lumpy": 201.1,
+      "Smooth": 52.7
+    },
+    "TSB": {
+      "Erratic": 88.8,
+      "Intermittent": 117.0,
+      "Lumpy": 145.7,
+      "Smooth": 129.3
+    }
+  },
+  "wape_by_horizon": {
+    "ARIMA(1,1,1)": {
+      "1": 94.6,
+      "2": 90.2,
+      "3": 115.2,
+      "4": 116.1
+    },
+    "Croston": {
+      "1": 108.9,
+      "2": 99.6,
+      "3": 123.0,
+      "4": 122.1
+    },
+    "Ensemble (LightGBM + Seasonal SBA)": {
+      "1": 84.6,
+      "2": 82.3,
+      "3": 109.0,
+      "4": 103.4
+    },
+    "LightGBM": {
+      "1": 72.4,
+      "2": 74.9,
+      "3": 97.5,
+      "4": 97.3
+    },
+    "Moving Average (8w)": {
+      "1": 99.9,
+      "2": 91.9,
+      "3": 113.6,
+      "4": 117.4
+    },
+    "Naive": {
+      "1": 73.3,
+      "2": 97.4,
+      "3": 121.0,
+      "4": 116.0
+    },
+    "Random Forest": {
+      "1": 84.4,
+      "2": 87.5,
+      "3": 131.1,
+      "4": 112.0
+    },
+    "SBA": {
+      "1": 107.0,
+      "2": 98.1,
+      "3": 120.2,
+      "4": 118.5
+    },
+    "SES": {
+      "1": 91.0,
+      "2": 87.5,
+      "3": 108.9,
+      "4": 111.4
+    },
+    "Seasonal Naive": {
+      "1": 118.9,
+      "2": 138.0,
+      "3": 165.6,
+      "4": 136.0
+    },
+    "Seasonal SBA": {
+      "1": 101.2,
+      "2": 97.3,
+      "3": 126.5,
+      "4": 119.1
+    },
+    "TSB": {
+      "1": 99.1,
+      "2": 91.9,
+      "3": 113.6,
+      "4": 111.8
+    }
+  },
+  "wape_by_branch": {
+    "ARIMA(1,1,1)": {
+      "BLR": 99.1,
+      "COK": 114.2,
+      "MAA": 111.3,
+      "SBD": 95.8,
+      "SBD1": 93.9
+    },
+    "Croston": {
+      "BLR": 109.4,
+      "COK": 120.3,
+      "MAA": 112.9,
+      "SBD": 102.2,
+      "SBD1": 126.2
+    },
+    "Ensemble (LightGBM + Seasonal SBA)": {
+      "BLR": 94.6,
+      "COK": 99.2,
+      "MAA": 96.7,
+      "SBD": 86.1,
+      "SBD1": 98.3
+    },
+    "LightGBM": {
+      "BLR": 86.6,
+      "COK": 89.3,
+      "MAA": 88.1,
+      "SBD": 83.4,
+      "SBD1": 75.9
+    },
+    "Moving Average (8w)": {
+      "BLR": 102.2,
+      "COK": 116.1,
+      "MAA": 113.4,
+      "SBD": 96.3,
+      "SBD1": 96.1
+    },
+    "Naive": {
+      "BLR": 94.4,
+      "COK": 111.8,
+      "MAA": 97.3,
+      "SBD": 109.6,
+      "SBD1": 91.3
+    },
+    "Random Forest": {
+      "BLR": 114.3,
+      "COK": 115.9,
+      "MAA": 103.5,
+      "SBD": 97.2,
+      "SBD1": 95.1
+    },
+    "SBA": {
+      "BLR": 107.6,
+      "COK": 118.1,
+      "MAA": 110.6,
+      "SBD": 99.7,
+      "SBD1": 123.3
+    },
+    "SES": {
+      "BLR": 98.0,
+      "COK": 109.9,
+      "MAA": 105.7,
+      "SBD": 91.2,
+      "SBD1": 91.0
+    },
+    "Seasonal Naive": {
+      "BLR": 121.8,
+      "COK": 118.5,
+      "MAA": 135.2,
+      "SBD": 156.3,
+      "SBD1": 143.6
+    },
+    "Seasonal SBA": {
+      "BLR": 112.5,
+      "COK": 114.7,
+      "MAA": 111.6,
+      "SBD": 96.9,
+      "SBD1": 125.4
+    },
+    "TSB": {
+      "BLR": 101.2,
+      "COK": 113.2,
+      "MAA": 109.2,
+      "SBD": 96.0,
+      "SBD1": 98.8
+    }
+  },
+  "wape_by_fold": {
+    "ARIMA(1,1,1)": {
+      "0": 124.2,
+      "1": 113.0,
+      "2": 94.6,
+      "3": 80.3,
+      "4": 69.7,
+      "5": 84.3,
+      "6": 184.3,
+      "7": 260.8
+    },
+    "Croston": {
+      "0": 132.4,
+      "1": 118.3,
+      "2": 108.6,
+      "3": 81.9,
+      "4": 76.0,
+      "5": 88.6,
+      "6": 195.9,
+      "7": 333.1
+    },
+    "Ensemble (LightGBM + Seasonal SBA)": {
+      "0": 124.3,
+      "1": 110.6,
+      "2": 91.2,
+      "3": 81.5,
+      "4": 71.3,
+      "5": 84.8,
+      "6": 137.2,
+      "7": 145.3
+    },
+    "LightGBM": {
+      "0": 95.3,
+      "1": 94.1,
+      "2": 82.1,
+      "3": 77.3,
+      "4": 64.8,
+      "5": 82.5,
+      "6": 143.6,
+      "7": 94.3
+    },
+    "Moving Average (8w)": {
+      "0": 110.9,
+      "1": 103.4,
+      "2": 98.7,
+      "3": 76.6,
+      "4": 66.9,
+      "5": 83.2,
+      "6": 233.1,
+      "7": 283.1
+    },
+    "Naive": {
+      "0": 99.9,
+      "1": 150.5,
+      "2": 94.9,
+      "3": 74.9,
+      "4": 88.1,
+      "5": 88.1,
+      "6": 150.5,
+      "7": 131.0
+    },
+    "Random Forest": {
+      "0": 119.8,
+      "1": 119.6,
+      "2": 86.3,
+      "3": 87.4,
+      "4": 69.3,
+      "5": 104.6,
+      "6": 197.8,
+      "7": 136.3
+    },
+    "SBA": {
+      "0": 128.7,
+      "1": 116.7,
+      "2": 105.5,
+      "3": 81.8,
+      "4": 76.6,
+      "5": 87.9,
+      "6": 186.0,
+      "7": 314.3
+    },
+    "SES": {
+      "0": 103.4,
+      "1": 107.3,
+      "2": 93.9,
+      "3": 72.7,
+      "4": 66.3,
+      "5": 81.6,
+      "6": 196.7,
+      "7": 250.1
+    },
+    "Seasonal Naive": {
+      "0": 112.6,
+      "1": 224.7,
+      "2": 117.3,
+      "3": 117.1,
+      "4": 106.5,
+      "5": 129.6,
+      "6": 207.2,
+      "7": 195.4
+    },
+    "Seasonal SBA": {
+      "0": 164.6,
+      "1": 139.0,
+      "2": 109.8,
+      "3": 90.0,
+      "4": 82.1,
+      "5": 93.0,
+      "6": 138.1,
+      "7": 204.1
+    },
+    "TSB": {
+      "0": 115.2,
+      "1": 109.7,
+      "2": 96.2,
+      "3": 75.9,
+      "4": 71.5,
+      "5": 82.4,
+      "6": 182.2,
+      "7": 299.7
+    }
+  },
+  "wape_by_tier": {
+    "ARIMA(1,1,1)": {
+      "A": 98.2,
+      "B": 119.5,
+      "C": 175.9
+    },
+    "Croston": {
+      "A": 105.3,
+      "B": 133.0,
+      "C": 240.0
+    },
+    "Ensemble (LightGBM + Seasonal SBA)": {
+      "A": 85.8,
+      "B": 120.9,
+      "C": 222.3
+    },
+    "LightGBM": {
+      "A": 79.4,
+      "B": 105.7,
+      "C": 149.5
+    },
+    "Moving Average (8w)": {
+      "A": 100.6,
+      "B": 122.9,
+      "C": 150.6
+    },
+    "Naive": {
+      "A": 97.5,
+      "B": 111.7,
+      "C": 163.5
+    },
+    "Random Forest": {
+      "A": 91.3,
+      "B": 138.7,
+      "C": 284.1
+    },
+    "SBA": {
+      "A": 103.2,
+      "B": 129.9,
+      "C": 231.8
+    },
+    "SES": {
+      "A": 94.5,
+      "B": 116.2,
+      "C": 151.6
+    },
+    "Seasonal Naive": {
+      "A": 135.3,
+      "B": 144.9,
+      "C": 241.1
+    },
+    "Seasonal SBA": {
+      "A": 98.9,
+      "B": 143.2,
+      "C": 302.0
+    },
+    "TSB": {
+      "A": 98.8,
+      "B": 119.5,
+      "C": 169.0
+    }
+  },
+  "tier_counts": {
+    "C": 170,
+    "A": 54,
+    "B": 49
+  },
+  "tier_backtest_counts": {
+    "A": 54,
+    "B": 47,
+    "C": 132
+  },
+  "bias_peak": {
+    "LightGBM": {
+      "off_peak": 8.2,
+      "peak": -17.3
+    },
+    "Moving Average (8w)": {
+      "off_peak": 48.3,
+      "peak": -4.5
+    },
+    "Naive": {
+      "off_peak": 12.1,
+      "peak": -22.7
+    },
+    "Seasonal SBA": {
+      "off_peak": 64.6,
+      "peak": -4.6
+    }
+  },
+  "tournament": {
+    "selected_model_counts": {
+      "Naive": 63,
+      "Moving Average (8w)": 56,
+      "LightGBM": 31,
+      "ARIMA(1,1,1)": 18,
+      "Seasonal Naive": 15,
+      "Random Forest": 12,
+      "Ensemble (LightGBM + Seasonal SBA)": 6,
+      "SES": 5,
+      "Seasonal SBA": 5,
+      "SBA": 3,
+      "Croston": 1,
+      "TSB": 1
+    },
+    "tournament_wape": 98.62,
+    "tournament_bias": 12.3,
+    "LightGBM_wape_same_period": 84.9,
+    "Seasonal SBA_wape_same_period": 105.61,
+    "Ensemble (LightGBM + Seasonal SBA)_wape_same_period": 92.44,
+    "Naive_wape_same_period": 99.23,
+    "Moving Average (8w)_wape_same_period": 112.77
+  },
+  "feature_importance_pct": {
+    "roll_mean_8": 29.49,
+    "sku": 13.93,
+    "roll_mean_4": 13.38,
+    "roll_std_8": 8.56,
+    "roll_mean_13": 8.5,
+    "woy_cos": 5.81,
+    "woy_sin": 3.7,
+    "month_index": 2.49,
+    "portfolio_last_year": 2.28,
+    "roll_mean_26": 2.25,
+    "branch": 2.1,
+    "age": 1.37,
+    "last_year_3wk_mean": 0.76,
+    "last_year_same_week": 0.75,
+    "branch_mean_4": 0.72,
+    "lag_1": 0.67,
+    "portfolio_mean_4": 0.6,
+    "nonzero_frac_13": 0.58,
+    "target_month": 0.57,
+    "weeks_since_sale": 0.4,
+    "yoy_ratio_4": 0.22,
+    "star": 0.16,
+    "lag_6": 0.11,
+    "lag_8": 0.1,
+    "lag_4": 0.09,
+    "lag_12": 0.08,
+    "lag_2": 0.08,
+    "tonnage": 0.07,
+    "lag_3": 0.06,
+    "inverter": 0.06,
+    "horizon": 0.05
+  },
+  "inventory": [
+    {
+      "model": "Naive",
+      "safety_stock_units": 27037.95349025457,
+      "cycle_service_pct": 90.4,
+      "fill_rate_pct": 85.7,
+      "excess_units_per_cycle": 27947.0,
+      "ss_change_vs_ma_pct": 15.8,
+      "ss_value_inr_cr": 67.59,
+      "annual_holding_inr_lakh": 1013.9
+    },
+    {
+      "model": "Moving Average (8w)",
+      "safety_stock_units": 23345.421824292367,
+      "cycle_service_pct": 92.2,
+      "fill_rate_pct": 87.8,
+      "excess_units_per_cycle": 27804.0,
+      "ss_change_vs_ma_pct": 0.0,
+      "ss_value_inr_cr": 58.36,
+      "annual_holding_inr_lakh": 875.5
+    },
+    {
+      "model": "SBA",
+      "safety_stock_units": 25221.076611479017,
+      "cycle_service_pct": 90.7,
+      "fill_rate_pct": 82.9,
+      "excess_units_per_cycle": 28388.0,
+      "ss_change_vs_ma_pct": 8.0,
+      "ss_value_inr_cr": 63.05,
+      "annual_holding_inr_lakh": 945.8
+    },
+    {
+      "model": "Seasonal SBA",
+      "safety_stock_units": 26818.561796411428,
+      "cycle_service_pct": 92.2,
+      "fill_rate_pct": 85.9,
+      "excess_units_per_cycle": 30955.0,
+      "ss_change_vs_ma_pct": 14.9,
+      "ss_value_inr_cr": 67.05,
+      "annual_holding_inr_lakh": 1005.7
+    },
+    {
+      "model": "LightGBM",
+      "safety_stock_units": 23065.830461009195,
+      "cycle_service_pct": 92.6,
+      "fill_rate_pct": 87.8,
+      "excess_units_per_cycle": 22468.0,
+      "ss_change_vs_ma_pct": -1.2,
+      "ss_value_inr_cr": 57.66,
+      "annual_holding_inr_lakh": 865.0
+    },
+    {
+      "model": "Ensemble (LightGBM + Seasonal SBA)",
+      "safety_stock_units": 23618.863908212363,
+      "cycle_service_pct": 91.9,
+      "fill_rate_pct": 86.5,
+      "excess_units_per_cycle": 25447.0,
+      "ss_change_vs_ma_pct": 1.2,
+      "ss_value_inr_cr": 59.05,
+      "annual_holding_inr_lakh": 885.7
+    }
+  ],
+  "inventory_series": 204,
+  "inventory_assumptions": {
+    "lead_time_weeks": 2,
+    "z": 1.645,
+    "unit_cost_inr": 25000,
+    "holding_rate": 0.15
+  }
+}

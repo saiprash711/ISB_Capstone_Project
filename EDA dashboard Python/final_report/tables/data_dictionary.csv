@@ -1,0 +1,25 @@
+Field,Type,Missing %,Distinct,Description
+Material,text,0.0,154,Product code (SKU); ODU and IDU models carry distinct codes
+Unnamed: 1,text,99.8,156,"Unlabelled spill-over column; header text repeated, otherwise empty"
+Billing Doc.,numeric,28.8,39550,ERP billing document number
+Item,numeric,28.8,73,Line item within the billing document
+SALES OFFICE CODE,text,0.0,5,"Branch / depot (BLR, COK, MAA, SBD, SBD1)"
+EXT MAT GROUP,text,0.0,2,Material group: RA-ODU (outdoor) or RA-IDU (indoor)
+MatGroup3,text,0.0,1,Product family (RA = room air-conditioner)
+Star Rating,text,0.0,6,"Efficiency code (I3S, I5S, N1S, N2S, N3S, IOT)"
+Segment,text,0.0,2,Inverter or Non-inverter
+Star Rating.1,text,0.0,5,Star rating label (1-5 Star)
+Stor. Location,numeric,28.8,1,Storage location code
+SALES OFFICE CODE.1,text,0.0,5,Duplicate of SALES OFFICE CODE
+SBU,text,0.0,1,Strategic business unit (RA)
+Year,text,0.0,3,"Fiscal year label (22-23, 23-24, 24-25 Q1)"
+Month,text,0.0,12,Fiscal month label
+Week,text,0.0,4,Week-of-month label (Wk 1-4)
+Billing Date,date,0.0,625,Invoice date
+Customer,text,0.0,2352,Billed customer (masked in this report)
+Material.1,text,0.0,154,Duplicate of Material
+Billing Quantity ODU,numeric,0.0,189,Units billed of an outdoor unit (target variable)
+Billing Quantity IDU,numeric,0.0,133,Units billed of an indoor unit
+Tonnage,numeric,0.0,9,Cooling capacity in tons
+Dealer Name,text,28.8,510,Channel dealer (masked in this report)
+Tonnage.1,numeric,0.0,9,Duplicate of Tonnage
