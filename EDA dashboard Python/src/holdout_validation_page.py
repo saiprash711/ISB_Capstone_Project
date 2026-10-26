@@ -10,6 +10,7 @@ Reads precomputed artefacts produced by `validate_holdout_fy25.py`; no models
 are fitted while the page renders.
 """
 import os
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -50,6 +51,12 @@ def _load_rolling(path: str, _mtime_key: float):
     panel = hr.load_panel()
     fc = pd.read_parquet(path)
     return hr.build_rolling_grid(panel, fc), fc
+
+
+@st.cache_data(show_spinner=False, max_entries=6)
+def _load_model_grid(path: str, _mtime_key: float, lag: Optional[str]):
+    """Every model's forecasts (batch harness output) joined with actual billing."""
+    return hr.build_model_grid(hr.load_panel(), pd.read_parquet(path), lag)
 
 
 @st.cache_data(show_spinner=False, max_entries=2)
@@ -175,6 +182,7 @@ def render_holdout_validation_page(theme: str = "dark"):
         else:
             grid, fc, ser = grid_s, fc_s, ser_s
         methods = ['forecast', 'seasonal_naive']
+        lag = None
         st.caption("Models trained on history up to **30-Jun-2024**, then forecast all 52 weeks of FY24-25 in one shot "
                    "(no refits). Benchmark: *seasonal naive* = same week last year.")
     else:
@@ -298,6 +306,65 @@ def render_holdout_validation_page(theme: str = "dark"):
                      column_config={'Actual': st.column_config.NumberColumn(format="localized"),
                                     **{c: st.column_config.NumberColumn(format="%.1f") for c in bdf.columns[2:]}})
 
+    # ------------------------------------------------------------------ 6b. Every model on the holdout
+    _subtitle("🏁 Every model on the holdout — accuracy of each candidate across all SKU × branch series")
+    mg = None
+    m_final, m_partial = hr.models_path(mode), hr.models_path(mode, partial=True)
+    m_path = m_final if os.path.exists(m_final) else (m_partial if os.path.exists(m_partial) else None)
+    if mode == 'static' and use_baseline:
+        st.info("Per-model results are recorded for the current engine only. Switch the engine selector to *Current engine*.")
+    elif m_path is None:
+        st.info("Per-model results not generated yet. Run `python validate_holdout_fy25.py all`.")
+    else:
+        try:
+            mg = _load_model_grid(m_path, _mtime(m_path), lag)
+        except Exception:
+            st.info("Per-model results are being written right now — refresh in a few seconds.")
+        if mg is not None and not mg.empty:
+            if m_path == m_partial:
+                st.warning(f"⏳ Showing {mg[['origin', 'sku', 'branch']].drop_duplicates().shape[0]:,} completed fits; "
+                           "the run is still in progress.")
+            ms = hr.model_portfolio_scores(mg)
+            figm = go.Figure(go.Bar(
+                x=ms['SKU x Branch x Month WAPE %'], y=ms['Model'], orientation='h',
+                marker_color=[accent if m == hr.CHAMPION_LABEL else ('#64748B' if is_dark else '#94A3B8') for m in ms['Model']],
+                text=[f"{v:.1f}%" for v in ms['SKU x Branch x Month WAPE %']], textposition='outside'))
+            figm.update_layout(template=template, height=max(320, 28 * len(ms)), margin=dict(l=10, r=40, t=40, b=10),
+                               title="SKU × branch × month WAPE by model (lower is better)", yaxis=dict(autorange='reversed'))
+            mc1, mc2 = st.columns([1, 1.6])
+            with mc1:
+                st.plotly_chart(figm, width="stretch")
+            with mc2:
+                st.dataframe(ms, hide_index=True, width="stretch",
+                             column_config={c: st.column_config.NumberColumn(format="%.1f") for c in ms.columns
+                                            if c not in ('Model', 'Series')})
+            st.caption("Each model is scored on the series where it produced a forecast; 'Volume covered' shows how much of "
+                       "the champion's volume that is (ML models need ≥ 20 weeks, seasonal naive ≥ 52, intermittent models "
+                       "only run on intermittent series). 'vs champion' compares the model with the auto-selected champion "
+                       "on exactly the same series: negative means the model beat the champion.")
+            options = ms['Model'].tolist()
+            pick = st.multiselect("Compare models month by month (common series only)", options, key="holdout_model_pick",
+                                  default=[m for m in [hr.CHAMPION_LABEL, 'Seasonal Index', 'Seasonal Naive', 'Moving Average']
+                                           if m in options])
+            if pick:
+                common = None
+                for m in pick:
+                    k = set(map(tuple, mg.loc[mg.model == m, ['sku', 'branch']].drop_duplicates().values))
+                    common = k if common is None else common & k
+                cm = mg[mg[['sku', 'branch']].apply(tuple, axis=1).isin(common)] if common else mg.iloc[0:0]
+                figc = go.Figure()
+                act_m = cm[cm.model == pick[0]].groupby('month')['actual'].sum()
+                figc.add_bar(x=act_m.index, y=act_m.values, name='Actual', marker_color=colors['actual'])
+                palette = [accent, '#F59E0B', '#A855F7', '#10B981', '#F43F5E', '#3B82F6']
+                for i, m in enumerate(pick):
+                    sm = cm[cm.model == m].groupby('month')['forecast'].sum()
+                    figc.add_scatter(x=sm.index, y=sm.values, name=m, mode='lines+markers',
+                                     line=dict(color=palette[i % len(palette)], width=3 if m == hr.CHAMPION_LABEL else 2))
+                figc.update_layout(template=template, height=380, legend=dict(orientation='h', y=1.15),
+                                   margin=dict(t=40, b=10), yaxis_title='ODU units',
+                                   title=f"South region monthly, {len(common or [])} series where all selected models forecast")
+                st.plotly_chart(figc, width="stretch")
+
     # ------------------------------------------------------------------ 7. SKU x Branch drill-down
     _subtitle("🔎 SKU × branch drill-down — weekly actual vs forecast")
     vol = grid.groupby(['branch', 'sku'])['actual'].sum().sort_values(ascending=False)
@@ -323,6 +390,19 @@ def render_holdout_validation_page(theme: str = "dark"):
         figs.add_scatter(x=sd.week, y=sd[m], name=METHOD_LABELS[m], mode='lines',
                          line=dict(color=colors[m], width=3 if m == 'forecast' else 1.5,
                                    dash='solid' if m == 'forecast' else 'dot'))
+    if mg is not None and not mg.empty:
+        sm_all = mg[(mg.sku == sel_sku) & (mg.branch == sel_branch)]
+        if mode == 'rolling':
+            sm_all = sm_all.sort_values('origin').drop_duplicates(['model', 'week'], keep='last')
+        overlay = st.multiselect("Overlay other models for this SKU × branch", sorted(sm_all.model.unique()),
+                                 key="holdout_overlay")
+        palette = ['#A855F7', '#10B981', '#F43F5E', '#3B82F6', '#EC4899', '#84CC16']
+        for i, m in enumerate(overlay):
+            o = sm_all[sm_all.model == m].sort_values('week')
+            figs.add_scatter(x=o.week, y=o.forecast, name=m, mode='lines',
+                             line=dict(color=palette[i % len(palette)], width=2))
+            mm = hr.metrics(o.actual, o.forecast)
+            st.caption(f"{m}: weekly WAPE {mm['WAPE %']:.1f}%, bias {mm['Bias %']:+.1f}% for this SKU × branch.")
     figs.update_layout(height=380, template=template, legend=dict(orientation='h', y=1.15),
                        yaxis_title='ODU units / week', margin=dict(t=40, b=10))
     st.plotly_chart(figs, width="stretch")

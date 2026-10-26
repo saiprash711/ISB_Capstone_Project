@@ -109,10 +109,10 @@ def build_reports_data(F):
         "project_title": "Air Conditioning Demand Forecasting & Supply Chain Optimization",
         "milestones": (
             "The team successfully engineered and validated the Enterprise Forecasting Engine, "
-            "transitioning from baseline statistical modeling to an APICS-compliant, zero-leakage "
+            "transitioning from baseline statistical modeling to an APICS-compliant, leakage-controlled "
             "machine learning tournament framework. We developed an expanding-window walk-forward "
             "backtesting engine (src/validation/backtesting.py), passed an exhaustive 4-tier temporal "
-            "leakage audit with zero violations (src/validation/leakage_audit.py), and established an "
+            "leakage audit plus feature-level leakage tests (a growth-feature leak found during the FY24-25 validation was fixed), and established an "
             "automated Syntetos-Boylan demand profiling and candidate routing architecture (src/selection/demand_classifier.py). "
             f"Benchmarking was executed across {d['skus']} SKUs ({d['odu_skus']} ODU) and {d['branches']} regional branches across 4 distinct algorithmic "
             "families, and an auditable Champion/Challenger model registry (src/selection/champion_challenger.py) "
@@ -123,7 +123,7 @@ def build_reports_data(F):
                 "title": "1. Temporal Leakage Audit & Walk-Forward Validation Engine",
                 "items": [
                     ("Causal Walk-Forward Splits", "Engineered and validated src/validation/backtesting.py enforcing strictly chronological expanding-window rolling-origin splits where max(train) < min(test) across all validation folds, permanently eliminating shuffle/lookahead contamination."),
-                    ("Zero-Leakage Forensic Audit", "Executed comprehensive temporal leakage validation (src/validation/leakage_audit.py): passed all 4 strict causal assertions including lag causality (t-k, k >= 1), contemporaneous exclusion, zero future target correlation, and split disjointness with 100% compliance."),
+                    ("Temporal Leakage Audit & Fix", "Temporal leakage controls (src/validation/leakage_audit.py, tests/test_leakage_audit.py): lag causality, rolling-window exclusion, split disjointness, plus two feature-level tests (no feature may depend on y(t); forecast-time features must equal training features). These tests exposed a leak in the 12-week growth feature, which was fixed."),
                     ("Multi-Factor Stability Index", "Formulated an objective model stability score penalizing candidate models for cross-fold WAPE variance, worst-fold performance degradation, and directional bias inconsistency across rolling validation origins.")
                 ]
             },

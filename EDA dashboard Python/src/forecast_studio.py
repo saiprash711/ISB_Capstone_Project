@@ -17,7 +17,7 @@ import os
 from src.forecasting.model_zoo import ENSEMBLE_NAME, MODEL_DESCRIPTIONS
 from src.selection.model_selector import ModelSelector
 from src.validation import holdout_report as _hr
-from src.validation.model_validation import CHAMPION_LABEL, score_models, validate_series
+from src.validation.model_validation import CHAMPION_LABEL, from_batch, score_models, validate_series
 
 STATISTICAL_MODELS = ['Seasonal Index', 'Seasonal Index (smooth)', 'SARIMA', 'ETS', 'ARIMA',
                       'Exponential Smoothing', 'Moving Average', 'Naive', 'Seasonal Naive',
@@ -199,10 +199,21 @@ def _holdout_panel(_mtime: float) -> pd.DataFrame:
     return pd.read_parquet(_hr.PANEL_PATH)
 
 
+@st.cache_data(show_spinner=False, max_entries=2)
+def _batch_models(path: str, _mtime: float) -> pd.DataFrame:
+    return pd.read_parquet(path)
+
+
 @st.cache_data(show_spinner=False, max_entries=48, ttl=6 * 3600)
 def compute_model_validation(sku: str, branches: Optional[Sequence[str]], mode: str) -> Dict[str, Any]:
     """Every candidate model forecast from data up to each origin, lined up with FY24-25 actuals."""
     panel = _holdout_panel(os.path.getmtime(_hr.PANEL_PATH))
+    # A single SKU x branch already run by the batch harness: identical run_origin output, read instantly
+    batch = _hr.models_path(mode)
+    if branches and len(branches) == 1 and os.path.exists(batch):
+        hit = from_batch(_batch_models(batch, os.path.getmtime(batch)), panel, sku, branches[0], _hr.HOLDOUT_END_WEEK)
+        if hit is not None:
+            return hit
     if mode == 'static':
         origins, horizon = [_hr.TRAIN_END_WEEK], 52
     else:
@@ -282,8 +293,8 @@ def render_holdout_model_validation(sku: str, branches: Optional[Sequence[str]],
         cr = champ_rows.iloc[0]
         champ_line = (f" The auto-selected champion ranked **#{int(cr['Holdout rank'])} of {len(table)}** "
                       f"(monthly WAPE {cr['Monthly WAPE %']:.1f}%).")
-    st.markdown(f"Best model on the holdout: **{best['Model']}**, monthly WAPE {best['Monthly WAPE %']:.1f}% "
-                f"(bias {best['Bias %']:+.1f}%).{champ_line}")
+    st.markdown(f"Best model on the holdout (lowest monthly RMSE, the tournament's rule): **{best['Model']}**, "
+                f"monthly WAPE {best['Monthly WAPE %']:.1f}% (bias {best['Bias %']:+.1f}%).{champ_line}")
     st.dataframe(
         table, hide_index=True, width="stretch",
         column_config={
@@ -296,8 +307,9 @@ def render_holdout_model_validation(sku: str, branches: Optional[Sequence[str]],
               if mode == 'static' else
               f"At each of {n_origins} monthly origins every model was refitted on history plus actuals to that date; "
               f"scores use the forecasts made {lag} before each week.")
-    st.caption(f"{design} WAPE = Σ|actual − forecast| ÷ Σ actual. Backtest WAPE is what the tournament saw before the "
-               "holdout (4 folds × 12 weeks); compare its rank with the holdout rank to judge model selection.")
+    st.caption(f"{design} Ranked on monthly RMSE, the rule the champion tournament uses; WAPE = Σ|actual − forecast| ÷ Σ actual "
+               "is shown alongside but is not used for ranking because a zero forecast can minimise it on lumpy SKUs. "
+               "Backtest WAPE is what the tournament saw before the holdout (4 folds × 12 weeks).")
     if val.get('errors'):
         with st.expander(f"{len(val['errors'])} model(s) or origin(s) could not be validated"):
             st.dataframe(pd.DataFrame([{'Model / origin': k, 'Reason': v} for k, v in val['errors'].items()]),

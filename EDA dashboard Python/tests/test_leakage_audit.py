@@ -52,6 +52,40 @@ def test_no_future_information_in_rolling_features():
     assert abs(df_feat.loc[4, 'rolling_mean_4'] - expected_mean_4) < 1e-4
 
 
+def _series_with_zeros(n=40):
+    y = np.array([0, 5, 0, 12, 30, 0, 0, 8, 50, 3] * (n // 10), dtype=float)[:n]
+    return pd.DataFrame({'date': pd.date_range('2023-01-02', periods=n, freq='W-MON'),
+                         'sku': 'SKU_TEST', 'branch': 'MAA', 'total_demand': y})
+
+
+def test_no_feature_uses_current_period_target():
+    """Changing y(t) must not change any feature in row t (catches every contemporaneous leak)."""
+    engineer = FeatureEngineer()
+    df = _series_with_zeros()
+    base, cols = engineer.engineer_features(df)
+    for t in [15, 25, 33]:
+        bumped = df.copy()
+        bumped.loc[t, 'total_demand'] = bumped.loc[t, 'total_demand'] * 10 + 999
+        feat, _ = engineer.engineer_features(bumped)
+        a = base.loc[t, cols].astype(float).fillna(0).values
+        b = feat.loc[t, cols].astype(float).fillna(0).values
+        leaking = [c for c, x, z in zip(cols, a, b) if not np.isclose(x, z)]
+        assert not leaking, f"features at t={t} depend on y(t): {leaking}"
+
+
+def test_forecast_features_match_training_features():
+    """Recursive forecasting must build exactly the features the models were trained on."""
+    engineer = FeatureEngineer()
+    df = _series_with_zeros()
+    feat, cols = engineer.engineer_features(df)
+    hist = df['total_demand']
+    for t in [14, 20, 30, 39]:
+        step = engineer.generate_step_features(hist.iloc[:t].reset_index(drop=True), target_date=df.loc[t, 'date'])
+        for c in cols:
+            train_val = float(np.nan_to_num(feat.loc[t, c], nan=0.0))
+            assert np.isclose(step.get(c, 0.0), train_val), f"{c} at t={t}: forecast {step.get(c)} vs training {train_val}"
+
+
 def test_strict_chronological_splits_zero_leakage():
     """Verify walk-forward splits have strictly disjoint indices and no reverse leakage."""
     bt = RollingOriginBacktest(n_folds=5, test_weeks=4, min_train_weeks=26, step_size=4)

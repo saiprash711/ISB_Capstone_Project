@@ -1,0 +1,312 @@
+{
+  "generated_at": "2026-10-26T11:32:25",
+  "holdout_period": "2024-07-01 to 2025-06-30",
+  "training_period_end": "2024-06-30",
+  "verification": {
+    "passed": 14,
+    "total": 14
+  },
+  "holdout_odu_units": 444274.0,
+  "lifecycle": {
+    "old_skus_fy24_units": 467882.5,
+    "old_skus_fy25_units": 375509.0,
+    "new_skus_fy25_units": 68765.0,
+    "new_skus": 39
+  },
+  "static": {
+    "series": 205,
+    "covered_share": 0.7625294300364189,
+    "levels": [
+      {
+        "level": "SKU x Branch x Week",
+        "method": "forecast",
+        "WAPE %": 133.4,
+        "Accuracy %": -33.4,
+        "Bias %": 38.2
+      },
+      {
+        "level": "SKU x Branch x Week",
+        "method": "seasonal_naive",
+        "WAPE %": 176.5,
+        "Accuracy %": -76.5,
+        "Bias %": 37.5
+      },
+      {
+        "level": "SKU x Branch x Month",
+        "method": "forecast",
+        "WAPE %": 103.6,
+        "Accuracy %": -3.6,
+        "Bias %": 38.2
+      },
+      {
+        "level": "SKU x Branch x Month",
+        "method": "seasonal_naive",
+        "WAPE %": 155.9,
+        "Accuracy %": -55.9,
+        "Bias %": 37.5
+      },
+      {
+        "level": "SKU x Month (South)",
+        "method": "forecast",
+        "WAPE %": 90.3,
+        "Accuracy %": 9.7,
+        "Bias %": 38.2
+      },
+      {
+        "level": "SKU x Month (South)",
+        "method": "seasonal_naive",
+        "WAPE %": 146.3,
+        "Accuracy %": -46.3,
+        "Bias %": 37.5
+      },
+      {
+        "level": "Branch x Month",
+        "method": "forecast",
+        "WAPE %": 58.0,
+        "Accuracy %": 42.0,
+        "Bias %": 38.2
+      },
+      {
+        "level": "Branch x Month",
+        "method": "seasonal_naive",
+        "WAPE %": 54.1,
+        "Accuracy %": 45.9,
+        "Bias %": 37.5
+      },
+      {
+        "level": "South Region x Month",
+        "method": "forecast",
+        "WAPE %": 45.7,
+        "Accuracy %": 54.3,
+        "Bias %": 38.2
+      },
+      {
+        "level": "South Region x Month",
+        "method": "seasonal_naive",
+        "WAPE %": 45.0,
+        "Accuracy %": 55.0,
+        "Bias %": 37.5
+      },
+      {
+        "level": "South Region x Quarter",
+        "method": "forecast",
+        "WAPE %": 40.7,
+        "Accuracy %": 59.3,
+        "Bias %": 38.2
+      },
+      {
+        "level": "South Region x Quarter",
+        "method": "seasonal_naive",
+        "WAPE %": 42.3,
+        "Accuracy %": 57.7,
+        "Bias %": 37.5
+      }
+    ],
+    "all_skus": [
+      {
+        "level": "Branch x Month (all SKUs)",
+        "method": "forecast",
+        "WAPE %": 39.9,
+        "Accuracy %": 60.1,
+        "Bias %": 5.4
+      },
+      {
+        "level": "Branch x Month (all SKUs)",
+        "method": "seasonal_naive",
+        "WAPE %": 41.3,
+        "Accuracy %": 58.7,
+        "Bias %": 4.8
+      },
+      {
+        "level": "South Region x Month (all SKUs)",
+        "method": "forecast",
+        "WAPE %": 38.2,
+        "Accuracy %": 61.8,
+        "Bias %": 5.4
+      },
+      {
+        "level": "South Region x Month (all SKUs)",
+        "method": "seasonal_naive",
+        "WAPE %": 35.4,
+        "Accuracy %": 64.6,
+        "Bias %": 4.8
+      },
+      {
+        "level": "South Region x Quarter (all SKUs)",
+        "method": "forecast",
+        "WAPE %": 30.8,
+        "Accuracy %": 69.2,
+        "Bias %": 5.4
+      },
+      {
+        "level": "South Region x Quarter (all SKUs)",
+        "method": "seasonal_naive",
+        "WAPE %": 32.6,
+        "Accuracy %": 67.4,
+        "Bias %": 4.8
+      }
+    ],
+    "p10_p90_coverage": 0.9109756097560976,
+    "champions": [
+      {
+        "champion": "Naive",
+        "series": 50,
+        "flat_forecasts": 50,
+        "holdout_actual": 13760.0
+      },
+      {
+        "champion": "Moving Average",
+        "series": 32,
+        "flat_forecasts": 32,
+        "holdout_actual": 36289.0
+      },
+      {
+        "champion": "Seasonal Index",
+        "series": 20,
+        "flat_forecasts": 4,
+        "holdout_actual": 84986.0
+      },
+      {
+        "champion": "ETS",
+        "series": 18,
+        "flat_forecasts": 5,
+        "holdout_actual": 31387.0
+      },
+      {
+        "champion": "Seasonal Index (smooth)",
+        "series": 18,
+        "flat_forecasts": 0,
+        "holdout_actual": 46478.0
+      },
+      {
+        "champion": "SARIMA",
+        "series": 16,
+        "flat_forecasts": 1,
+        "holdout_actual": 13346.0
+      },
+      {
+        "champion": "Ensemble (Consensus)",
+        "series": 13,
+        "flat_forecasts": 0,
+        "holdout_actual": 67392.0
+      },
+      {
+        "champion": "ARIMA",
+        "series": 10,
+        "flat_forecasts": 4,
+        "holdout_actual": 12253.0
+      },
+      {
+        "champion": "Exponential Smoothing",
+        "series": 8,
+        "flat_forecasts": 8,
+        "holdout_actual": 5042.0
+      },
+      {
+        "champion": "LightGBM",
+        "series": 7,
+        "flat_forecasts": 0,
+        "holdout_actual": 4248.0
+      },
+      {
+        "champion": "TSB",
+        "series": 5,
+        "flat_forecasts": 5,
+        "holdout_actual": 33.0
+      },
+      {
+        "champion": "Gradient Boosting",
+        "series": 3,
+        "flat_forecasts": 0,
+        "holdout_actual": 545.0
+      },
+      {
+        "champion": "SBA",
+        "series": 3,
+        "flat_forecasts": 3,
+        "holdout_actual": 7.0
+      },
+      {
+        "champion": "Random Forest",
+        "series": 1,
+        "flat_forecasts": 0,
+        "holdout_actual": 13217.0
+      },
+      {
+        "champion": "Seasonal Naive",
+        "series": 1,
+        "flat_forecasts": 0,
+        "holdout_actual": 9789.0
+      }
+    ]
+  },
+  "static_original_engine": {
+    "levels": [
+      {
+        "level": "SKU x Branch x Week",
+        "method": "forecast",
+        "WAPE %": 113.0,
+        "Accuracy %": -13.0,
+        "Bias %": 1.5
+      },
+      {
+        "level": "SKU x Branch x Month",
+        "method": "forecast",
+        "WAPE %": 90.4,
+        "Accuracy %": 9.6,
+        "Bias %": 1.5
+      },
+      {
+        "level": "SKU x Month (South)",
+        "method": "forecast",
+        "WAPE %": 78.1,
+        "Accuracy %": 21.9,
+        "Bias %": 1.5
+      },
+      {
+        "level": "Branch x Month",
+        "method": "forecast",
+        "WAPE %": 54.6,
+        "Accuracy %": 45.4,
+        "Bias %": 1.5
+      },
+      {
+        "level": "South Region x Month",
+        "method": "forecast",
+        "WAPE %": 50.7,
+        "Accuracy %": 49.3,
+        "Bias %": 1.5
+      },
+      {
+        "level": "South Region x Quarter",
+        "method": "forecast",
+        "WAPE %": 31.7,
+        "Accuracy %": 68.3,
+        "Bias %": 1.5
+      }
+    ],
+    "all_skus": [
+      {
+        "level": "Branch x Month (all SKUs)",
+        "method": "forecast",
+        "WAPE %": 49.5,
+        "Accuracy %": 50.5,
+        "Bias %": -22.6
+      },
+      {
+        "level": "South Region x Month (all SKUs)",
+        "method": "forecast",
+        "WAPE %": 42.7,
+        "Accuracy %": 57.3,
+        "Bias %": -22.6
+      },
+      {
+        "level": "South Region x Quarter (all SKUs)",
+        "method": "forecast",
+        "WAPE %": 30.2,
+        "Accuracy %": 69.8,
+        "Bias %": -22.6
+      }
+    ]
+  }
+}

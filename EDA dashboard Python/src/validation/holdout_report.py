@@ -158,6 +158,51 @@ def score_vs_all_actuals(grid: pd.DataFrame, actuals: pd.DataFrame, fcols: List[
     return pd.DataFrame(out)
 
 
+CHAMPION_LABEL = 'Champion (auto-selected)'
+MODEL_LEVELS = {'SKU x Branch x Week': ['sku', 'branch', 'week'], 'SKU x Branch x Month': ['sku', 'branch', 'month'],
+                'Branch x Month': ['branch', 'month'], 'South Region x Month': ['month']}
+
+
+def models_path(mode: str, partial: bool = False) -> str:
+    return os.path.join(OUT_DIR, f"models_{mode}{'.partial' if partial else ''}.parquet")
+
+
+def build_model_grid(panel: pd.DataFrame, mdf: pd.DataFrame, lag_band: Optional[str] = None) -> pd.DataFrame:
+    """Every model's forecast per series x week joined with actual billing (rolling: one lag band)."""
+    g = mdf.copy()
+    g['week'] = pd.to_datetime(g['week'])
+    if lag_band is not None:
+        lo = {'lag 1-4 wks': 1, 'lag 5-8 wks': 5, 'lag 9-12 wks': 9}[lag_band]
+        g = g[(g.step >= lo) & (g.step <= lo + 3)]
+    g = g.merge(holdout_actuals(panel), on=['sku', 'branch', 'week'], how='left').fillna({'actual': 0.0})
+    return add_periods(g)
+
+
+def model_portfolio_scores(mg: pd.DataFrame) -> pd.DataFrame:
+    """
+    Accuracy of every model across all series it could forecast, and head-to-head against the
+    auto-selected champion on exactly the same series (models are not available for every series).
+    """
+    champ = mg[mg.model == CHAMPION_LABEL]
+    champ_vol = champ.drop_duplicates(['sku', 'branch', 'week'])['actual'].sum()
+    rows = []
+    for m, d in mg.groupby('model'):
+        keys = d[['sku', 'branch']].drop_duplicates()
+        c = champ.merge(keys, on=['sku', 'branch'])
+        r = {'Model': m, 'Series': len(keys),
+             'Volume covered %': round(d.drop_duplicates(['sku', 'branch', 'week'])['actual'].sum() / champ_vol * 100, 1)
+             if champ_vol else np.nan}
+        for lvl, k in MODEL_LEVELS.items():
+            r[f'{lvl} WAPE %'] = metrics(d.groupby(k)['actual'].sum(), d.groupby(k)['forecast'].sum())['WAPE %']
+        cm = c.groupby(MODEL_LEVELS['SKU x Branch x Month'])[['actual', 'forecast']].sum()
+        dm = d.groupby(MODEL_LEVELS['SKU x Branch x Month'])[['actual', 'forecast']].sum()
+        r['vs champion, same series (SKU x Branch x Month, pts)'] = round(
+            metrics(dm['actual'], dm['forecast'])['WAPE %'] - metrics(cm['actual'], cm['forecast'])['WAPE %'], 1)
+        r['Bias %'] = metrics(d['actual'], d['forecast'])['Bias %']
+        rows.append(r)
+    return pd.DataFrame(rows).sort_values('SKU x Branch x Month WAPE %').reset_index(drop=True)
+
+
 def fit_summary(fc: pd.DataFrame) -> pd.DataFrame:
     """One row per model fit (origin x series): champion chosen and whether its forecast is a flat line."""
     ok = fc[fc.status == 'ok']

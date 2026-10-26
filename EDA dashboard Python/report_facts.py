@@ -25,7 +25,6 @@ import pandas as pd
 ROOT = os.path.dirname(os.path.abspath(__file__))
 SYNTHETIC_SHEET = 'Evaluation_10_SKUs'
 METRICS_PATH = os.path.join(ROOT, 'holdout_validation', 'validated_metrics.json')
-N_CANDIDATE_MODELS = 16   # 15 models in src/forecasting/model_zoo.ALL_MODELS + the inverse-WAPE ensemble
 
 
 def _pick(records, level, method='forecast', key='Accuracy %'):
@@ -131,6 +130,13 @@ def _holdout_facts():
     return f
 
 
+def _n_candidate_models() -> int:
+    """Models in src/forecasting/model_zoo.ALL_MODELS plus the inverse-WAPE ensemble."""
+    sys.path.insert(0, ROOT)
+    from src.forecasting.model_zoo import ALL_MODELS
+    return len(ALL_MODELS) + 1
+
+
 @lru_cache(maxsize=1)
 def get_report_facts(run_tests: bool = True) -> dict:
     return {
@@ -138,7 +144,7 @@ def get_report_facts(run_tests: bool = True) -> dict:
         'demand_classes': _demand_class_facts(),
         'tests': _test_facts() if run_tests else {'passed': None, 'failed': None, 'summary': 'not run'},
         'holdout': _holdout_facts(),
-        'n_candidate_models': N_CANDIDATE_MODELS,
+        'n_candidate_models': _n_candidate_models(),
     }
 
 

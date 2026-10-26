@@ -2217,11 +2217,11 @@ def show_overview(df, metrics):
         with st.container():
             fig_time = create_time_series_chart(df)
             if fig_time:
-                st.plotly_chart(fig_time, use_container_width=True, theme=None)
+                st.plotly_chart(fig_time, width="stretch", theme=None)
     with row1_c2:
         with st.container():
             fig_gauge = create_data_completeness_gauge(metrics['completeness'])
-            st.plotly_chart(fig_gauge, use_container_width=True, theme=None)
+            st.plotly_chart(fig_gauge, width="stretch", theme=None)
             
     # Visualizations Row 2
     row2_c1, row2_c2 = st.columns([2, 3])
@@ -2229,12 +2229,12 @@ def show_overview(df, metrics):
         with st.container():
             fig_segment = create_segment_analysis(df)
             if fig_segment:
-                st.plotly_chart(fig_segment, use_container_width=True, theme=None)
+                st.plotly_chart(fig_segment, width="stretch", theme=None)
     with row2_c2:
         with st.container():
             fig_tonnage = create_tonnage_analysis(df)
             if fig_tonnage:
-                st.plotly_chart(fig_tonnage, use_container_width=True, theme=None)
+                st.plotly_chart(fig_tonnage, width="stretch", theme=None)
 
 # -----------------------------------------------------------------------------
 # PAGE 2: 🎯 AI DEMAND FORECASTING
@@ -2508,7 +2508,7 @@ def show_demand_forecasting(df):
         confidence_level = st.slider("Prediction Interval (%):", min_value=80, max_value=95, value=80, step=5,
                                      help="Coverage target of the conformal interval, calibrated on backtest errors.")
 
-        run_forecast = st.button("🚀 Execute Forecast Simulation", type="primary", use_container_width=True)
+        run_forecast = st.button("🚀 Execute Forecast Simulation", type="primary", width="stretch")
         st.markdown("</div>", unsafe_allow_html=True)
         
     with cfg_col2:
@@ -2533,11 +2533,11 @@ def show_demand_forecasting(df):
                             color_discrete_sequence=['#00E5FF', '#6366F1', '#10B981', '#F59E0B', '#EC4899']
                         )
                         apply_custom_chart_theme(fig_donut, height=260, title=f"Branch Split: {selected_sku}")
-                        st.plotly_chart(fig_donut, use_container_width=True, theme=None)
+                        st.plotly_chart(fig_donut, width="stretch", theme=None)
                     with dist_c2:
                         st.dataframe(
                             b_summary[['Branch', 'Billing Quantity ODU', 'Share %']].rename(columns={'Billing Quantity ODU': 'Units Sold'}),
-                            use_container_width=True,
+                            width="stretch",
                             height=240,
                             hide_index=True
                         )
@@ -2592,7 +2592,7 @@ def show_demand_forecasting(df):
                 branch_label=branch_label,
                 confidence_level=confidence_level
             )
-            st.plotly_chart(fig, use_container_width=True, theme=None)
+            st.plotly_chart(fig, width="stretch", theme=None)
             st.caption(res['interval_calibration'].get('note', ''))
 
             st.markdown("""
@@ -2621,7 +2621,7 @@ def show_demand_forecasting(df):
             if board.get('status') == 'success':
                 disp = board['leaderboard_display'].copy()
                 disp.insert(2, 'Accuracy (%)', disp['WAPE (%)'].apply(accuracy_from_wape).round(1))
-                st.dataframe(disp, use_container_width=True, hide_index=True)
+                st.dataframe(disp, width="stretch", hide_index=True)
                 bc = board.get('baseline_comparison') or {}
                 if bc.get('verdict'):
                     st.caption(bc['verdict'])
@@ -2642,7 +2642,7 @@ def show_demand_forecasting(df):
             display_df = forecast_df.copy()
             display_df.insert(0, 'Week', range(1, len(display_df) + 1))
             display_df.insert(1, 'Branch', branch_label)
-            st.dataframe(display_df, use_container_width=True, height=320, hide_index=True)
+            st.dataframe(display_df, width="stretch", height=320, hide_index=True)
 
             csv_df = forecast_df.copy()
             csv_df.insert(0, 'Material', selected_sku)
@@ -2654,7 +2654,7 @@ def show_demand_forecasting(df):
                 data=csv_df.to_csv(index=False),
                 file_name=f"forecast_{selected_sku}_{branch_file_code}_{clean_model_tag}_{datetime.now().strftime('%Y%m%d')}.csv",
                 mime="text/csv",
-                use_container_width=True
+                width="stretch"
             )
 
             render_model_dossier(res, selected_sku, branch_label, is_dark)
@@ -2684,7 +2684,7 @@ def show_demand_forecasting(df):
                 ))
                 
                 apply_custom_chart_theme(fig_hist, height=420, title=f"Historical Demand Velocity: {selected_sku} | {branch_label}")
-                st.plotly_chart(fig_hist, use_container_width=True, theme=None)
+                st.plotly_chart(fig_hist, width="stretch", theme=None)
                 
                 st.info("👆 Adjust parameters in the Control Bar on the left and click 'Execute Forecast Simulation' to generate forward predictive curves.")
 
@@ -2750,7 +2750,7 @@ def show_data_quality(df, metrics):
     with diag_c1:
         fig_missing = create_missing_data_chart(df)
         if fig_missing:
-            st.plotly_chart(fig_missing, use_container_width=True, theme=None)
+            st.plotly_chart(fig_missing, width="stretch", theme=None)
         else:
             st.success("✅ Clean Record: Zero missing values detected across dataset attributes.")
             
@@ -2769,7 +2769,7 @@ def show_data_quality(df, metrics):
                 'Missing Rows': missing_summary.values,
                 'Null Ratio %': (missing_summary.values / len(df) * 100).round(2)
             })
-            st.dataframe(summary_df, use_container_width=True, height=360)
+            st.dataframe(summary_df, width="stretch", height=360)
         else:
             st.info("No column attributes exhibit missing values.")
 
@@ -2789,7 +2789,7 @@ def show_data_quality(df, metrics):
         textfont=dict(color="#FFFFFF" if is_dark else "#0F172A", family="Plus Jakarta Sans")
     )
     apply_custom_chart_theme(fig_dtypes, height=360)
-    st.plotly_chart(fig_dtypes, use_container_width=True, theme=None)
+    st.plotly_chart(fig_dtypes, width="stretch", theme=None)
 
 # -----------------------------------------------------------------------------
 # PAGE 4: 🧹 DATA CLEANING STUDIO
@@ -2857,7 +2857,7 @@ def show_data_cleaning(df, metrics):
                 textfont=dict(color="#FFFFFF" if is_dark else "#0F172A", family="Plus Jakarta Sans")
             )])
             apply_custom_chart_theme(fig_dup, height=360, title="Duplicate vs Unique Transaction Density")
-            st.plotly_chart(fig_dup, use_container_width=True, theme=None)
+            st.plotly_chart(fig_dup, width="stretch", theme=None)
         else:
             st.success("✅ Zero duplicate transaction rows discovered in active dataset.")
             
@@ -2901,7 +2901,7 @@ def show_data_cleaning(df, metrics):
                 st.write(f"**Storage Type:** `{df[col].dtype}`")
             with c_b:
                 st.write("**High-Frequency Values:**")
-                st.dataframe(df[col].value_counts().head(5), use_container_width=True)
+                st.dataframe(df[col].value_counts().head(5), width="stretch")
 
 # -----------------------------------------------------------------------------
 # PAGE 5: 📈 STATISTICAL DEEP-DIVE
@@ -2927,12 +2927,12 @@ def show_statistical_analysis(df):
         📊 Descriptive Numerical Summary
     </div>
     """, unsafe_allow_html=True)
-    st.dataframe(analysis_df[numeric_analysis_cols].describe(), use_container_width=True)
+    st.dataframe(analysis_df[numeric_analysis_cols].describe(), width="stretch")
     
     st.markdown("---")
     fig_corr = create_correlation_heatmap(analysis_df)
     if fig_corr:
-        st.plotly_chart(fig_corr, use_container_width=True, theme=None)
+        st.plotly_chart(fig_corr, width="stretch", theme=None)
         
     st.markdown("---")
     st.markdown("""
@@ -2946,13 +2946,13 @@ def show_statistical_analysis(df):
         stat_c1, stat_c2 = st.columns(2)
         with stat_c1:
             fig_dist = create_distribution_chart(analysis_df, selected_col)
-            st.plotly_chart(fig_dist, use_container_width=True, theme=None)
+            st.plotly_chart(fig_dist, width="stretch", theme=None)
         with stat_c2:
             fig_box = px.box(analysis_df, y=selected_col, title=f"Box Plot Spread: {selected_col}")
             box_accent = '#00E5FF' if is_dark else '#0369A1'
             fig_box.update_traces(marker_color=box_accent, line=dict(color=box_accent))
             apply_custom_chart_theme(fig_box, height=400)
-            st.plotly_chart(fig_box, use_container_width=True, theme=None)
+            st.plotly_chart(fig_box, width="stretch", theme=None)
             
         m1, m2, m3, m4 = st.columns(4)
         with m1:
@@ -2984,7 +2984,7 @@ def show_detailed_exploration(df):
     )
     
     if selected_columns:
-        st.dataframe(df[selected_columns].head(100), use_container_width=True, height=380)
+        st.dataframe(df[selected_columns].head(100), width="stretch", height=380)
         st.markdown("---")
         
         c_prof1, c_prof2 = st.columns([1, 2])
@@ -3015,7 +3015,7 @@ def show_detailed_exploration(df):
         with c_prof2:
             if analysis_col:
                 fig = create_distribution_chart(df, analysis_col)
-                st.plotly_chart(fig, use_container_width=True, theme=None)
+                st.plotly_chart(fig, width="stretch", theme=None)
                 
     st.markdown("---")
     st.markdown("""
@@ -3033,7 +3033,7 @@ def show_detailed_exploration(df):
     if search_term:
         filtered_df = df[df[search_col].astype(str).str.contains(search_term, case=False, na=False)]
         st.markdown(f"**Found `{len(filtered_df):,}` matching transaction rows:**")
-        st.dataframe(filtered_df, use_container_width=True, height=350)
+        st.dataframe(filtered_df, width="stretch", height=350)
 
 # -----------------------------------------------------------------------------
 # PAGE 7: 📄 C-SUITE REPORTS & EXPORTS
@@ -3096,7 +3096,7 @@ def show_export_report(df, metrics):
     st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
     
     # Generate PDF Action
-    if st.button("🚀 Compile & Generate Executive PDF Report", type="primary", use_container_width=True):
+    if st.button("🚀 Compile & Generate Executive PDF Report", type="primary", width="stretch"):
         with st.spinner("Compiling C-Suite executive briefing PDF..."):
             try:
                 pdf_data = generate_pdf_report(df, metrics)
@@ -3120,7 +3120,7 @@ def show_export_report(df, metrics):
     
     exp1, exp2, exp3 = st.columns(3)
     with exp1:
-        if st.button("📊 Export Formatted Excel (.xlsx)", use_container_width=True):
+        if st.button("📊 Export Formatted Excel (.xlsx)", width="stretch"):
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
                 df.to_excel(writer, sheet_name='Sales_Data', index=False)
@@ -3135,7 +3135,7 @@ def show_export_report(df, metrics):
                 data=output.getvalue(),
                 file_name=f"Data_{datetime.now().strftime('%Y%m%d')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
+                width="stretch"
             )
             
     with exp2:
@@ -3145,7 +3145,7 @@ def show_export_report(df, metrics):
             data=csv_data,
             file_name=f"Dataset_{datetime.now().strftime('%Y%m%d')}.csv",
             mime="text/csv",
-            use_container_width=True
+            width="stretch"
         )
         
     with exp3:
@@ -3171,7 +3171,7 @@ Anomalous Columns: {metrics['columns_with_missing']}
             data=summary_text,
             file_name=f"Telemetry_Summary_{datetime.now().strftime('%Y%m%d')}.txt",
             mime="text/plain",
-            use_container_width=True
+            width="stretch"
         )
 
 if __name__ == "__main__":

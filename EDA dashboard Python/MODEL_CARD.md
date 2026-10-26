@@ -19,7 +19,7 @@
 
 ## Model
 
-There is no single global model. Per series, an out-of-sample tournament selects a champion from up to 16 candidates:
+There is no single global model. Per series, an out-of-sample tournament selects a champion from up to 17 candidates:
 
 - naive and seasonal baselines;
 - the pooled **Seasonal Index** (two level windows);

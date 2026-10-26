@@ -28,6 +28,12 @@ Automated verification suite `tests/test_leakage_audit.py` executes 3 formal lea
 - `test_no_future_information_in_rolling_features`: Verifies rolling mean at $t=3$ matches indices $0 \dots 3$.
 - `test_strict_chronological_splits_zero_leakage`: Verifies disjointness and chronological monotonicity of all fold splits.
 
+Two further tests cover every engineered feature, not only lags and rolling windows:
+- `test_no_feature_uses_current_period_target`: changing y(t) must not change any feature in row t.
+- `test_forecast_features_match_training_features`: the features built during recursive forecasting must equal the training features for the same week.
+
+Both tests failed on the original code. `growth_12w` was `pct_change(12)` on the **unshifted** series, so it contained y(t). The growth features also divided by 1e-5 at forecast time where training had a non-finite value. Both defects are fixed in `src/features/engineering.py`. The leak inflated in-sample ML fits and wrecked their recursive forecasts, which is why ML models rarely won the tournament.
+
 The suite runs with `pytest tests/`.
 
 ---

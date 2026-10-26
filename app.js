@@ -1515,6 +1515,57 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ---------------------------------------------------------------------------
   // DISPATCH ROUTER FOR RENDERING CHARTS IN CURRENT VIEW
   // ---------------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------------
+  // HOLDOUT VALIDATION CHARTS (FY24-25)
+  // ---------------------------------------------------------------------------
+  function renderHoldoutCharts() {
+    const chartEl = document.getElementById('holdout-branch-chart');
+    if (!chartEl || !window.Plotly) return;
+
+    const branches = ['Chennai (MAA)', 'Secunderabad (SBD)', 'Vijayawada (SBD1)', 'Cochin (COK)', 'Bangalore (BLR)'];
+    const holdoutActuals = [148291, 109958, 75901, 61409, 44513];
+    const isDark = (state.theme === 'dark');
+
+    const trace = {
+      x: branches,
+      y: holdoutActuals,
+      type: 'bar',
+      marker: {
+        color: ['#0284C7', '#0EA5E9', '#06B6D4', '#10B981', '#6366F1'],
+        opacity: 0.9,
+        line: { color: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)', width: 1.5 }
+      },
+      text: holdoutActuals.map(v => v.toLocaleString() + ' units'),
+      textposition: 'outside',
+      hoverinfo: 'x+y+text'
+    };
+
+    const layout = {
+      title: {
+        text: 'FY24-25 Holdout Net ODU Demand by Branch Hub (Units)',
+        font: { size: 14, color: isDark ? '#F1F5F9' : '#0F172A', family: 'Plus Jakarta Sans' }
+      },
+      paper_bgcolor: 'transparent',
+      plot_bgcolor: 'transparent',
+      font: { color: isDark ? '#94A3B8' : '#475569', family: 'Plus Jakarta Sans' },
+      xaxis: {
+        tickfont: { size: 12, color: isDark ? '#CBD5E1' : '#334155' },
+        gridcolor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'
+      },
+      yaxis: {
+        title: 'Units',
+        tickfont: { size: 11, color: isDark ? '#CBD5E1' : '#334155' },
+        gridcolor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+        range: [0, 175000]
+      },
+      margin: { t: 50, b: 60, l: 60, r: 20 },
+      responsive: true
+    };
+
+    Plotly.react(chartEl, [trace], layout, { displayModeBar: false, responsive: true });
+  }
+
   function renderCurrentViewCharts() {
     switch (state.currentView) {
       case 'cockpit':
@@ -1522,6 +1573,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         break;
       case 'forecasting':
         updateForecastStudio();
+        break;
+      case 'holdout':
+        renderHoldoutCharts();
         break;
       case 'radar':
         renderQualityRadar();

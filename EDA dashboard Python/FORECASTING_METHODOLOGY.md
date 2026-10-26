@@ -72,7 +72,11 @@ The interval therefore widens in peak season and narrows in the trough. Beyond t
 - **Monitoring:** the tracking signal and accuracy degradation are measured on the champion's latest out-of-sample fold, relative to its WAPE in earlier folds. PSI and KS tests check drift in weekly demand.
 - **Hierarchy:** region and branch totals are forecast directly. The page compares bottom-up (sum of branches) with the direct region forecast, and shows top-down (region × branch share of the last 52 weeks). MinT reconciliation is **not** implemented.
 
-## 7. Known limitations
+## 7. Per-model validation
+
+`src/validation/model_validation.run_origin` repeats the production workflow at a forecast origin. It runs the tournament, then forecasts every candidate, the ensemble and the auto-selected champion from data up to that origin only. The FY24-25 harness and the dashboard's *Model validation on FY24-25 actual billing* panel both call it. The panel appears on the forecasting page for any SKU and branch scope, and the Holdout Validation page shows the portfolio-level comparison.
+
+## 8. Known limitations
 
 - No price, promotion, weather or stock-availability data, so the engine cannot anticipate demand shocks or product substitution.
 - New SKUs can be forecast only after about 5 weeks of sales. The FY24-25 holdout shows how much this matters, because new launches took volume from existing SKUs.

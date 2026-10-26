@@ -320,7 +320,7 @@ def render_model_lab_page(df: pd.DataFrame, theme: str = "dark"):
     </div>
     """, unsafe_allow_html=True)
     
-    st.dataframe(lb_manager.to_display_table(), use_container_width=True)
+    st.dataframe(lb_manager.to_display_table(), width="stretch")
 
     # Visual Comparison Chart (WAPE & RMSE)
     chart_col1, chart_col2 = st.columns(2)
@@ -333,7 +333,7 @@ def render_model_lab_page(df: pd.DataFrame, theme: str = "dark"):
             color_continuous_scale=[[0, '#10B981'], [0.5, '#F59E0B'], [1, '#F43F5E']]
         )
         fig_wape.update_layout(height=380, template='plotly_dark' if is_dark else 'plotly_white')
-        st.plotly_chart(fig_wape, use_container_width=True)
+        st.plotly_chart(fig_wape, width="stretch")
 
     with chart_col2:
         fold_details = bt_results.get('fold_details', [])
@@ -356,7 +356,7 @@ def render_model_lab_page(df: pd.DataFrame, theme: str = "dark"):
                     color_discrete_sequence=['#00E5FF', '#F43F5E', '#10B981', '#F59E0B']
                 )
                 fig_folds.update_layout(height=380, template='plotly_dark' if is_dark else 'plotly_white')
-                st.plotly_chart(fig_folds, use_container_width=True)
+                st.plotly_chart(fig_folds, width="stretch")
             else:
                 fig_rmse = px.bar(
                     leaderboard_df, x='model', y='mean_rmse',
@@ -365,7 +365,7 @@ def render_model_lab_page(df: pd.DataFrame, theme: str = "dark"):
                     color_discrete_sequence=['#00E5FF' if is_dark else '#0284C7']
                 )
                 fig_rmse.update_layout(height=380, template='plotly_dark' if is_dark else 'plotly_white')
-                st.plotly_chart(fig_rmse, use_container_width=True)
+                st.plotly_chart(fig_rmse, width="stretch")
 
 
 # -----------------------------------------------------------------------------
@@ -497,7 +497,7 @@ def render_inventory_page(df: pd.DataFrame, theme: str = "dark"):
             📐 Service Level vs Safety Stock & Capital Sensitivity Matrix
         </div>
         """, unsafe_allow_html=True)
-        st.dataframe(policy['sensitivity_table'], use_container_width=True)
+        st.dataframe(policy['sensitivity_table'], width="stretch")
 
     with s_col2:
         risk = policy.get('stockout_risk_pct')
@@ -520,7 +520,7 @@ def render_inventory_page(df: pd.DataFrame, theme: str = "dark"):
                 }
             ))
             fig_risk.update_layout(height=280, margin=dict(l=20, r=20, t=30, b=20), template='plotly_dark' if is_dark else 'plotly_white')
-            st.plotly_chart(fig_risk, use_container_width=True)
+            st.plotly_chart(fig_risk, width="stretch")
 
 
 # -----------------------------------------------------------------------------
@@ -603,14 +603,14 @@ def render_scenario_simulator_page(df: pd.DataFrame, theme: str = "dark"):
         title=f"12-Week Forward Demand: Base vs {res['scenario_name']}",
         height=380, template='plotly_dark' if is_dark else 'plotly_white'
     )
-    st.plotly_chart(fig_scen, use_container_width=True)
+    st.plotly_chart(fig_scen, width="stretch")
 
     st.markdown("""
     <div class="subpanel-title" style="margin-bottom: 10px;">
         📋 Comparative Scenario Matrix & Working Capital Requirements (2-week lead time, 95% service)
     </div>
     """, unsafe_allow_html=True)
-    st.dataframe(simulator.get_all_scenarios_summary(base_curve, forecast_residuals=residuals), use_container_width=True)
+    st.dataframe(simulator.get_all_scenarios_summary(base_curve, forecast_residuals=residuals), width="stretch")
 
 
 # -----------------------------------------------------------------------------
@@ -686,7 +686,7 @@ def render_monitoring_drift_page(df: pd.DataFrame, theme: str = "dark"):
             yaxis_title="Tracking Signal",
             height=360, template='plotly_dark' if is_dark else 'plotly_white'
         )
-        st.plotly_chart(fig_ts, use_container_width=True)
+        st.plotly_chart(fig_ts, width="stretch")
 
     with t_c2:
         n = len(y_actuals)
@@ -700,7 +700,7 @@ def render_monitoring_drift_page(df: pd.DataFrame, theme: str = "dark"):
             title=f"Weekly demand distribution: PSI = {drift_res['psi']:.3f} (KS p-val: {drift_res['ks_p_value']:.2f})",
             barmode='overlay', height=360, template='plotly_dark' if is_dark else 'plotly_white'
         )
-        st.plotly_chart(fig_drift, use_container_width=True)
+        st.plotly_chart(fig_drift, width="stretch")
         st.caption("Drift compares weekly billing volumes, so the seasonal cycle itself can register as drift.")
 
 
@@ -841,7 +841,7 @@ def render_hierarchy_page(df: pd.DataFrame, theme: str = "dark"):
                                     line=dict(color='#F43F5E', width=3)))
         fig_bu.update_layout(title="Branch forecasts, their sum and the direct region forecast", yaxis_title="Units / week",
                              height=400, template=template)
-        st.plotly_chart(fig_bu, use_container_width=True)
+        st.plotly_chart(fig_bu, width="stretch")
         st.dataframe(pd.DataFrame([{
             'Branch': b,
             'Champion': r['champion'].get('model_name'),
@@ -849,7 +849,7 @@ def render_hierarchy_page(df: pd.DataFrame, theme: str = "dark"):
             '12-week forecast': round(float(np.sum(r['forecast']))),
             'Top-down (region x share)': round(float(np.sum(data['top_down'][b]))),
             'Last-52-week share %': round(data['shares'].get(b, 0.0) * 100, 1),
-        } for b, r in branch_res.items()]), use_container_width=True, hide_index=True)
+        } for b, r in branch_res.items()]), width="stretch", hide_index=True)
 
     with tab_td:
         st.caption("Top-down keeps the region total fixed and splits it by each branch's share of the last 52 weeks. "
@@ -858,7 +858,7 @@ def render_hierarchy_page(df: pd.DataFrame, theme: str = "dark"):
         for i, b in enumerate(branches):
             fig_td.add_trace(go.Bar(x=dates, y=data['top_down'][b], name=b, marker_color=colors[i % len(colors)]))
         fig_td.update_layout(barmode='stack', title="Direct region forecast split by branch share", height=380, template=template)
-        st.plotly_chart(fig_td, use_container_width=True)
+        st.plotly_chart(fig_td, width="stretch")
 
     with tab_sku:
         sel_b = st.selectbox("Branch:", branches, key="hier_branch")
@@ -868,4 +868,4 @@ def render_hierarchy_page(df: pd.DataFrame, theme: str = "dark"):
                    "(proportional disaggregation, not a separate SKU forecast).")
         st.dataframe(pd.DataFrame({'SKU': sh.index, 'Share of last 13 weeks %': (sh.values * 100).round(1),
                                    'Allocated 12-week units': (sh.values * b_total).round(0)}),
-                     use_container_width=True, hide_index=True)
+                     width="stretch", hide_index=True)

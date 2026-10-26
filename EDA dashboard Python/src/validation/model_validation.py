@@ -90,8 +90,9 @@ def validate_series(panel: pd.DataFrame, sku: str, branches: Union[str, Sequence
             errors[str(pd.Timestamp(o).date())] = out.get('error')
             continue
         champions[pd.Timestamp(o)] = out['champion']
-        if i == 0:
-            backtest = out['backtest_wape']
+        if not backtest:
+            backtest = dict(out['backtest_wape'])
+            backtest[CHAMPION_LABEL] = backtest.get(out['champion'], np.nan)
         errors.update(out['errors'])
         for m, f in out['forecasts'].items():
             for step, (wk, v) in enumerate(zip(out['dates'], f), 1):
@@ -105,8 +106,29 @@ def validate_series(panel: pd.DataFrame, sku: str, branches: Union[str, Sequence
             'backtest_wape': backtest, 'champions': champions}
 
 
+def from_batch(mdf: pd.DataFrame, panel: pd.DataFrame, sku: str, branch: str, holdout_end) -> Optional[Dict[str, Any]]:
+    """Same structure as validate_series, built from the batch harness output (models_<mode>.parquet)."""
+    d = mdf[(mdf.sku == sku) & (mdf.branch == branch)]
+    if d.empty:
+        return None
+    fc = d[['origin', 'model', 'step', 'week', 'forecast']].copy()
+    fc['origin'], fc['week'] = pd.to_datetime(fc['origin']), pd.to_datetime(fc['week'])
+    act = holdout_actuals(panel, sku, branch, fc.week.min(), min(fc.week.max(), pd.Timestamp(holdout_end)))
+    fc['actual'] = fc.week.map(act).fillna(0.0)
+    first = fc.origin.min()
+    bt = d[pd.to_datetime(d.origin) == first].groupby('model')['backtest_wape'].first().dropna().to_dict()
+    return {'status': 'success', 'forecasts': fc, 'actuals': act, 'errors': {}, 'backtest_wape': bt,
+            'champions': {o: None for o in fc.origin.unique()}, 'source': 'batch'}
+
+
 def score_models(fc: pd.DataFrame, backtest_wape: Optional[Dict[str, float]] = None) -> pd.DataFrame:
-    """Per-model accuracy on the holdout at weekly and monthly grain (rolling: each week scored once per lag)."""
+    """
+    Per-model accuracy on the holdout at weekly and monthly grain (rolling: pass one lag band).
+
+    Ranked on monthly RMSE - the same mean-targeting rule the champion tournament uses. WAPE is
+    minimised by the median, so on lumpy SKUs a model that forecasts zero would 'win' on WAPE;
+    such models are flagged in the 'Note' column.
+    """
     def _w(a, f):
         return np.abs(a - f).sum() / a.sum() * 100 if a.sum() else np.nan
 
@@ -121,10 +143,14 @@ def score_models(fc: pd.DataFrame, backtest_wape: Optional[Dict[str, float]] = N
             'Monthly WAPE %': round(w_mo, 1),
             'Monthly accuracy %': round(max(0.0, 100 - w_mo), 1) if np.isfinite(w_mo) else np.nan,
             'Bias %': round((wk.forecast.sum() - wk.actual.sum()) / wk.actual.sum() * 100, 1) if wk.actual.sum() else np.nan,
+            'Monthly RMSE': round(float(np.sqrt(np.mean((mo.actual - mo.forecast) ** 2))), 1),
+            'Weeks scored': int(len(wk)),
             'Forecast units': round(wk.forecast.sum()),
             'Actual units': round(wk.actual.sum()),
             'Backtest WAPE % (pre-holdout)': round(backtest_wape[m], 1) if backtest_wape and m in backtest_wape else np.nan,
         })
-    t = pd.DataFrame(out).sort_values('Monthly WAPE %').reset_index(drop=True)
+    t = pd.DataFrame(out).sort_values(['Monthly RMSE', 'Monthly WAPE %']).reset_index(drop=True)
     t.insert(0, 'Holdout rank', range(1, len(t) + 1))
+    near_zero = t['Forecast units'] <= 0.05 * t['Actual units'].clip(lower=1)
+    t['Note'] = np.where(near_zero, 'forecasts ~zero', '')
     return t

@@ -328,6 +328,14 @@ def score():
             hr.score_vs_all_actuals(b_grid, actuals, ['forecast']).assign(engine='original'),
             hr.score_vs_all_actuals(grid, actuals, ['forecast']).assign(engine='current')])
 
+    # Every candidate model on the holdout (per-model forecasts recorded by the harness)
+    for mode, lag, name in (('static', None, 'Models - static'), ('rolling', 'lag 1-4 wks', 'Models - rolling lag 1-4')):
+        if os.path.exists(hr.models_path(mode)):
+            mg = hr.build_model_grid(panel, pd.read_parquet(hr.models_path(mode)), lag)
+            sheets[name] = hr.model_portfolio_scores(mg)
+            print(f"=== EVERY MODEL ({name}) ===")
+            print(sheets[name].to_string(index=False))
+
     _export_metrics(sheets, grid, panel, actuals)
 
     xl = os.path.join(OUT_DIR, 'holdout_validation_FY24-25.xlsx')
@@ -386,6 +394,9 @@ def _export_metrics(sheets, grid, panel, actuals):
             'lag_9_12': table(rl, lag='lag 9-12 wks'),
             'lag_1_4_all_skus': table(sheets['Rolling - all SKUs (lag 1-4)']),
         }
+    for name, key in (('Models - static', 'models_static'), ('Models - rolling lag 1-4', 'models_rolling_lag_1_4')):
+        if name in sheets:
+            out[key] = sheets[name].to_dict(orient='records')
     path = os.path.join(OUT_DIR, 'validated_metrics.json')
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(out, f, indent=2, default=float)
@@ -484,6 +495,22 @@ def _write_validation_doc(m):
             "Its ensemble champions shipped a moving average. Its ETS never fitted, its SARIMA used a 12-week season, and its backtest ensemble weights used the test fold's own errors.",
             "",
         ]
+    parts += [
+        "## Every candidate model on the holdout",
+        "",
+        "Each model is scored on the series where it produced a forecast. *Covered* is the share of the champion's volume. "
+        "*vs champion* compares the model with the auto-selected champion on exactly the same series, at SKU × branch × month (negative means better).",
+        "",
+    ]
+    for key, title in (('models_rolling_lag_1_4', 'Re-forecast every 4 weeks, next 4 weeks'), ('models_static', 'One-shot 52-week forecast')):
+        if key in m:
+            parts += [f"### {title}", "",
+                      "| Model | Series | Covered | SKU×Br×Month WAPE | Branch×Month WAPE | Region×Month WAPE | vs champion | Bias |",
+                      "| --- | --- | --- | --- | --- | --- | --- | --- |"]
+            parts += [f"| {r['Model']} | {r['Series']} | {r['Volume covered %']:.1f}% | {r['SKU x Branch x Month WAPE %']:.1f}% | "
+                      f"{r['Branch x Month WAPE %']:.1f}% | {r['South Region x Month WAPE %']:.1f}% | "
+                      f"{r['vs champion, same series (SKU x Branch x Month, pts)']:+.1f} pts | {r['Bias %']:+.1f}% |" for r in m[key]]
+            parts += [""]
     parts += [
         "## Product lifecycle",
         "",

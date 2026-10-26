@@ -174,36 +174,23 @@ class FeatureEngineer:
         if demand_col not in df.columns:
             return features
         
-        # Week-over-week growth (lagged by 1)
-        col_wow = 'wow_growth'
-        if col_wow not in df.columns:
-            if 'sku' in df.columns and 'branch' in df.columns:
-                df[col_wow] = df.groupby(['sku', 'branch'], observed=True)[demand_col].transform(
-                    lambda x: x.shift(1).pct_change()
-                )
-            else:
-                df[col_wow] = df[demand_col].shift(1).pct_change()
-            features.append(col_wow)
-        
-        # 4-week growth (lagged by 1)
-        col_4w = 'growth_4w'
-        if col_4w not in df.columns:
-            if 'sku' in df.columns and 'branch' in df.columns:
-                df[col_4w] = df.groupby(['sku', 'branch'], observed=True)[demand_col].transform(
-                    lambda x: x.shift(1).pct_change(periods=4)
-                )
-            else:
-                df[col_4w] = df[demand_col].pct_change(periods=4)
-            features.append(col_4w)
-        
-        # 12-week growth
-        col_12w = 'growth_12w'
-        if col_12w not in df.columns:
-            if 'sku' in df.columns and 'branch' in df.columns:
-                df[col_12w] = df.groupby(['sku', 'branch'], observed=True)[demand_col].pct_change(periods=12)
-            else:
-                df[col_12w] = df[demand_col].pct_change(periods=12)
-            features.append(col_12w)
+        # Growth of the LAST OBSERVED week vs k weeks earlier: y(t-1) / y(t-1-k) - 1.
+        # Strictly shifted (no y(t) in the row for week t); a zero base gives 0, exactly as
+        # generate_step_features computes it at forecast time.
+        def _growth(x: pd.Series, k: int) -> pd.Series:
+            prev = x.shift(1)
+            base = prev.shift(k)
+            g = (prev - base) / base.where(base != 0)
+            return g.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+
+        grouped = 'sku' in df.columns and 'branch' in df.columns
+        for col, k in (('wow_growth', 1), ('growth_4w', 4), ('growth_12w', 12)):
+            if col not in df.columns:
+                if grouped:
+                    df[col] = df.groupby(['sku', 'branch'], observed=True)[demand_col].transform(lambda x, k=k: _growth(x, k))
+                else:
+                    df[col] = _growth(df[demand_col], k)
+                features.append(col)
         
         return features
     
@@ -285,23 +272,13 @@ class FeatureEngineer:
             feats[f'rolling_min_{window}'] = float(w_slice.min()) if len(w_slice) > 0 else 0.0
             feats[f'rolling_max_{window}'] = float(w_slice.max()) if len(w_slice) > 0 else 0.0
 
-        # Growth metrics
-        if n >= 2:
-            p1 = float(history_series.iloc[-1])
-            p2 = float(history_series.iloc[-2])
-            feats['wow_growth'] = (p1 - p2) / (p2 + 1e-5)
-        else:
-            feats['wow_growth'] = 0.0
-
-        if n >= 5:
-            feats['growth_4w'] = (float(history_series.iloc[-1]) - float(history_series.iloc[-5])) / (float(history_series.iloc[-5]) + 1e-5)
-        else:
-            feats['growth_4w'] = 0.0
-
-        if n >= 13:
-            feats['growth_12w'] = (float(history_series.iloc[-1]) - float(history_series.iloc[-13])) / (float(history_series.iloc[-13]) + 1e-5)
-        else:
-            feats['growth_12w'] = 0.0
+        # Growth metrics: identical definition to _add_trend_features (zero base -> 0)
+        for col, k in (('wow_growth', 1), ('growth_4w', 4), ('growth_12w', 12)):
+            if n >= k + 1:
+                last, base = float(history_series.iloc[-1]), float(history_series.iloc[-1 - k])
+                feats[col] = (last - base) / base if base != 0 else 0.0
+            else:
+                feats[col] = 0.0
 
         feats['seasonal_lag'] = float(history_series.iloc[-self.seasonal_period]) if n >= self.seasonal_period else 0.0
         return pd.Series(feats)
