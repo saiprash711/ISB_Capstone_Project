@@ -51,6 +51,24 @@ try:
 except Exception as e:
     INTELLIGENCE_AVAILABLE = False
 
+from src.forecast_studio import (
+    CHAMPION_LABEL, ML_MODELS, STATISTICAL_MODELS, accuracy_from_wape, render_holdout_model_validation,
+    render_model_dossier, run_engine_forecast,
+    weekly_demand_profile,
+)
+
+try:
+    from src.holdout_validation_page import render_holdout_validation_page
+except Exception as e:
+    def render_holdout_validation_page(theme="dark", _err=str(e)):
+        st.error(f"Holdout validation view unavailable: {_err}")
+
+# Data sources: real SAP billing vs the 10 synthetic evaluation SKUs created by generate_evaluation_data.py
+SYNTHETIC_SHEET = 'Evaluation_10_SKUs'
+SHEET_REAL = "📊 SAP billing history (real)"
+SHEET_SYNTHETIC = "🧪 Synthetic evaluation SKUs (generated)"
+SHEET_BOTH = "🔄 Real + synthetic"
+
 # Regional Branch Definitions (South Region)
 BRANCH_DICT = {
     'BLR': 'Bangalore',
@@ -1792,1134 +1810,6 @@ def create_forecast_plot(historical_dates, historical_values, forecast_dates,
     return fig
 
 # -----------------------------------------------------------------------------
-# CALIBRATED PREDICTION INTERVALS & METRIC CALCULATOR
-# -----------------------------------------------------------------------------
-def build_sku_seasonal_profile(dates, values):
-    """
-    Computes a robust, circular 52-week annual empirical seasonal profile S(w) for an SKU.
-    Interpolates any unobserved weeks (such as mid-monsoon cooling weeks) and applies
-    gentle circular 3-week smoothing so seasonality is preserved across all horizon steps.
-    """
-    s_profile = np.ones(53, dtype=float)
-    val_arr = np.asarray(values, dtype=float)
-    if len(val_arr) < 8 or np.all(val_arr <= 0):
-        return s_profile
-        
-    df_temp = pd.DataFrame({'date': pd.to_datetime(dates), 'val': val_arr})
-    df_temp['week'] = df_temp['date'].dt.isocalendar().week.astype(int)
-    
-    mean_val = max(1.0, float(np.mean(df_temp['val'])))
-    obs = df_temp.groupby('week')['val'].mean() / mean_val
-    for w, ratio in obs.items():
-        if 1 <= w <= 52:
-            s_profile[w] = max(0.08, float(ratio))
-            
-    # Interpolate missing calendar weeks between observed weeks
-    observed_weeks = sorted(obs.index)
-    all_weeks = np.arange(1, 53)
-    missing = [w for w in all_weeks if w not in observed_weeks]
-    if missing and len(observed_weeks) >= 4:
-        s_profile[missing] = np.interp(missing, observed_weeks, [s_profile[w] for w in observed_weeks])
-        
-    # Gentle 3-week circular smoothing
-    s_smoothed = np.copy(s_profile)
-    for w in range(1, 53):
-        prev_w = 52 if w == 1 else w - 1
-        next_w = 1 if w == 52 else w + 1
-        s_smoothed[w] = 0.25 * s_profile[prev_w] + 0.5 * s_profile[w] + 0.25 * s_profile[next_w]
-        
-    # Normalize so average annual seasonal index is exactly 1.0
-    s_smoothed[1:53] = s_smoothed[1:53] / max(0.01, float(np.mean(s_smoothed[1:53])))
-    s_smoothed = np.clip(s_smoothed, 0.10, 3.8)
-    return s_smoothed
-
-def calculate_calibrated_confidence_bounds(forecast_values, historical_series, confidence_level=95, residuals=None, rmse=None):
-    """
-    Computes calibrated, physically realistic prediction interval bounds for demand forecasting.
-    Guarantees non-negative lower bounds and prevents explosive/unrealistic upper bounds.
-    """
-    forecast_values = np.asarray(forecast_values, dtype=float)
-    hist_series = np.asarray(historical_series, dtype=float)
-    
-    # Standard normal critical value for requested confidence level
-    if confidence_level == 95:
-        z = 1.96
-    elif confidence_level == 90:
-        z = 1.64
-    elif confidence_level == 80:
-        z = 1.28
-    else:
-        alpha = 1.0 - (confidence_level / 100.0)
-        from scipy.stats import norm
-        z = float(norm.ppf(1.0 - alpha / 2.0))
-        
-    mean_hist = max(1.0, float(np.mean(hist_series)))
-    
-    # Determine relative forecast error standard deviation (CV_e)
-    if residuals is not None and len(residuals) > 0:
-        val_res = np.asarray(residuals, dtype=float)
-        val_res = val_res[np.isfinite(val_res)]
-        cv_e = float(np.std(val_res)) / mean_hist if len(val_res) > 0 else 0.22
-    elif rmse is not None and rmse > 0:
-        cv_e = float(rmse) / mean_hist
-    else:
-        cv_e = 0.25
-        
-    # Calibrate relative error for realistic supply chain prediction uncertainty
-    cv_e = max(0.12, min(0.30, cv_e))
-    
-    # Gradual expanding horizon dispersion: sqrt(1 + 0.025 * (h - 1))
-    h_steps = np.arange(1, len(forecast_values) + 1)
-    horizon_factor = np.sqrt(1.0 + 0.025 * (h_steps - 1))
-    
-    margins = forecast_values * (z * cv_e * horizon_factor)
-    
-    # Strictly non-negative lower bound
-    lower_bound = np.maximum(0.0, forecast_values - margins)
-    
-    # Realistic upper bound: capped by operational ceiling
-    # Cannot exceed 1.65x forecast or 1.15x historical 95th percentile peak
-    p95_hist = float(np.percentile(hist_series, 95)) if len(hist_series) > 0 else float(np.max(forecast_values)) * 1.5
-    cap = max(float(np.max(forecast_values)) * 1.65, p95_hist * 1.15)
-    upper_bound = np.minimum(forecast_values + margins, cap)
-    
-    # Ensure upper bound is always >= forecast
-    upper_bound = np.maximum(upper_bound, forecast_values)
-    
-    return lower_bound, upper_bound
-
-def calculate_forecasting_metrics(y_true, y_pred, model_name="Model"):
-    """
-    Computes genuine, APICS-compliant supply chain forecasting metrics (MAE, RMSE, WAPE, Accuracy)
-    strictly from realized observations and predictions without arbitrary scaling or artificial boundaries.
-    """
-    y_t = np.maximum(0, np.array(y_true, dtype=float))
-    y_p = np.maximum(0, np.array(y_pred, dtype=float))
-    
-    if len(y_t) == 0:
-        return {'MAE': 0.0, 'RMSE': 0.0, 'MAPE': 0.0, 'WAPE': 0.0, 'sMAPE': 0.0, 'Accuracy': 0.0}
-        
-    mae = float(mean_absolute_error(y_t, y_p))
-    rmse = float(np.sqrt(mean_squared_error(y_t, y_p)))
-    total_vol = float(np.sum(y_t))
-    
-    wape = (float(np.sum(np.abs(y_t - y_p))) / total_vol * 100.0) if total_vol > 0 else 0.0
-    
-    # Calculate symmetric bounded MAPE (sMAPE)
-    denom = (np.abs(y_t) + np.abs(y_p)) / 2.0
-    nz = denom > 0
-    smape = float(np.mean(np.abs(y_t[nz] - y_p[nz]) / denom[nz]) * 100.0) if np.any(nz) else 0.0
-    
-    # Supply chain forecast accuracy:
-    # 1. Standard APICS: 100% - WAPE if WAPE < 100%
-    # 2. If extreme seasonal drop causes WAPE >= 100%, use normalized bounded accuracy (100 - sMAPE/2)
-    #    so that model accuracy reflects genuine predictive fidelity instead of collapsing to 0.0%.
-    if wape < 100.0:
-        accuracy = max(0.0, 100.0 - wape)
-    else:
-        accuracy = max(15.0, min(95.0, 100.0 - (smape / 2.0)))
-    
-    return {
-        'MAE': round(mae, 2),
-        'RMSE': round(rmse, 2),
-        'MAPE': round(wape, 1),
-        'WAPE': round(wape, 1),
-        'sMAPE': round(smape, 1),
-        'Accuracy': round(accuracy, 1)
-    }
-
-def compute_model_benchmarks_raw(sku_data_subset):
-    """
-    Evaluates real candidate models (Random Forest, Gradient Boosting, SARIMAX, Holt-Winters, ARIMA)
-    incorporating empirical seasonal decomposition and harmonic calendar profiles.
-    Computes genuine walk-forward MAE, RMSE, WAPE, and Accuracy without flatlines or 0% anomalies.
-    Returns a sorted DataFrame by Accuracy descending (and MAE ascending).
-    """
-    if sku_data_subset is None or len(sku_data_subset) < 8:
-        return pd.DataFrame()
-
-    ts_series = sku_data_subset['Billing Quantity ODU'].clip(lower=0).reset_index(drop=True)
-    y_all = ts_series.values.astype(float)
-    sku_dates = pd.to_datetime(sku_data_subset['Billing Date']).reset_index(drop=True)
-
-    s_prof = build_sku_seasonal_profile(sku_dates, y_all)
-    hist_weeks = sku_dates.dt.isocalendar().week.astype(int).values
-    hist_s = np.array([max(0.08, s_prof[w]) for w in hist_weeks])
-    y_deseas = y_all / hist_s
-
-    results = []
-
-    # Feature dataframe for ML models
-    df_ml = pd.DataFrame({'y': y_all})
-    df_ml['seasonal_index'] = hist_s
-    df_ml['sin_w'] = np.sin(2.0 * np.pi * hist_weeks / 52.0)
-    df_ml['cos_w'] = np.cos(2.0 * np.pi * hist_weeks / 52.0)
-    df_ml['sin_2w'] = np.sin(4.0 * np.pi * hist_weeks / 52.0)
-    df_ml['cos_2w'] = np.cos(4.0 * np.pi * hist_weeks / 52.0)
-    df_ml['lag_1'] = df_ml['y'].shift(1).bfill()
-    df_ml['lag_2'] = df_ml['y'].shift(2).bfill()
-    df_ml['lag_4'] = df_ml['y'].shift(4).bfill()
-    df_ml['rolling_mean_4'] = df_ml['y'].shift(1).rolling(4, min_periods=1).mean().bfill()
-    df_ml['month'] = sku_dates.dt.month
-    ml_cols = ['lag_1', 'lag_2', 'lag_4', 'rolling_mean_4', 'seasonal_index', 'sin_w', 'cos_w', 'sin_2w', 'cos_2w', 'month']
-    X_ml = df_ml[ml_cols]
-
-    # 1. Random Forest Regressor
-    try:
-        rf = RandomForestRegressor(n_estimators=100, random_state=42, max_depth=5, min_samples_leaf=2)
-        rf.fit(X_ml, y_all)
-        p_rf = np.maximum(0, rf.predict(X_ml))
-        m_rf = calculate_forecasting_metrics(y_all, p_rf, "Random Forest")
-        results.append({
-            'Model': '🌲 Random Forest Regressor',
-            'Architecture': 'Machine Learning (Bagging Ensemble)',
-            'MAE': m_rf['MAE'],
-            'RMSE': m_rf['RMSE'],
-            'WMAPE_num': m_rf['WAPE'],
-            'Accuracy_num': m_rf['Accuracy'],
-            'RAW_NAME': 'Random Forest'
-        })
-    except Exception:
-        pass
-
-    # 2. Gradient Boosting Regressor
-    try:
-        gb = GradientBoostingRegressor(n_estimators=45, random_state=42, max_depth=2, min_samples_leaf=3, learning_rate=0.04, subsample=0.85)
-        gb.fit(X_ml, y_all)
-        p_gb = np.maximum(0, gb.predict(X_ml))
-        m_gb = calculate_forecasting_metrics(y_all, p_gb, "Gradient Boosting")
-        results.append({
-            'Model': '⚡ Gradient Boosting Regressor',
-            'Architecture': 'Boosting Ensemble (Decision Trees)',
-            'MAE': m_gb['MAE'],
-            'RMSE': m_gb['RMSE'],
-            'WMAPE_num': m_gb['WAPE'],
-            'Accuracy_num': m_gb['Accuracy'],
-            'RAW_NAME': 'Gradient Boosting'
-        })
-    except Exception:
-        pass
-
-    # 3. SARIMAX (Seasonal Decomposition)
-    try:
-        sa_mod = SARIMAX(y_deseas, order=(1, 1, 1), enforce_stationarity=False, enforce_invertibility=False)
-        sa_fit = sa_mod.fit(disp=False)
-        p_sa = np.maximum(0, sa_fit.fittedvalues[1:] * hist_s[1:])
-        m_sa = calculate_forecasting_metrics(y_all[1:], p_sa, "SARIMAX")
-        results.append({
-            'Model': '📈 SARIMAX (Seasonal Decomposition)',
-            'Architecture': 'Seasonal Econometric Time-Series',
-            'MAE': m_sa['MAE'],
-            'RMSE': m_sa['RMSE'],
-            'WMAPE_num': m_sa['WAPE'],
-            'Accuracy_num': m_sa['Accuracy'],
-            'RAW_NAME': 'SARIMA'
-        })
-    except Exception:
-        pass
-
-    # 4. Holt-Winters Exponential Smoothing
-    try:
-        hw_mod = ExponentialSmoothing(y_deseas, trend='add', damped_trend=True).fit()
-        p_hw = np.maximum(0, hw_mod.fittedvalues * hist_s)
-        m_hw = calculate_forecasting_metrics(y_all, p_hw, "Holt-Winters")
-        results.append({
-            'Model': '📉 Holt-Winters Exp. Smoothing',
-            'Architecture': 'Trend & Level Smoothing (ETS)',
-            'MAE': m_hw['MAE'],
-            'RMSE': m_hw['RMSE'],
-            'WMAPE_num': m_hw['WAPE'],
-            'Accuracy_num': m_hw['Accuracy'],
-            'RAW_NAME': 'Exponential Smoothing'
-        })
-    except Exception:
-        pass
-
-    # 5. ARIMA (De-seasonalized)
-    try:
-        ar_mod = ARIMA(y_deseas, order=(1, 1, 1)).fit()
-        p_ar = np.maximum(0, ar_mod.fittedvalues[1:] * hist_s[1:])
-        m_ar = calculate_forecasting_metrics(y_all[1:], p_ar, "ARIMA")
-        results.append({
-            'Model': '🎯 ARIMA (De-seasonalized)',
-            'Architecture': 'Linear Autoregressive Integrated',
-            'MAE': m_ar['MAE'],
-            'RMSE': m_ar['RMSE'],
-            'WMAPE_num': m_ar['WAPE'],
-            'Accuracy_num': m_ar['Accuracy'],
-            'RAW_NAME': 'ARIMA'
-        })
-    except Exception:
-        pass
-
-    if not results:
-        return pd.DataFrame()
-
-    # Sort by Accuracy descending, then MAE ascending
-    df_res = pd.DataFrame(results).sort_values(by=['Accuracy_num', 'MAE'], ascending=[False, True]).reset_index(drop=True)
-    return df_res
-
-def get_best_champion_model(sku_data_subset):
-    """
-    Evaluates real candidate models and identifies the #1 top-performing tournament champion.
-    Guarantees that AutoML Champion selects the model with the highest accuracy and lowest error.
-    """
-    df_res = compute_model_benchmarks_raw(sku_data_subset)
-    if df_res.empty:
-        return {
-            'raw_name': 'Random Forest',
-            'display_name': '🌲 Random Forest Regressor',
-            'architecture': 'Machine Learning (Bagging Ensemble)',
-            'accuracy': 85.0,
-            'wape': 15.0,
-            'mae': 0.0,
-            'rmse': 0.0
-        }
-    best = df_res.iloc[0]
-    return {
-        'raw_name': str(best['RAW_NAME']),
-        'display_name': str(best['Model']),
-        'architecture': str(best['Architecture']),
-        'accuracy': float(best['Accuracy_num']),
-        'wape': float(best['WMAPE_num']),
-        'mae': float(best['MAE']),
-        'rmse': float(best['RMSE'])
-    }
-
-def evaluate_cross_model_benchmarks(sku_data_subset, selected_model_name=""):
-    """
-    Returns the calibrated leaderboard ranking all candidate models by out-of-fold accuracy.
-    Rank 1 is guaranteed to match the deployed AutoML Champion.
-    """
-    df_res = compute_model_benchmarks_raw(sku_data_subset)
-    if df_res.empty:
-        return pd.DataFrame()
-
-    final_rows = []
-    for idx, (_, r) in enumerate(df_res.iterrows()):
-        final_rows.append({
-            'Rank': idx + 1,
-            'Model': r['Model'],
-            'Architecture': r['Architecture'],
-            'MAE': f"{r['MAE']:.2f}",
-            'RMSE': f"{r['RMSE']:.2f}",
-            'WMAPE': f"{r['WMAPE_num']:.1f}%",
-            'Accuracy': f"{r['Accuracy_num']:.1f}%"
-        })
-
-    return pd.DataFrame(final_rows)
-
-def run_statistical_model(sku_data, model_name, forecast_periods, confidence_level, branch_label="All Branches", is_automl=False):
-    sku_dates = pd.to_datetime(sku_data['Billing Date']).reset_index(drop=True)
-    ts_series = sku_data['Billing Quantity ODU'].clip(lower=0).reset_index(drop=True)
-    y_all = ts_series.values.astype(float)
-    
-    # Compute empirical 52-week seasonal profile for this SKU
-    s_profile = build_sku_seasonal_profile(sku_dates, y_all)
-    hist_weeks = sku_dates.dt.isocalendar().week.astype(int).values
-    hist_s = np.array([max(0.08, s_profile[w]) for w in hist_weeks])
-    
-    # Classical multiplicative seasonal decomposition: base = y / S(w)
-    y_deseas = y_all / hist_s
-    
-    last_date = sku_dates.max()
-    future_dates = pd.date_range(start=last_date + timedelta(days=7), periods=forecast_periods, freq='W')
-    future_weeks = [int(d.isocalendar()[1]) for d in future_dates]
-    future_s = np.array([max(0.08, s_profile[w]) for w in future_weeks])
-    
-    if model_name == "ARIMA":
-        full_model = ARIMA(y_deseas, order=(1, 1, 1))
-        full_fitted = full_model.fit()
-        base_forecast = np.array(full_fitted.forecast(steps=forecast_periods))
-        base_fitted = np.maximum(0, full_fitted.fittedvalues[1:])
-        y_eval_pred = np.maximum(0, base_fitted * hist_s[1:])
-        y_eval_true = y_all[1:]
-        
-    elif model_name == "SARIMA":
-        seasonal_order_full = (1, 0, 0, 4) if len(y_all) >= 16 else (0, 0, 0, 0)
-        full_model = SARIMAX(
-            y_deseas, 
-            order=(1, 1, 1), 
-            seasonal_order=seasonal_order_full,
-            enforce_stationarity=False, 
-            enforce_invertibility=False
-        )
-        full_fitted = full_model.fit(disp=False)
-        base_forecast = np.array(full_fitted.forecast(steps=forecast_periods))
-        base_fitted = np.maximum(0, full_fitted.fittedvalues[1:])
-        y_eval_pred = np.maximum(0, base_fitted * hist_s[1:])
-        y_eval_true = y_all[1:]
-        
-    else:  # Exponential Smoothing
-        try:
-            full_model = ExponentialSmoothing(
-                y_deseas, 
-                trend='add', 
-                seasonal=None, 
-                damped_trend=True, 
-                initialization_method='estimated'
-            )
-            full_fitted = full_model.fit()
-        except Exception:
-            full_model = ExponentialSmoothing(
-                y_deseas, 
-                trend='add', 
-                seasonal=None, 
-                damped_trend=False, 
-                initialization_method='estimated'
-            )
-            full_fitted = full_model.fit()
-        base_forecast = np.array(full_fitted.forecast(steps=forecast_periods))
-        base_fitted = np.maximum(0, full_fitted.fittedvalues)
-        y_eval_pred = np.maximum(0, base_fitted * hist_s)
-        y_eval_true = y_all
-    
-    # Re-seasonalize forward forecast
-    forecast_values = np.maximum(0, base_forecast * future_s)
-    residuals = y_eval_true - y_eval_pred
-        
-    plot_model_name = f"{model_name} (AutoML Champion)" if is_automl else model_name
-    metrics_dict = calculate_forecasting_metrics(y_eval_true, y_eval_pred, model_name=plot_model_name)
-    metrics_dict['sku_history'] = y_all
-    metrics_dict['model_type'] = plot_model_name
-    
-    # Calibrated, non-negative, well-scaled confidence bounds
-    lower_bound, upper_bound = calculate_calibrated_confidence_bounds(
-        forecast_values=forecast_values,
-        historical_series=y_all,
-        confidence_level=confidence_level,
-        residuals=residuals,
-        rmse=metrics_dict['RMSE']
-    )
-    
-    forecast_df = pd.DataFrame({
-        'Date': future_dates,
-        'Forecast': np.round(forecast_values, 2),
-        f'Lower Bound ({confidence_level}% CI)': np.round(lower_bound, 2),
-        f'Upper Bound ({confidence_level}% CI)': np.round(upper_bound, 2)
-    })
-    
-    fig = create_forecast_plot(
-        historical_dates=sku_data['Billing Date'].values,
-        historical_values=sku_data['Billing Quantity ODU'].values,
-        forecast_dates=future_dates,
-        forecast_values=forecast_values,
-        lower_bound=lower_bound,
-        upper_bound=upper_bound,
-        model_name=plot_model_name,
-        branch_label=branch_label,
-        confidence_level=confidence_level
-    )
-    
-    return forecast_df, metrics_dict, fig
-
-def run_ml_model(sku_data, model_name, forecast_periods, confidence_level, branch_label="All Branches", is_automl=False):
-    df_ml = sku_data.copy().sort_values('Billing Date').reset_index(drop=True)
-    sku_dates = pd.to_datetime(df_ml['Billing Date'])
-    y_raw = df_ml['Billing Quantity ODU'].clip(lower=0).values.astype(float)
-    
-    s_profile = build_sku_seasonal_profile(sku_dates, y_raw)
-    
-    # 1. Autoregressive Lags (Lag 1, 2, 4, 12)
-    df_ml['lag_1'] = df_ml['Billing Quantity ODU'].shift(1).bfill()
-    df_ml['lag_2'] = df_ml['Billing Quantity ODU'].shift(2).bfill()
-    df_ml['lag_4'] = df_ml['Billing Quantity ODU'].shift(4).bfill()
-    df_ml['lag_12'] = df_ml['Billing Quantity ODU'].shift(12).bfill()
-    
-    # 2. Rolling Window Statistics
-    df_ml['rolling_mean_4'] = df_ml['Billing Quantity ODU'].rolling(window=4, min_periods=1).mean()
-    df_ml['rolling_mean_12'] = df_ml['Billing Quantity ODU'].rolling(window=12, min_periods=1).mean()
-    df_ml['rolling_std_4'] = df_ml['Billing Quantity ODU'].rolling(window=4, min_periods=1).std().fillna(0)
-    
-    # 3. Calendar & Temporal Indicators (Month, Quarter, Week of Year, Harmonic Fourier Seasonality)
-    df_ml['month'] = df_ml['Billing Date'].dt.month
-    df_ml['quarter'] = df_ml['Billing Date'].dt.quarter
-    weeks = df_ml['Billing Date'].dt.isocalendar().week.astype(int)
-    df_ml['week_of_year'] = weeks
-    df_ml['seasonal_index'] = [s_profile[w] for w in weeks]
-    df_ml['sin_w'] = np.sin(2.0 * np.pi * weeks / 52.0)
-    df_ml['cos_w'] = np.cos(2.0 * np.pi * weeks / 52.0)
-    df_ml['sin_2w'] = np.sin(4.0 * np.pi * weeks / 52.0)
-    df_ml['cos_2w'] = np.cos(4.0 * np.pi * weeks / 52.0)
-    
-    # 4. Regional & Categorical Attributes
-    branch_map = {'All Branches': 0, 'Chennai': 1, 'Bangalore': 2, 'Cochin': 3, 'Secunderabad': 4, 'Vijayawada': 5}
-    b_code = branch_map.get(branch_label, 0)
-    df_ml['branch_encoded'] = b_code
-    df_ml['category_encoded'] = 1
-    
-    # 5. Exogenous Domain Flags
-    festive_weeks = [2, 3, 14, 15, 16, 34, 35, 36, 40, 41, 42, 43, 44, 45]
-    promo_weeks = list(range(6, 14)) + list(range(36, 45))
-    df_ml['festival_flag'] = df_ml['week_of_year'].apply(lambda w: 1 if w in festive_weeks else 0)
-    df_ml['promotion_flag'] = df_ml['week_of_year'].apply(lambda w: 1 if w in promo_weeks else 0)
-    
-    feature_cols = [
-        'lag_1', 'lag_2', 'lag_4', 'lag_12',
-        'rolling_mean_4', 'rolling_mean_12', 'rolling_std_4',
-        'seasonal_index', 'sin_w', 'cos_w', 'sin_2w', 'cos_2w',
-        'month', 'quarter', 'branch_encoded', 'category_encoded',
-        'festival_flag', 'promotion_flag'
-    ]
-    
-    feature_labels = {
-        'lag_1': 'Lag 1 (Prior Week Inertia)',
-        'lag_2': 'Lag 2 (Bi-Weekly Order)',
-        'lag_4': 'Lag 4 (Monthly Cycle)',
-        'lag_12': 'Lag 12 (Quarterly Seasonality)',
-        'rolling_mean_4': 'Rolling Mean (4W Run Rate)',
-        'rolling_mean_12': 'Rolling Mean (12W Baseline)',
-        'rolling_std_4': 'Rolling Std (4W Volatility)',
-        'seasonal_index': 'Annual 52W Seasonal Index',
-        'sin_w': 'Harmonic Seasonality Sine (Annual)',
-        'cos_w': 'Harmonic Seasonality Cosine (Annual)',
-        'sin_2w': 'Harmonic Seasonality Sine (Semi-Annual)',
-        'cos_2w': 'Harmonic Seasonality Cosine (Semi-Annual)',
-        'month': 'Calendar Month (1-12)',
-        'quarter': 'Calendar Quarter (Q1-Q4)',
-        'branch_encoded': 'Branch Identifier',
-        'category_encoded': 'Product Category Class',
-        'festival_flag': 'Festival Impulse Flag',
-        'promotion_flag': 'Dealer Promotion Scheme Flag'
-    }
-    
-    X = df_ml[feature_cols]
-    y = df_ml['Billing Quantity ODU']
-    
-    if model_name == "Random Forest":
-        model = RandomForestRegressor(n_estimators=100, random_state=42, max_depth=5, min_samples_leaf=2)
-    else:  # Gradient Boosting
-        model = GradientBoostingRegressor(n_estimators=45, random_state=42, max_depth=2, min_samples_leaf=3, learning_rate=0.04, subsample=0.85)
-    
-    model.fit(X, y)
-    full_pred = np.maximum(0, model.predict(X))
-    residuals = y.values - full_pred
-    
-    plot_model_name = f"{model_name} (AutoML Champion)" if is_automl else model_name
-    cal_metrics = calculate_forecasting_metrics(y.values, full_pred, model_name=plot_model_name)
-    
-    feat_imp_df = None
-    if hasattr(model, 'feature_importances_'):
-        feat_imp_df = pd.DataFrame({
-            'Feature': [feature_labels.get(c, c) for c in feature_cols],
-            'Importance': (model.feature_importances_ * 100).round(2),
-            'RawCol': feature_cols
-        }).sort_values('Importance', ascending=False)
-        
-    metrics_dict = {
-        'MAE': cal_metrics['MAE'],
-        'RMSE': cal_metrics['RMSE'],
-        'MAPE': cal_metrics['MAPE'],
-        'WAPE': cal_metrics['WAPE'],
-        'sMAPE': cal_metrics['sMAPE'],
-        'Accuracy': cal_metrics['Accuracy'],
-        'model_type': plot_model_name,
-        'feature_importance': feat_imp_df,
-        'feature_cols': feature_cols,
-        'sku_history': df_ml['Billing Quantity ODU'].values
-    }
-    
-    last_date = sku_data['Billing Date'].max()
-    future_dates = pd.date_range(start=last_date + timedelta(days=7), periods=forecast_periods, freq='W')
-    
-    forecast_values = []
-    hist_values = df_ml['Billing Quantity ODU'].tolist()
-    
-    for i, future_date in enumerate(future_dates):
-        w = int(future_date.isocalendar()[1])
-        m = int(future_date.month)
-        q = int(future_date.quarter)
-        fest_flag = 1 if w in festive_weeks else 0
-        prom_flag = 1 if (6 <= w <= 13) or (36 <= w <= 44) else 0
-        
-        future_features = {
-            'lag_1': hist_values[-1],
-            'lag_2': hist_values[-2] if len(hist_values) >= 2 else hist_values[-1],
-            'lag_4': hist_values[-4] if len(hist_values) >= 4 else hist_values[-1],
-            'lag_12': hist_values[-12] if len(hist_values) >= 12 else hist_values[-1],
-            'rolling_mean_4': float(np.mean(hist_values[-4:])),
-            'rolling_mean_12': float(np.mean(hist_values[-12:])),
-            'rolling_std_4': float(np.std(hist_values[-4:])) if len(hist_values) >= 2 else 0.0,
-            'seasonal_index': s_profile[w],
-            'sin_w': float(np.sin(2.0 * np.pi * w / 52.0)),
-            'cos_w': float(np.cos(2.0 * np.pi * w / 52.0)),
-            'sin_2w': float(np.sin(4.0 * np.pi * w / 52.0)),
-            'cos_2w': float(np.cos(4.0 * np.pi * w / 52.0)),
-            'month': m,
-            'quarter': q,
-            'branch_encoded': b_code,
-            'category_encoded': 1,
-            'festival_flag': fest_flag,
-            'promotion_flag': prom_flag
-        }
-        
-        X_future = pd.DataFrame([future_features])[feature_cols]
-        pred = model.predict(X_future)[0]
-        pred_val = max(0.0, float(pred))
-        forecast_values.append(pred_val)
-        hist_values.append(pred_val)
-        
-    forecast_array = np.array(forecast_values)
-    
-    lower_bound, upper_bound = calculate_calibrated_confidence_bounds(
-        forecast_values=forecast_array,
-        historical_series=y.values,
-        confidence_level=confidence_level,
-        residuals=residuals,
-        rmse=metrics_dict['RMSE']
-    )
-    
-    forecast_df = pd.DataFrame({
-        'Date': future_dates,
-        'Forecast': np.round(forecast_array, 2),
-        f'Lower Bound ({confidence_level}% CI)': np.round(lower_bound, 2),
-        f'Upper Bound ({confidence_level}% CI)': np.round(upper_bound, 2)
-    })
-    
-    fig = create_forecast_plot(
-        historical_dates=sku_data['Billing Date'].values,
-        historical_values=sku_data['Billing Quantity ODU'].values,
-        forecast_dates=future_dates,
-        forecast_values=forecast_array,
-        lower_bound=lower_bound,
-        upper_bound=upper_bound,
-        model_name=plot_model_name,
-        branch_label=branch_label,
-        confidence_level=confidence_level
-    )
-    
-    return forecast_df, metrics_dict, fig
-
-# -----------------------------------------------------------------------------
-# ISB CAPSTONE TECHNICAL DOSSIER & FEATURE ENGINEERING INSPECTOR
-# -----------------------------------------------------------------------------
-def render_isb_technical_dossier(metrics_dict, selected_model, selected_sku, branch_label, is_dark=None):
-    # Dynamically read active theme from session_state for bulletproof light/dark compatibility
-    if is_dark is None:
-        active_theme = st.session_state.get('theme', 'dark')
-        is_dark = (active_theme == 'dark')
-
-    model_str = str(selected_model).strip() if selected_model else "Random Forest"
-    is_rf = ("Random Forest" in model_str) or ("Gradient" in model_str) or (model_str == "AutoML Champion")
-    is_sarima = "SARIMA" in model_str
-    is_hw = ("Exponential" in model_str) or ("Holt" in model_str)
-    is_arima = (model_str == "ARIMA") or (not is_rf and not is_sarima and not is_hw)
-
-    # Model metadata and palette calibration
-    if is_rf:
-        model_display_name = "Random Forest Regressor (ML Ensemble)"
-        model_family_badge = "🌲 Machine Learning Non-Linear Ensemble"
-        model_tagline = "Non-linear orthogonal recursive partitioning across 13 multi-resolution lags, rolling run-rates & volatility."
-        theme_accent = "#00E5FF" if is_dark else "#059669"
-        bar_palette = ['#6366F1', '#00E5FF', '#10B981'] if is_dark else ['#0284C7', '#2563EB', '#059669']
-        tab1_label = "⚙️ 13-Feature Engineering Matrix & Gini Importance"
-        tab2_label = "📐 Mathematical Architecture & Hyperparameters"
-    elif is_sarima:
-        model_display_name = "SARIMAX (1,1,1)(1,1,1)₁₂ Seasonal Econometric"
-        model_family_badge = "📈 Seasonal Econometric Time-Series + Exogenous Regressors"
-        model_tagline = "Multiplicative seasonal backshift differencing (s=12) with exogenous dealer promotions and festive indicators."
-        theme_accent = "#818CF8" if is_dark else "#4F46E5"
-        bar_palette = ['#818CF8', '#A78BFA', '#C084FC'] if is_dark else ['#4F46E5', '#6366F1', '#7C3AED']
-        tab1_label = "📈 Exogenous Regressors & Seasonal Lag Structure"
-        tab2_label = "📐 SARIMAX Polynomial Formulation & Diagnostics"
-    elif is_hw:
-        model_display_name = "Holt-Winters Triple Exponential Smoothing"
-        model_family_badge = "📉 State-Space Triple Additive Decomposition (ETS)"
-        model_tagline = "Triple recursive state-space equations (Level, Trend, Seasonal) with zero matrix inversion and edge compute speed."
-        theme_accent = "#F59E0B" if is_dark else "#D97706"
-        bar_palette = ['#F59E0B', '#FBBF24', '#FCD34D'] if is_dark else ['#D97706', '#EA580C', '#B45309']
-        tab1_label = "📉 State-Space Component Smoothing Weights"
-        tab2_label = "📐 Holt-Winters Recursive State-Space Formulation"
-    else:
-        model_display_name = "ARIMA (1,1,1) Classical Box-Jenkins Benchmark"
-        model_family_badge = "🎯 Univariate Linear Operational Baseline"
-        model_tagline = "Endogenous autoregressive integrated moving average baseline benchmarking the incremental value of ML."
-        theme_accent = "#10B981" if is_dark else "#0284C7"
-        bar_palette = ['#3B82F6', '#60A5FA', '#93C5FD'] if is_dark else ['#0284C7', '#2563EB', '#1D4ED8']
-        tab1_label = "🎯 Autoregressive Lags & Innovation Components"
-        tab2_label = "📐 Box-Jenkins Linear Formulation & MLE Baseline"
-
-    axis_text_color = '#E2E8F0' if is_dark else '#0F172A'
-    axis_title_color = '#FFFFFF' if is_dark else '#0F172A'
-    grid_color = 'rgba(255, 255, 255, 0.1)' if is_dark else 'rgba(15, 23, 42, 0.15)'
-    plot_bg = 'rgba(19, 28, 49, 0.45)' if is_dark else '#FFFFFF'
-    paper_bg = 'rgba(0,0,0,0)' if is_dark else '#FFFFFF'
-    card_bg = 'rgba(19, 28, 49, 0.7)' if is_dark else '#FFFFFF'
-    card_border_base = 'rgba(255, 255, 255, 0.12)' if is_dark else '#CBD5E1'
-    formula_bg = 'rgba(0, 0, 0, 0.35)' if is_dark else '#F1F5F9'
-    formula_border = 'rgba(255, 255, 255, 0.1)' if is_dark else '#CBD5E1'
-    text_strong = '#E2E8F0' if is_dark else '#0F172A'
-    text_sub = '#94A3B8' if is_dark else '#475569'
-    card_shadow = 'none' if is_dark else '0 2px 12px rgba(0,0,0,0.06)'
-    badge_bg = 'rgba(0, 229, 255, 0.12)' if is_dark else 'rgba(2, 132, 199, 0.1)'
-    badge_border = 'rgba(0, 229, 255, 0.3)' if is_dark else 'rgba(2, 132, 199, 0.3)'
-
-    st.markdown("<div style='height: 24px;'></div>", unsafe_allow_html=True)
-    st.markdown(f"""
-    <div class="glass-panel" style="border-left: 5px solid {theme_accent}; padding: 20px 24px; margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-            <div>
-                <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; color: {theme_accent}; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 4px;">
-                    {model_family_badge} (ACTIVE SELECTION)
-                </div>
-                <h3 style="margin: 0 0 6px 0; font-family: 'Outfit'; font-size: 21px; font-weight: 700; color: {text_strong};">
-                    🔬 Technical Dossier: {model_display_name}
-                </h3>
-                <p style="margin: 0; font-size: 13px; color: {text_sub};">
-                    Active SKU: <strong style="color: {text_strong};">{selected_sku}</strong> &bull; Regional Fleet: <strong style="color: {text_strong};">{branch_label}</strong> &bull; {model_tagline}
-                </p>
-            </div>
-            <div class="kpi-badge kpi-badge-cyan" style="font-size: 12px; padding: 6px 16px;">
-                Active Architecture
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    tab_feat, tab_models, tab_benchmark = st.tabs([
-        tab1_label,
-        tab2_label,
-        "📊 4-Model Comparative Architectural Benchmark"
-    ])
-
-    explainer = ForecastExplainer()
-    y_hist = metrics_dict.get('sku_history') if metrics_dict else None
-
-    # -------------------------------------------------------------------------
-    # TAB 1: MODEL-SPECIFIC INPUT REPRESENTATION & FEATURE MATRIX
-    # -------------------------------------------------------------------------
-    with tab_feat:
-        if is_rf:
-            st.markdown("##### 🧬 Multi-Resolution Feature Engineering Pipeline (13 Features & Gini/SHAP Attribution)")
-            st.caption("Temporal lags, moving run-rates, rolling volatility, macro quarterly trends, and exogenous festive/promotional signals calculated dynamically.")
-            feat_df = metrics_dict.get('feature_importance') if metrics_dict else None
-            if feat_df is None or not isinstance(feat_df, pd.DataFrame) or feat_df.empty:
-                if y_hist is not None and len(y_hist) >= 12:
-                    df_tmp = pd.DataFrame({'y': y_hist})
-                    df_tmp['lag_1'] = df_tmp['y'].shift(1)
-                    df_tmp['lag_2'] = df_tmp['y'].shift(2)
-                    df_tmp['lag_4'] = df_tmp['y'].shift(4)
-                    df_tmp['rolling_mean_4'] = df_tmp['y'].shift(1).rolling(4, min_periods=1).mean()
-                    df_tmp['rolling_std_4'] = df_tmp['y'].shift(1).rolling(4, min_periods=1).std()
-                    df_tmp = df_tmp.bfill().fillna(0)
-                    feat_cols = ['lag_1', 'lag_2', 'lag_4', 'rolling_mean_4', 'rolling_std_4']
-                    rf_quick = RandomForestRegressor(n_estimators=30, random_state=42, max_depth=4)
-                    rf_quick.fit(df_tmp[feat_cols], df_tmp['y'])
-                    tree_exp = explainer.explain_tree_model(rf_quick, df_tmp[feat_cols])
-                    feat_df = explainer.format_importance_table(tree_exp['feature_importances']).rename(columns={'Feature Attribute': 'Feature', 'Importance Score (%)': 'Importance'})
-                    feat_df['Importance'] = feat_df['Importance'].str.rstrip('%').astype(float)
-                else:
-                    feat_df = pd.DataFrame([
-                        {'Feature': 'Rolling Mean (4W Run Rate)', 'Importance': 35.0, 'Type': 'Rolling Window'},
-                        {'Feature': 'Rolling Std (4W Volatility)', 'Importance': 25.0, 'Type': 'Volatility Index'},
-                        {'Feature': 'Autoregressive Lags (Lag 1W, 2W, 4W)', 'Importance': 25.0, 'Type': 'Autoregressive Lag'},
-                        {'Feature': 'Calendar Month & Festive Impulses', 'Importance': 15.0, 'Type': 'Calendar Temporal'}
-                    ])
-            x_label = 'Gini Importance (MDI %)'
-            y_label = 'Engineered Feature'
-            col_talk_title = "🎯 Feature Engineering Business Rationale (Random Forest)"
-            col_talk_bullets = [
-                f"<strong style='color: {text_strong};'>Short-Term Velocity Dominates</strong>: <code>rolling_mean_4</code> captures the moving sell-out run-rate, filtering erratic single-week invoice batching.",
-                f"<strong style='color: {text_strong};'>Volatility Penalty</strong>: <code>rolling_std_4</code> measures demand turbulence, adapting across monsoon troughs and heatwave ramps.",
-                f"<strong style='color: {text_strong};'>Distributor Order Rhythm</strong>: <code>Lag 2</code> and <code>Lag 4</code> model bi-weekly and monthly replenishment schedules.",
-                f"<strong style='color: {text_strong};'>Macro Seasonality</strong>: <code>rolling_mean_12</code> and <code>Lag 12</code> capture the 3-month quarterly transition.",
-                f"<strong style='color: {text_strong};'>Exogenous Catalysts</strong>: <code>Festival Flag</code> and <code>Promotion Flag</code> model scheme impulses."
-            ]
-            dict_df = pd.DataFrame([
-                {"Feature": "Lag 1", "Category": "Autoregressive Lag", "Mathematical Formulation": "Y(t-1)", "HVAC & Supply Chain Rationale": "Immediate prior-week dealer shipments; captures short-run sales momentum and baseline inertia."},
-                {"Feature": "Lag 2", "Category": "Autoregressive Lag", "Mathematical Formulation": "Y(t-2)", "HVAC & Supply Chain Rationale": "Bi-weekly reordering lag; models typical Tier-2 dealer replenishment frequency."},
-                {"Feature": "Lag 4", "Category": "Autoregressive Lag", "Mathematical Formulation": "Y(t-4)", "HVAC & Supply Chain Rationale": "Monthly sales closing cycle; captures end-of-month dealer quota achievement rushes."},
-                {"Feature": "Lag 12", "Category": "Autoregressive Lag", "Mathematical Formulation": "Y(t-12)", "HVAC & Supply Chain Rationale": "Quarterly seasonal anchor (3 months prior); links seasonal shifts between quarters."},
-                {"Feature": "Rolling Mean (4W)", "Category": "Smoothed Run-Rate", "Mathematical Formulation": "(1/4) Σ_{i=0}^3 Y(t-i)", "HVAC & Supply Chain Rationale": "Filters out single-week logistics/billing anomalies, providing a clean moving run-rate."},
-                {"Feature": "Rolling Mean (12W)", "Category": "Macro Trend", "Mathematical Formulation": "(1/12) Σ_{i=0}^{11} Y(t-i)", "HVAC & Supply Chain Rationale": "Quarterly baseline trend; tracks secular cooling adoption and broad macroeconomic trajectory."},
-                {"Feature": "Rolling Std (4W)", "Category": "Demand Volatility", "Mathematical Formulation": "√[ (1/3) Σ (Y_i - μ_4w)^2 ]", "HVAC & Supply Chain Rationale": "Quantifies demand variance σ_D; directly drives safety stock sizing and confidence band width."},
-                {"Feature": "Month", "Category": "Calendar Seasonality", "Mathematical Formulation": "Month ∈ {1..12}", "HVAC & Supply Chain Rationale": "Captures peak summer (Apr-May) heatwave rush versus monsoon lull (Jul-Aug)."},
-                {"Feature": "Quarter", "Category": "Fiscal Horizon", "Mathematical Formulation": "Quarter ∈ {Q1..Q4}", "HVAC & Supply Chain Rationale": "Daikin fiscal quarterly budgeting, production run plans, and distributor target tiers."},
-                {"Feature": "Branch", "Category": "Categorical Embedding", "Mathematical Formulation": "Branch ID ∈ {1..5}", "HVAC & Supply Chain Rationale": "Encodes regional micro-climates (Chennai coastal humid, Bangalore temperate, Secunderabad dry heat)."},
-                {"Feature": "Product Category", "Category": "Categorical Embedding", "Mathematical Formulation": "Segment ID ∈ {1..3}", "HVAC & Supply Chain Rationale": "Differentiates Inverter vs Non-Inverter RAC and Outdoor Unit (ODU) vs Indoor Unit (IDU)."},
-                {"Feature": "Festival Flag", "Category": "Exogenous Impulse", "Mathematical Formulation": "I(Week ∈ {Diwali, Pongal, Onam, Ugadi})", "HVAC & Supply Chain Rationale": "Flags retail spikes driven by regional festive gifting, festive bonuses, and auspicious purchase windows."},
-                {"Feature": "Promotion Flag", "Category": "Exogenous Impulse", "Mathematical Formulation": "I(Week ∈ {Pre-Summer Loading, Festive Schemes})", "HVAC & Supply Chain Rationale": "Captures manufacturer trade discounts (Feb-Mar dealer loading) and consumer finance cashback."}
-            ])
-            dict_title = "📋 Complete 13-Feature Engineering Specification Dictionary"
-
-        elif is_sarima:
-            st.markdown("##### 📈 SARIMAX Exogenous Signals & Seasonal Polynomial Matrix (s = 12 Weeks)")
-            st.caption("SARIMAX models demand using multiplicative seasonal backshift polynomials combined with exogenous trade promotion and festive impulse regressors.")
-            if y_hist is not None and len(y_hist) >= 4:
-                decomp = explainer.explain_statistical_series(y_hist, period=12)
-                s_pct = decomp['seasonality_contribution_pct']
-                t_pct = decomp['trend_contribution_pct']
-                r_pct = decomp['residual_contribution_pct']
-                ar_pct = max(1.0, round(100.0 - (s_pct + t_pct + r_pct), 1))
-                feat_df = pd.DataFrame([
-                    {'Feature': 'Quarterly Seasonal Polynomial (s=12)', 'Importance': s_pct, 'Type': 'Seasonal Polynomial'},
-                    {'Feature': 'Secular Macro Trend Direction', 'Importance': t_pct, 'Type': 'Baseline Trend'},
-                    {'Feature': 'Autoregressive Momentum & Exogenous Lift', 'Importance': ar_pct, 'Type': 'Short-Run Momentum'},
-                    {'Feature': 'Moving Average Innovation Shock (ε_t)', 'Importance': r_pct, 'Type': 'Residual Noise'}
-                ])
-            else:
-                st.info("Insufficient historical records (< 4 periods) to compute SARIMAX signal variance decomposition for this series.")
-                return
-            x_label = 'Relative Signal Weight (% Variance Explained)'
-            y_label = 'SARIMAX Model Component'
-            col_talk_title = "🎯 Econometric & Seasonal Rationale (SARIMAX)"
-            col_talk_bullets = [
-                f"<strong style='color: {text_strong};'>Quarterly Seasonal Cycle (s = 12 Weeks)</strong>: Multiplicative lag operator $(1 - B^{{12}})$ models the annual cooling cycle without trend distortion.",
-                f"<strong style='color: {text_strong};'>Exogenous Promotional Coefficients ($\beta_k$)</strong>: Directly quantifies the unit sales lift attributable to dealer pre-season financing and festive demand spikes.",
-                f"<strong style='color: {text_strong};'>Stationarity via Differencing ($d=1, D=1$)</strong>: Augmented Dickey-Fuller (ADF) unit-root test confirms elimination of stochastic unit roots ($p < 0.05$).",
-                f"<strong style='color: {text_strong};'>Residual Orthogonality</strong>: Ljung-Box $Q$-test verifies residual white noise $\\epsilon_t \\sim WN(0, \\sigma^2)$ with zero serial autocorrelation.",
-                f"<strong style='color: {text_strong};'>Parsimony & Information Criterion</strong>: Optimal model orders selected via Akaike Information Criterion (AIC) minimization."
-            ]
-            dict_df = pd.DataFrame([
-                {"Feature": "Seasonal Differencing (D=1, s=12)", "Category": "Seasonal Order", "Mathematical Formulation": "(1 - B^12) Y_t", "HVAC & Supply Chain Rationale": "Eliminates annual 12-week quarterly seasonality between pre-summer stocking and monsoon lull."},
-                {"Feature": "Exogenous Promo Regressor (X_1)", "Category": "Trade Scheme Signal", "Mathematical Formulation": "β_1 * Promo_t", "HVAC & Supply Chain Rationale": "Estimates incremental distributor stock loading driven by manufacturer rebate incentives."},
-                {"Feature": "Exogenous Festival Regressor (X_2)", "Category": "Impulse Signal", "Mathematical Formulation": "β_2 * Festival_t", "HVAC & Supply Chain Rationale": "Captures auspicious purchase surges during Diwali, Pongal, and regional bonus payouts."},
-                {"Feature": "Seasonal AR Polynomial (P=1)", "Category": "Seasonal Autoregression", "Mathematical Formulation": "1 - Φ_1 B^12", "HVAC & Supply Chain Rationale": "Links current quarter performance directly with performance in the identical quarter last cycle."},
-                {"Feature": "Seasonal MA Polynomial (Q=1)", "Category": "Seasonal Moving Average", "Mathematical Formulation": "1 + Θ_1 B^12", "HVAC & Supply Chain Rationale": "Damps persistent seasonal forecast errors, preventing over-reaction to past heatwave anomalies."}
-            ])
-            dict_title = "📋 SARIMAX Polynomial & Regressor Specification Dictionary"
-
-        elif is_hw:
-            st.markdown("##### 📉 Holt-Winters Triple Additive State-Space Smoothing Decomposition")
-            st.caption("Decomposes raw HVAC demand into recursive state-space level, trend, and seasonal components directly computed from the historical series.")
-            if y_hist is not None and len(y_hist) >= 4:
-                decomp = explainer.explain_statistical_series(y_hist, period=min(12, max(2, len(y_hist) // 2)))
-                s_pct = decomp['seasonality_contribution_pct']
-                t_pct = decomp['trend_contribution_pct']
-                r_pct = decomp['residual_contribution_pct']
-                lvl_pct = max(1.0, round(100.0 - (s_pct + t_pct + r_pct), 1))
-                feat_df = pd.DataFrame([
-                    {'Feature': 'Level Smoothed Run-Rate (ℓ_t)', 'Importance': lvl_pct, 'Type': 'Base Level Equation'},
-                    {'Feature': 'Seasonal Cyclical Factor (s_t, m=12)', 'Importance': s_pct, 'Type': 'Cyclical Seasonal Vector'},
-                    {'Feature': 'Trend Growth Slope (b_t)', 'Importance': t_pct, 'Type': 'Linear Trajectory'},
-                    {'Feature': 'Adaptive Noise Residual Innovation', 'Importance': r_pct, 'Type': 'Adaptive Noise Filter'}
-                ])
-            else:
-                st.info("Insufficient historical records (< 4 periods) to compute Holt-Winters state-space decomposition for this series.")
-                return
-            x_label = 'State-Space Component Allocation (%)'
-            y_label = 'Holt-Winters State Component'
-            col_talk_title = "🎯 State-Space Smoothing Rationale (Holt-Winters)"
-            col_talk_bullets = [
-                f"<strong style='color: {text_strong};'>Adaptive Level Run-Rate ($\\alpha$)</strong>: Continually filters single-week invoice batching noise, establishing a steady moving demand baseline.",
-                f"<strong style='color: {text_strong};'>Quarterly Seasonal Cycle ($\\gamma, m=12$)</strong>: Dynamically scales seasonal amplitude across the cooling horizon.",
-                f"<strong style='color: {text_strong};'>Conservative Trend Velocity ($\\beta$)</strong>: Damps run-away trend extrapolation during rapid volume transitions.",
-                f"<strong style='color: {text_strong};'>Edge Compute Speed ($O(N)$)</strong>: Zero matrix inversion required; executes in &lt;10 milliseconds, making it ideal for distributed warehouse ERP nodes.",
-                f"<strong style='color: {text_strong};'>Supply Chain Alignment</strong>: Smoothed level $\\ell_t$ directly provides the moving demand baseline for APICS reorder point sizing."
-            ]
-            dict_df = pd.DataFrame([
-                {"Feature": "Level Smoothing (α)", "Category": "State Equation", "Mathematical Formulation": "ℓ_t = α(y_t - s_{t-m}) + (1-α)(ℓ_{t-1} + b_{t-1})", "HVAC & Supply Chain Rationale": "Filters short-term delivery noise while preserving baseline inventory replenishment velocity."},
-                {"Feature": "Trend Smoothing (β)", "Category": "State Equation", "Mathematical Formulation": "b_t = β(ℓ_t - ℓ_{t-1}) + (1-β)b_{t-1}", "HVAC & Supply Chain Rationale": "Tracks macroeconomic secular air conditioning adoption across Tier-2 southern markets."},
-                {"Feature": "Seasonal Smoothing (γ)", "Category": "State Equation", "Mathematical Formulation": "s_t = γ(y_t - ℓ_{t-1} - b_{t-1}) + (1-γ)s_{t-m}", "HVAC & Supply Chain Rationale": "Calibrates seasonal amplitude factors for pre-summer buildup and post-monsoon festive recovery."},
-                {"Feature": "Cycle Length (m = 12 Weeks)", "Category": "Hyperparameter", "Mathematical Formulation": "m = 12 (Quarterly)", "HVAC & Supply Chain Rationale": "Matches Daikin quarterly production scheduling and distributor tier agreement milestones."}
-            ])
-            dict_title = "📋 Holt-Winters State-Space Specification Dictionary"
-
-        else:
-            st.markdown("##### 🎯 Box-Jenkins ARIMA (1,1,1) Univariate Lag & Innovation Structure")
-            st.caption("Classical Box-Jenkins linear time-series baseline operating strictly on historical endogenous sales realizations.")
-            if y_hist is not None and len(y_hist) >= 4:
-                decomp = explainer.explain_statistical_series(y_hist, period=min(12, max(2, len(y_hist) // 2)))
-                t_pct = decomp['trend_contribution_pct']
-                r_pct = decomp['residual_contribution_pct']
-                diff_pct = max(5.0, round(100.0 - (t_pct + r_pct + 5.0), 1))
-                feat_df = pd.DataFrame([
-                    {'Feature': 'First Differencing I(1) Stochastic Drift Removal', 'Importance': diff_pct, 'Type': 'Stochastic Drift Removal'},
-                    {'Feature': 'Autoregressive Momentum AR(1)', 'Importance': t_pct, 'Type': 'Autoregressive Coefficient'},
-                    {'Feature': 'Moving Average Innovation Shock MA(1)', 'Importance': r_pct, 'Type': 'Residual Innovation Damping'},
-                    {'Feature': 'Deterministic Mean Baseline (c)', 'Importance': 5.0, 'Type': 'Mean Reversion Baseline'}
-                ])
-            else:
-                st.info("Insufficient historical records (< 4 periods) to compute ARIMA lag structure decomposition for this series.")
-                return
-            x_label = 'Univariate Signal Contribution (%)'
-            y_label = 'ARIMA (1,1,1) Component'
-            col_talk_title = "🎯 Box-Jenkins Baseline Rationale (ARIMA)"
-            col_talk_bullets = [
-                f"<strong style='color: {text_strong};'>The Operational Baseline</strong>: Serves as the standard industry benchmark to prove the quantifiable business value of machine learning.",
-                f"<strong style='color: {text_strong};'>Linear Innovation Physics</strong>: Operates strictly on linear combinations of past errors $\\epsilon_t$; lacks the non-linear thresholding required for heatwaves (&gt; 38°C).",
-                f"<strong style='color: {text_strong};'>Differencing Discipline ($d=1$)</strong>: Non-seasonal first differencing converts non-stationary demand into stationary Gaussian increments.",
-                f"<strong style='color: {text_strong};'>Maximum Likelihood Estimation (MLE)</strong>: Solves optimal parameter vector $[\\phi_1, \\theta_1, c]$ via conditional sum of squares minimization.",
-                f"<strong style='color: {text_strong};'>Quantifiable Lift</strong>: Demonstrates why Random Forest achieves ~15-20% higher accuracy by incorporating exogenous and volatility features."
-            ]
-            dict_df = pd.DataFrame([
-                {"Feature": "First Differencing (d=1)", "Category": "Integration Order", "Mathematical Formulation": "Δ y_t = y_t - y_{t-1}", "HVAC & Supply Chain Rationale": "Strips raw inventory non-stationarity, rendering series variance stable for parameter fitting."},
-                {"Feature": "Autoregressive Lag 1 (φ_1)", "Category": "Momentum Parameter", "Mathematical Formulation": "φ_1 * Δ y_{t-1}", "HVAC & Supply Chain Rationale": "Models immediate prior-week sales momentum and distributor ordering inertia."},
-                {"Feature": "Moving Average Lag 1 (θ_1)", "Category": "Error Damping", "Mathematical Formulation": "θ_1 * ε_{t-1}", "HVAC & Supply Chain Rationale": "Absorbs one-period supply chain shocks (e.g. logistics bottlenecks or delayed billing)."},
-                {"Feature": "Constant Drift (c)", "Category": "Deterministic Trend", "Mathematical Formulation": "c = μ * (1 - φ_1)", "HVAC & Supply Chain Rationale": "Represents the underlying annualized demand run-rate drift."}
-            ])
-            dict_title = "📋 Box-Jenkins ARIMA (1,1,1) Specification Dictionary"
-
-        # Chart and rationale rendering
-        col_chart, col_talk = st.columns([1, 1])
-        with col_chart:
-            fig_imp = px.bar(
-                feat_df.sort_values('Importance', ascending=True),
-                x='Importance',
-                y='Feature',
-                orientation='h',
-                color='Importance',
-                color_continuous_scale=bar_palette,
-                labels={'Importance': x_label, 'Feature': y_label}
-            )
-            fig_imp.update_traces(
-                texttemplate='%{x:.1f}%',
-                textposition='outside',
-                textfont=dict(color=axis_text_color, size=11, family="Plus Jakarta Sans, sans-serif")
-            )
-            fig_imp.update_layout(
-                template="plotly_dark" if is_dark else "plotly_white",
-                plot_bgcolor=plot_bg,
-                paper_bgcolor=paper_bg,
-                font=dict(color=axis_text_color, size=11, family="Plus Jakarta Sans, sans-serif"),
-                margin=dict(l=10, r=45, t=30, b=30),
-                coloraxis_showscale=False,
-                height=390
-            )
-            fig_imp.update_xaxes(
-                showgrid=True,
-                gridcolor=grid_color,
-                zerolinecolor=grid_color,
-                tickfont=dict(color=axis_text_color, size=11, family="Plus Jakarta Sans, sans-serif"),
-                title_font=dict(color=axis_title_color, size=12, family="Outfit, sans-serif")
-            )
-            fig_imp.update_yaxes(
-                showgrid=False,
-                tickfont=dict(color=axis_text_color, size=11, family="Plus Jakarta Sans, sans-serif"),
-                title_font=dict(color=axis_title_color, size=12, family="Outfit, sans-serif")
-            )
-            st.plotly_chart(fig_imp, use_container_width=True, theme=None)
-
-        with col_talk:
-            bullet_html = "".join([f"<li style='margin-bottom: 6px;'>{b}</li>" for b in col_talk_bullets])
-            st.markdown(f"""
-            <div style="background: {card_bg}; border: 1px solid {card_border_base}; border-radius: 8px; padding: 16px 18px; margin-top: 10px; box-shadow: {card_shadow};">
-                <h4 style="margin: 0 0 10px 0; color: {theme_accent}; font-size: 14px; font-weight: 700;">{col_talk_title}</h4>
-                <ul style="font-size: 12.5px; line-height: 1.6; margin: 0; padding-left: 18px; color: {axis_text_color};">
-                    {bullet_html}
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-
-        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-        st.markdown(f"###### {dict_title}")
-        st.dataframe(dict_df, use_container_width=True, hide_index=True)
-
-    # -------------------------------------------------------------------------
-    # TAB 2: ACTIVE MODEL DEEP-DIVE MATHEMATICS & HYPERPARAMETERS
-    # -------------------------------------------------------------------------
-    with tab_models:
-        st.markdown(f"##### 📐 Mathematical Specifications, Hyperparameters & Diagnostics for {model_display_name}")
-        
-        if is_rf:
-            st.markdown(f"""
-            <div style="background: {card_bg}; border: 2px solid {theme_accent}; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: {card_shadow};">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <h4 style="margin: 0; color: {theme_accent}; font-size: 16px; font-weight: 700;">🌲 Random Forest Regressor (Non-Linear ML Ensemble)</h4>
-                    <span style="background: {badge_bg}; border: 1px solid {badge_border}; color: {theme_accent}; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;">ACTIVE MODEL</span>
-                </div>
-                <p style="font-size: 12.5px; color: {text_sub}; margin-bottom: 12px;">Ensemble of B=100 de-correlated regression trees trained on bootstrapped feature subspaces with recursive Mean Squared Error (MSE) variance reduction.</p>
-                <div style="background: {formula_bg}; border: 1px solid {formula_border}; padding: 12px 16px; border-radius: 6px; font-family: monospace; font-size: 12.5px; margin-bottom: 14px; color: {theme_accent}; font-weight: 700;">
-                    ŷ(x) = (1 / B) Σ_{{b=1}}^B T_b(x; Θ_b)
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 12.5px; color: {text_strong};">
-                    <div>
-                        <strong style="color: {theme_accent};">Hyperparameter Tuning Grid:</strong>
-                        <ul style="margin: 6px 0 0 0; padding-left: 18px; line-height: 1.6;">
-                            <li><code>n_estimators = 100</code> (Ensemble tree count)</li>
-                            <li><code>max_depth = 10</code> (Controls branch complexity)</li>
-                            <li><code>min_samples_split = 4</code> (Prevents leaf overfitting)</li>
-                            <li><code>max_features = 'sqrt'</code> (Enforces tree de-correlation)</li>
-                        </ul>
-                    </div>
-                    <div>
-                        <strong style="color: {theme_accent};">Statistical Diagnostics & Loss Function:</strong>
-                        <ul style="margin: 6px 0 0 0; padding-left: 18px; line-height: 1.6;">
-                            <li><strong>Splitting Objective</strong>: Mean Squared Error (MSE) Impurity Reduction</li>
-                            <li><strong>Validation Protocol</strong>: Strict Chronological 80/20 Time Split (Zero Leakage)</li>
-                            <li><strong>Multi-Step Strategy</strong>: Recursive Autoregressive Lag Re-injection</li>
-                            <li><strong>Business Advantage</strong>: Captures non-linear heatwave jumps (&gt;38°C) without overfitting</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        elif is_sarima:
-            st.markdown(f"""
-            <div style="background: {card_bg}; border: 2px solid {theme_accent}; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: {card_shadow};">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <h4 style="margin: 0; color: {theme_accent}; font-size: 16px; font-weight: 700;">📈 SARIMAX (1,1,1)(1,1,1)₁₂ (Seasonal Econometric Time-Series)</h4>
-                    <span style="background: {badge_bg}; border: 1px solid {badge_border}; color: {theme_accent}; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;">ACTIVE MODEL</span>
-                </div>
-                <p style="font-size: 12.5px; color: {text_sub}; margin-bottom: 12px;">Multiplicative seasonal autoregressive integrated moving average with exogenous promotional regressors ($X_t$).</p>
-                <div style="background: {formula_bg}; border: 1px solid {formula_border}; padding: 12px 16px; border-radius: 6px; font-family: monospace; font-size: 12.5px; margin-bottom: 14px; color: {theme_accent}; font-weight: 700;">
-                    Φ_P(B^s) φ_p(B) (1 - B)^d (1 - B^s)^D y_t = c + Θ_Q(B^s) θ_q(B) ε_t + Σ β_k X_{{k,t}}
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 12.5px; color: {text_strong};">
-                    <div>
-                        <strong style="color: {theme_accent};">Order Specifications:</strong>
-                        <ul style="margin: 6px 0 0 0; padding-left: 18px; line-height: 1.6;">
-                            <li><strong>Non-Seasonal Orders</strong>: (p=1, d=1, q=1)</li>
-                            <li><strong>Seasonal Orders</strong>: (P=1, D=1, Q=1)</li>
-                            <li><strong>Seasonality Period</strong>: s = 12 weeks (Quarterly HVAC Cycle)</li>
-                            <li><strong>Exogenous Variables</strong>: Pre-Summer Loading ($X_1$) + Festival Impulse ($X_2$)</li>
-                        </ul>
-                    </div>
-                    <div>
-                        <strong style="color: {theme_accent};">Statistical Diagnostics:</strong>
-                        <ul style="margin: 6px 0 0 0; padding-left: 18px; line-height: 1.6;">
-                            <li><strong>ADF Unit Root Test</strong>: Confirmed stationary after differencing (p &lt; 0.05)</li>
-                            <li><strong>Ljung-Box Q Test</strong>: Residuals verified as white noise ε_t ~ WN(0, σ²)</li>
-                            <li><strong>Model Selection</strong>: Minimum Akaike Information Criterion (AIC)</li>
-                            <li><strong>Business Advantage</strong>: Disentangles macroeconomic seasonality from marketing schemes</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        elif is_hw:
-            st.markdown(f"""
-            <div style="background: {card_bg}; border: 2px solid {theme_accent}; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: {card_shadow};">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <h4 style="margin: 0; color: {theme_accent}; font-size: 16px; font-weight: 700;">📉 Holt-Winters Exponential Smoothing (Triple Additive ETS)</h4>
-                    <span style="background: {badge_bg}; border: 1px solid {badge_border}; color: {theme_accent}; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;">ACTIVE MODEL</span>
-                </div>
-                <p style="font-size: 12.5px; color: {text_sub}; margin-bottom: 12px;">Recursive state-space level, linear trend, and quarterly seasonal smoothing decomposition.</p>
-                <div style="background: {formula_bg}; border: 1px solid {formula_border}; padding: 12px 16px; border-radius: 6px; font-family: monospace; font-size: 12px; margin-bottom: 14px; color: {theme_accent}; font-weight: 700;">
-                    ℓ_t = α(y_t - s_{{t-m}}) + (1-α)(ℓ_{{t-1}} + b_{{t-1}})<br>
-                    b_t = β(ℓ_t - ℓ_{{t-1}}) + (1-β)b_{{t-1}}<br>
-                    s_t = γ(y_t - ℓ_{{t-1}} - b_{{t-1}}) + (1-γ)s_{{t-m}}<br>
-                    ŷ_{{t+h}} = ℓ_t + h * b_t + s_{{t+h-m}}
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 12.5px; color: {text_strong};">
-                    <div>
-                        <strong style="color: {theme_accent};">Calibrated Smoothing Weights:</strong>
-                        <ul style="margin: 6px 0 0 0; padding-left: 18px; line-height: 1.6;">
-                            <li><strong>Level Parameter</strong>: α ≈ 0.28 (Adaptive run-rate weighting)</li>
-                            <li><strong>Trend Parameter</strong>: β ≈ 0.05 (Damped growth trajectory)</li>
-                            <li><strong>Seasonal Parameter</strong>: γ ≈ 0.42 (Quarterly amplitude adaptation)</li>
-                            <li><strong>Seasonal Cycle Length</strong>: m = 12 weeks</li>
-                        </ul>
-                    </div>
-                    <div>
-                        <strong style="color: {theme_accent};">Operational Strengths:</strong>
-                        <ul style="margin: 6px 0 0 0; padding-left: 18px; line-height: 1.6;">
-                            <li><strong>Computational Complexity</strong>: O(N) linear time; zero matrix inversion</li>
-                            <li><strong>Hardware Portability</strong>: Runs on edge depot ERP terminals without GPU/RAM load</li>
-                            <li><strong>Outlier Robustness</strong>: Dampens artificial single-week invoice batching spikes</li>
-                            <li><strong>Supply Chain Role</strong>: Generates stable moving base for APICS safety stock</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        else:
-            st.markdown(f"""
-            <div style="background: {card_bg}; border: 2px solid {theme_accent}; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: {card_shadow};">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <h4 style="margin: 0; color: {theme_accent}; font-size: 16px; font-weight: 700;">🎯 ARIMA (1,1,1) (Linear Box-Jenkins Operational Baseline)</h4>
-                    <span style="background: {badge_bg}; border: 1px solid {badge_border}; color: {theme_accent}; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;">ACTIVE MODEL</span>
-                </div>
-                <p style="font-size: 12.5px; color: {text_sub}; margin-bottom: 12px;">Classical Box-Jenkins linear benchmark model operating on endogenous historical error innovations.</p>
-                <div style="background: {formula_bg}; border: 1px solid {formula_border}; padding: 12px 16px; border-radius: 6px; font-family: monospace; font-size: 12.5px; margin-bottom: 14px; color: {theme_accent}; font-weight: 700;">
-                    (1 - φ_1 B) (1 - B) y_t = c + (1 + θ_1 B) ε_t
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 12.5px; color: {text_strong};">
-                    <div>
-                        <strong style="color: {theme_accent};">Order Specifications:</strong>
-                        <ul style="margin: 6px 0 0 0; padding-left: 18px; line-height: 1.6;">
-                            <li><strong>AR(1) Coefficient</strong>: φ_1 = 0.62 (Momentum persistence)</li>
-                            <li><strong>Integration Order</strong>: d = 1 (First differencing for stationarity)</li>
-                            <li><strong>MA(1) Coefficient</strong>: θ_1 = -0.41 (Innovation shock damping)</li>
-                            <li><strong>Estimation Technique</strong>: Conditional Sum of Squares MLE</li>
-                        </ul>
-                    </div>
-                    <div>
-                        <strong style="color: {theme_accent};">Role in Capstone Defense:</strong>
-                        <ul style="margin: 6px 0 0 0; padding-left: 18px; line-height: 1.6;">
-                            <li><strong>Operational Standard</strong>: Global supply chain baseline standard</li>
-                            <li><strong>Quantifiable Proof</strong>: Proves the necessity of non-linear machine learning</li>
-                            <li><strong>Diagnostic Checks</strong>: Ljung-Box Q residual test confirms white noise ε_t</li>
-                            <li><strong>Limitation</strong>: Cannot ingest exogenous temperature or marketing schemes</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-    # -------------------------------------------------------------------------
-    # TAB 3: 4-MODEL COMPARATIVE ARCHITECTURAL BENCHMARK
-    # -------------------------------------------------------------------------
-    with tab_benchmark:
-        st.markdown("##### 📊 Comprehensive 4-Model Architectural Benchmark & Comparative Synthesis")
-        st.caption("Side-by-side comparison across mathematical formulation, feature spaces, seasonality mechanics, and supply chain deployment.")
-
-        benchmark_table = pd.DataFrame([
-            {
-                "Model Architecture": "🌲 Random Forest Regressor" + (" 🌟 (ACTIVE)" if is_rf else ""),
-                "Paradigm": "Machine Learning Ensemble",
-                "Mathematical Equation": "ŷ = (1/B) Σ T_b(x)",
-                "Feature Inputs": "13 Engineered Features (Lags, Rolling Stats, Month, Quarter, Promo, Festival)",
-                "Seasonality Method": "Calendar Month, Quarter & Lag 12 Multi-Resolution Splits",
-                "Complexity & Latency": "O(B · N log N) | <45ms",
-                "Role in Capstone": "Champion Model: Captures non-linear heatwave spikes & trade schemes"
-            },
-            {
-                "Model Architecture": "📈 SARIMAX (1,1,1)(1,1,1)₁₂" + (" 🌟 (ACTIVE)" if is_sarima else ""),
-                "Paradigm": "Seasonal Econometric Time-Series",
-                "Mathematical Equation": "Φ_P(B^s)φ_p(B)ΔΔ^s y_t = Θ_Q(B^s)θ_q(B)ε_t + Σ β_k X_k",
-                "Feature Inputs": "Endogenous Sales + Exogenous Regressors (Promo Scheme, Festival Impulse)",
-                "Seasonality Method": "Multiplicative Seasonal Lag Operator (1 - B^12)",
-                "Complexity & Latency": "O(N · (p²+q²)) | ~90ms",
-                "Role in Capstone": "Econometric Benchmark: Separates seasonal baseline from scheme lift"
-            },
-            {
-                "Model Architecture": "📉 Holt-Winters ETS" + (" 🌟 (ACTIVE)" if is_hw else ""),
-                "Paradigm": "State-Space Exponential Smoothing",
-                "Mathematical Equation": "ŷ_{t+h} = ℓ_t + h*b_t + s_{t+h-m}",
-                "Feature Inputs": "Univariate Sales Volume (Level ℓ_t, Trend b_t, Seasonality s_t)",
-                "Seasonality Method": "Additive 12-Week Seasonal State Vector (s_t, γ=0.42)",
-                "Complexity & Latency": "O(N) | <5ms",
-                "Role in Capstone": "Edge Operations: Ultra-fast O(N) execution for warehouse ERP nodes"
-            },
-            {
-                "Model Architecture": "🎯 ARIMA (1,1,1)" + (" 🌟 (ACTIVE)" if is_arima else ""),
-                "Paradigm": "Linear Box-Jenkins Baseline",
-                "Mathematical Equation": "(1 - φ_1 B)(1 - B)y_t = c + (1 + θ_1 B)ε_t",
-                "Feature Inputs": "Univariate Endogenous Historical Sales Only",
-                "Seasonality Method": "None (Un-seasonal First Differencing d=1)",
-                "Complexity & Latency": "O(N · (p+q)²) | <15ms",
-                "Role in Capstone": "Operational Baseline: Industry standard verifying ML lift"
-            }
-        ])
-        st.dataframe(benchmark_table, use_container_width=True, hide_index=True)
-
-        st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
-        col_comp1, col_comp2 = st.columns(2)
-        with col_comp1:
-            st.markdown(f"""
-            <div style="background: {card_bg}; border: 1px solid {card_border_base}; border-radius: 8px; padding: 14px 16px; box-shadow: {card_shadow};">
-                <h5 style="margin: 0 0 8px 0; color: {theme_accent}; font-size: 13.5px;">💡 Strategic ISB Recommendation</h5>
-                <p style="font-size: 12px; line-height: 1.55; margin: 0; color: {text_strong};">
-                    Deploy <strong>Random Forest Regressor</strong> as the primary planning engine for seasonal Tier-1 SKUs (e.g. <code>RKM50UV16VA</code>). Its ability to ingest rolling variance (<code>rolling_std_4</code>) and dealer promotional loading schemes delivers robust non-linear capture over linear ARIMA during peak summer demand surges, directly reducing safety stock carrying costs across Daikin South Region depots.
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-        with col_comp2:
-            st.markdown(f"""
-            <div style="background: {card_bg}; border: 1px solid {card_border_base}; border-radius: 8px; padding: 14px 16px; box-shadow: {card_shadow};">
-                <h5 style="margin: 0 0 8px 0; color: {theme_accent}; font-size: 13.5px;">⚡ Hybrid Edge Architecture</h5>
-                <p style="font-size: 12px; line-height: 1.55; margin: 0; color: {text_strong};">
-                    For remote regional branches and distributed Tier-2 depot terminals with constrained compute, <strong>Holt-Winters ETS</strong> serves as a high-speed fallback algorithm, executing in &lt;10ms with zero matrix inversion while maintaining stable level and trend tracking.
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-
-
-# -----------------------------------------------------------------------------
 # EXECUTIVE PDF REPORT GENERATOR
 # -----------------------------------------------------------------------------
 def generate_pdf_report(df, metrics):
@@ -3009,7 +1899,8 @@ def main():
         "🎯 AI Demand Forecasting": [
             "🎯 SKU Demand Forecasting",
             "🔬 Model Lab & Leaderboard",
-            "🌐 Hierarchical Reconciliation"
+            "🌐 Hierarchical Reconciliation",
+            "✅ Holdout Validation (FY24-25)"
         ],
         "📡 Forecasting & Drift": [
             "📡 Forecast Monitoring & Drift",
@@ -3029,6 +1920,7 @@ def main():
         "🎯 AI Demand Forecasting": ("🎯 AI Demand Forecasting", "🎯 SKU Demand Forecasting"),
         "🔬 Model Lab & Leaderboard": ("🎯 AI Demand Forecasting", "🔬 Model Lab & Leaderboard"),
         "🌐 Hierarchical Reconciliation": ("🎯 AI Demand Forecasting", "🌐 Hierarchical Reconciliation"),
+        "✅ Holdout Validation (FY24-25)": ("🎯 AI Demand Forecasting", "✅ Holdout Validation (FY24-25)"),
         "📡 Forecast Monitoring & Drift": ("📡 Forecasting & Drift", "📡 Forecast Monitoring & Drift"),
         "🔮 Scenario Simulator": ("📡 Forecasting & Drift", "🔮 Scenario Simulator"),
         "📦 Inventory Intelligence": ("📡 Forecasting & Drift", "📦 Inventory Intelligence"),
@@ -3086,8 +1978,11 @@ def main():
     inject_theme_css(st.session_state['theme'])
     is_dark = (st.session_state['theme'] == 'dark')
 
-    # Load dataset
+    # Load dataset: real SAP billing only by default; the 10 EVAL-* SKUs are synthetic test series
     df = load_data()
+    n_synthetic_rows = int((df['Data_Sheet'] == SYNTHETIC_SHEET).sum()) if 'Data_Sheet' in df.columns else 0
+    if n_synthetic_rows and not st.session_state.get('include_synthetic', False):
+        df = df[df['Data_Sheet'] != SYNTHETIC_SHEET]
     metrics = calculate_data_quality_metrics(df)
     
     # Determine branch columns & stats
@@ -3169,6 +2064,14 @@ def main():
     if top_theme:
         st.session_state['theme'] = 'dark' if 'Dark' in top_theme else 'light'
 
+    if n_synthetic_rows:
+        st.toggle(
+            f"Include synthetic evaluation SKUs ({n_synthetic_rows:,} generated rows, not SAP billing)",
+            key='include_synthetic',
+            help="The 10 'EVAL-*' SKUs were generated by generate_evaluation_data.py for testing. "
+                 "They are excluded from every page, KPI and report unless this is switched on."
+        )
+
     # Workspace Sub-Navigation Config
     sub_options = SUB_NAV_MAP[active_main]
     sub_key = f"sub_segmented_{active_main}"
@@ -3223,6 +2126,8 @@ def main():
         render_monitoring_drift_page(df, st.session_state.get('theme', 'dark'))
     elif active_page == "🌐 Hierarchical Reconciliation":
         render_hierarchy_page(df, st.session_state.get('theme', 'dark'))
+    elif active_page == "✅ Holdout Validation (FY24-25)":
+        render_holdout_validation_page(st.session_state.get('theme', 'dark'))
     elif active_page == "🛡️ Data Quality Radar":
         show_data_quality(df, metrics)
     elif active_page == "🧹 Data Cleaning Studio":
@@ -3416,16 +2321,14 @@ def show_demand_forecasting(df):
         </div>
         """, unsafe_allow_html=True)
         
-        sheet_options = [
-            "🔄 All Datasets (Historical + Evaluation)",
-            "🧪 Evaluation Sheet (10 New SKUs)",
-            "📊 Enterprise Historical (Sheet1)"
-        ]
+        has_synthetic = 'Data_Sheet' in df.columns and (df['Data_Sheet'] == SYNTHETIC_SHEET).any()
+        sheet_options = [SHEET_REAL] + ([SHEET_SYNTHETIC, SHEET_BOTH] if has_synthetic else [])
         selected_sheet = st.selectbox(
             "Select Data Source / Sheet:",
             sheet_options,
             index=0,
-            help="Switch between historical enterprise SAP data and the newly generated 10 evaluation SKUs"
+            help="SAP billing history is the real data. The 10 'EVAL-*' SKUs are synthetic test series generated "
+                 "by generate_evaluation_data.py (enable them with the 'Include synthetic evaluation SKUs' toggle)."
         )
         
         f_col1, f_col2 = st.columns(2)
@@ -3446,12 +2349,12 @@ def show_demand_forecasting(df):
         filtered_forecast_df = filtered_df[filtered_df['Billing Quantity ODU'] >= 0].copy()
 
         # Apply Data Sheet Filter
-        if selected_sheet == "🧪 Evaluation Sheet (10 New SKUs)":
-            filtered_forecast_df = filtered_forecast_df[filtered_forecast_df['Data_Sheet'] == 'Evaluation_10_SKUs']
-            forecast_df = forecast_df[forecast_df['Data_Sheet'] == 'Evaluation_10_SKUs']
-        elif selected_sheet == "📊 Enterprise Historical (Sheet1)":
-            filtered_forecast_df = filtered_forecast_df[filtered_forecast_df['Data_Sheet'] != 'Evaluation_10_SKUs']
-            forecast_df = forecast_df[forecast_df['Data_Sheet'] != 'Evaluation_10_SKUs']
+        if selected_sheet == SHEET_SYNTHETIC:
+            filtered_forecast_df = filtered_forecast_df[filtered_forecast_df['Data_Sheet'] == SYNTHETIC_SHEET]
+            forecast_df = forecast_df[forecast_df['Data_Sheet'] == SYNTHETIC_SHEET]
+        elif selected_sheet == SHEET_REAL and 'Data_Sheet' in df.columns:
+            filtered_forecast_df = filtered_forecast_df[filtered_forecast_df['Data_Sheet'] != SYNTHETIC_SHEET]
+            forecast_df = forecast_df[forecast_df['Data_Sheet'] != SYNTHETIC_SHEET]
 
         # Apply Segment Filter
         if selected_segment != "All Segments":
@@ -3475,7 +2378,7 @@ def show_demand_forecasting(df):
         b_share = (b_vol / tot_vol * 100) if tot_vol > 0 else 0
         
         active_chips = []
-        if selected_sheet != "🔄 All Datasets (Historical + Evaluation)":
+        if selected_sheet != SHEET_REAL:
             active_chips.append(f"📁 {selected_sheet.split('(')[0].strip()}")
         if selected_segment != "All Segments":
             active_chips.append(f"📦 {selected_segment}")
@@ -3536,10 +2439,10 @@ def show_demand_forecasting(df):
             meta_star = str(sku_meta.get('Star Rating.1', 'N/A'))
             meta_seg = str(sku_meta.get('Segment', 'N/A'))
             meta_sheet = str(sku_meta.get('Data_Sheet', 'Historical'))
-            is_eval = (meta_sheet == 'Evaluation_10_SKUs')
-            badge_border = "#10B981" if is_eval else accent_color
-            badge_bg = "rgba(16, 185, 129, 0.15)" if is_eval else bg_accent
-            sheet_tag = "🧪 New Evaluation Sheet SKU" if is_eval else "📊 Enterprise Historical SKU"
+            is_eval = (meta_sheet == SYNTHETIC_SHEET)
+            badge_border = "#F59E0B" if is_eval else accent_color
+            badge_bg = "rgba(245, 158, 11, 0.15)" if is_eval else bg_accent
+            sheet_tag = "🧪 SYNTHETIC test SKU (generated, not SAP billing)" if is_eval else "📊 SAP billing history SKU"
             
             st.markdown(f"""
             <div style="background: {badge_bg}; border: 1px solid {badge_border}; border-radius: 8px; padding: 6px 10px; margin: 4px 0 10px 0; font-size: 11px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
@@ -3553,51 +2456,58 @@ def show_demand_forecasting(df):
             </div>
             """, unsafe_allow_html=True)
         
-        # Real-time SKU Demand Profiling
+        # Engine scope: data source only (cohort filters just narrow the SKU list); all 5 branches = region
+        engine_df = df
+        if 'Data_Sheet' in df.columns and selected_sheet == SHEET_REAL:
+            engine_df = df[df['Data_Sheet'] != SYNTHETIC_SHEET]
+        elif 'Data_Sheet' in df.columns and selected_sheet == SHEET_SYNTHETIC:
+            engine_df = df[df['Data_Sheet'] == SYNTHETIC_SHEET]
+        engine_branches = None if set(selected_branch_codes) >= set(BRANCH_DICT) else tuple(selected_branch_codes)
+
+        # Real-time SKU Demand Profiling (on the weekly series the models see)
         if INTELLIGENCE_AVAILABLE and selected_sku:
-            sku_sub_data = filtered_forecast_df[filtered_forecast_df['Material'] == selected_sku]
-            if not sku_sub_data.empty and 'Billing Quantity ODU' in sku_sub_data.columns:
-                try:
-                    classifier = DemandClassifier()
-                    profile_res = classifier.profile_demand(sku_sub_data['Billing Quantity ODU'].values)
+            try:
+                profile_res = weekly_demand_profile(engine_df, selected_sku, engine_branches)
+                if profile_res:
                     st.markdown(f"""
                     <div style="background: rgba(0, 229, 255, 0.08); border: 1px solid rgba(0, 229, 255, 0.25); border-radius: 10px; padding: 10px 12px; margin: 8px 0 12px 0; font-size: 12px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                             <strong style="color: {'#00E5FF' if is_dark else '#0284C7'};">Demand Profile: {profile_res['demand_type']}</strong>
                             <span class="kpi-badge kpi-badge-cyan">ADI: {profile_res['adi']:.2f} &bull; CV²: {profile_res['cv2']:.2f}</span>
                         </div>
-                        <div style="color: var(--text-secondary); line-height: 1.3;">{profile_res['description']}</div>
+                        <div style="color: var(--text-secondary); line-height: 1.3;">{profile_res['description']} ({profile_res['weeks']} weeks, {profile_res['zero_demand_pct']:.0f}% with no billing)</div>
                     </div>
                     """, unsafe_allow_html=True)
-                except Exception:
-                    pass
+            except Exception as e:
+                st.caption(f"Demand profile unavailable: {e}")
 
         # 4. Model Engine Selection
         model_family = st.radio(
             "4. Algorithm Engine:",
-            ["📊 Statistical Models", "🧠 Machine Learning Models", "🤖 Champion Model (AutoML)"]
+            ["🤖 Champion Model (AutoML)", "📊 Statistical Models", "🧠 Machine Learning Models"]
         )
-        
+
         if model_family == "📊 Statistical Models":
             selected_model = st.selectbox(
                 "Select Statistical Algorithm:",
-                ["ARIMA", "SARIMA", "Exponential Smoothing"],
-                help="ARIMA: Standard Time-Series | SARIMA: Seasonal Adjustments | Exponential Smoothing: Holt-Winters"
+                STATISTICAL_MODELS,
+                help="Each model is evaluated on the same out-of-sample rolling-origin backtest as the champion tournament."
             )
         elif model_family == "🧠 Machine Learning Models":
             selected_model = st.selectbox(
                 "Select Machine Learning Regressor:",
-                ["Random Forest", "Gradient Boosting"],
-                help="Random Forest: Robust Ensemble | Gradient Boosting: High Predictive Velocity"
+                ML_MODELS,
+                help="Recursive multi-step forecasting on lags, rolling statistics, calendar and the pooled seasonal factor."
             )
         else:
             selected_model = "AutoML Champion"
-            st.info("⚡ System will automatically validate candidates and deploy the top-ranked champion model.")
-            
+            st.info("⚡ Every applicable model is backtested out-of-sample (rolling 12-week folds); the lowest-RMSE model is deployed.")
+
         # 5. Parameters
         forecast_periods = st.slider("Forecast Horizon (Weeks):", min_value=4, max_value=52, value=12)
-        confidence_level = st.slider("Confidence Interval (%):", min_value=80, max_value=99, value=95)
-        
+        confidence_level = st.slider("Prediction Interval (%):", min_value=80, max_value=95, value=80, step=5,
+                                     help="Coverage target of the conformal interval, calibrated on backtest errors.")
+
         run_forecast = st.button("🚀 Execute Forecast Simulation", type="primary", use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
         
@@ -3633,178 +2543,121 @@ def show_demand_forecasting(df):
                         )
 
         if run_forecast and selected_model:
-            with st.spinner(f"Simulating {selected_model} algorithm for {selected_sku} ({branch_label})..."):
+            is_automl = model_family == "🤖 Champion Model (AutoML)"
+            with st.spinner(f"Backtesting {'all candidate models' if is_automl else selected_model} for {selected_sku} ({branch_label})..."):
                 try:
-                    sku_raw = filtered_forecast_df[filtered_forecast_df['Material'] == selected_sku].copy()
-                    if len(sku_raw) == 0:
-                        st.error(f"No transaction records found for SKU {selected_sku} in branch: {branch_label}.")
-                        return
-                        
-                    sku_data = (
-                        sku_raw.groupby('Billing Date')['Billing Quantity ODU']
-                        .sum()
-                        .resample('W-MON')
-                        .sum()
-                        .reset_index()
-                        .sort_values('Billing Date')
-                    )
-                    
-                    if len(sku_data) < 10:
-                        st.error(f"Insufficient history for {selected_sku} in {branch_label}. Need >=10 weeks, found {len(sku_data)}.")
-                        return
-                        
-                    # Execute Model
-                    automl_champion_info = None
-                    if model_family == "🤖 Champion Model (AutoML)":
-                        champion_info = get_best_champion_model(sku_data)
-                        best_raw = champion_info['raw_name']
-                        automl_champion_info = champion_info
-                        
-                        if best_raw in ['Random Forest', 'Gradient Boosting']:
-                            actual_model = best_raw
-                            forecast_df, metrics_dict, fig = run_ml_model(
-                                sku_data, actual_model, forecast_periods, confidence_level, 
-                                branch_label=branch_label, is_automl=True
-                            )
-                        elif best_raw == 'SARIMA':
-                            actual_model = "SARIMA"
-                            forecast_df, metrics_dict, fig = run_statistical_model(
-                                sku_data, actual_model, forecast_periods, confidence_level, 
-                                branch_label=branch_label, is_automl=True
-                            )
-                        elif best_raw == 'ARIMA':
-                            actual_model = "ARIMA"
-                            forecast_df, metrics_dict, fig = run_statistical_model(
-                                sku_data, actual_model, forecast_periods, confidence_level, 
-                                branch_label=branch_label, is_automl=True
-                            )
-                        else:
-                            actual_model = "Exponential Smoothing"
-                            forecast_df, metrics_dict, fig = run_statistical_model(
-                                sku_data, actual_model, forecast_periods, confidence_level, 
-                                branch_label=branch_label, is_automl=True
-                            )
-                        selected_model = f"{best_raw} (AutoML Champion)"
-                        
-                    elif model_family == "📊 Statistical Models":
-                        forecast_df, metrics_dict, fig = run_statistical_model(
-                            sku_data, selected_model, forecast_periods, confidence_level, branch_label=branch_label
-                        )
-                    else:
-                        forecast_df, metrics_dict, fig = run_ml_model(
-                            sku_data, selected_model, forecast_periods, confidence_level, branch_label=branch_label
-                        )
-                        
-                    # Champion Model Banner for AutoML
-                    if automl_champion_info is not None:
-                        st.markdown(f"""
-                        <div style="background: {'rgba(16, 185, 129, 0.12)' if is_dark else '#ECFDF5'}; border: 1px solid {'rgba(16, 185, 129, 0.35)' if is_dark else '#A7F3D0'}; border-radius: 12px; padding: 12px 18px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-                            <div style="display: flex; align-items: center; gap: 12px;">
-                                <span style="font-size: 24px;">🏆</span>
-                                <div>
-                                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; color: {'#10B981' if is_dark else '#059669'}; text-transform: uppercase; letter-spacing: 1px;">
-                                        AutoML Champion Algorithm Deployed (Rank #1 Winner)
-                                    </div>
-                                    <div style="font-family: 'Outfit'; font-size: 16px; font-weight: 700; color: {'#FFFFFF' if is_dark else '#0F172A'}; margin-top: 2px;">
-                                        {automl_champion_info['display_name']} &bull; {automl_champion_info['accuracy']:.1f}% Predictive Fidelity
-                                    </div>
-                                    <div style="color: var(--text-secondary); font-size: 12px; margin-top: 2px;">
-                                        Top-ranked algorithm across all candidate models for {selected_sku} ({branch_label}). MAE: {automl_champion_info['mae']:.2f} | Out-of-fold WAPE: {automl_champion_info['wape']:.1f}%.
-                                    </div>
-                                </div>
-                            </div>
-                            <div style="background: {'rgba(16, 185, 129, 0.25)' if is_dark else '#D1FAE5'}; border: 1px solid {'rgba(16, 185, 129, 0.4)' if is_dark else '#6EE7B7'}; padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 12px; color: {'#10B981' if is_dark else '#047857'}; font-family: 'JetBrains Mono', monospace;">
-                                🥇 BEST MODEL DEPLOYED
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                    # Forecast Plot
-                    st.plotly_chart(fig, use_container_width=True, theme=None)
-                    
-                    # Performance Metrics Scorecard
-                    st.markdown("""
-                    <div class="subpanel-title" style="margin: 16px 0 12px 0;">
-                        📈 Model Evaluation & Accuracy Telemetry
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    met1, met2, met3, met4 = st.columns(4)
-                    accuracy = float(metrics_dict.get('Accuracy', max(0.0, 100.0 - metrics_dict.get('WAPE', 0.0))))
-                    
-                    with met1:
-                        st.markdown(render_kpi_card("Mean Absolute Error", f"{metrics_dict.get('MAE', 0):.2f}", "MAE", "cyan", "🎯", "Average delta per week"), unsafe_allow_html=True)
-                    with met2:
-                        st.markdown(render_kpi_card("Root Mean Sq Error", f"{metrics_dict.get('RMSE', 0):.2f}", "RMSE", "amber", "📏", "Variance penalty index"), unsafe_allow_html=True)
-                    with met3:
-                        st.markdown(render_kpi_card("Percentage Error", f"{metrics_dict.get('MAPE', 0):.1f}%", "MAPE", "rose" if metrics_dict.get('MAPE', 0) > 30 else "green", "📊", "Mean % discrepancy"), unsafe_allow_html=True)
-                    with met4:
-                        st.markdown(render_kpi_card("Model Accuracy", f"{accuracy:.1f}%", "RATING", "green" if accuracy >= 80 else "amber", "⭐", "Predictive fidelity"), unsafe_allow_html=True)
-
-                    # Cross-Model Benchmark Comparison Table (Dynamically Calibrated to Selected SKU & Scale)
-                    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
-                    st.markdown('''
-                    <div class="subpanel-title" style="margin-bottom: 10px;">
-                        🏆 Cross-Model Performance Benchmark & Accuracy Leaderboard (Calibrated to Selected SKU)
-                    </div>
-                    ''', unsafe_allow_html=True)
-                    
-                    benchmark_df = evaluate_cross_model_benchmarks(sku_data, selected_model)
-                    if not benchmark_df.empty:
-                        st.dataframe(benchmark_df, use_container_width=True, hide_index=True)
-                    else:
-                        st.info("Insufficient series history (< 8 weeks) to compute out-of-fold cross-model tournament for this SKU.")
-
-                    
-                    # Forecast Table & Download
-                    st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
-                    st.markdown("""
-                    <div class="subpanel-title" style="margin-bottom: 10px;">
-                        📋 Forward Forecast Horizon Schedule
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    display_df = forecast_df.copy()
-                    if 'Date' in display_df.columns:
-                        display_df['Date'] = pd.to_datetime(display_df['Date']).dt.strftime('%Y-%m-%d')
-                    
-                    display_df.insert(0, 'Week', range(1, len(display_df) + 1))
-                    display_df.insert(1, 'Branch', branch_label)
-                    display_df = display_df.rename(columns={
-                        'Forecast': 'Forecast (Units)',
-                        'Lower_Bound': 'Lower Bound (Units)',
-                        'Upper_Bound': 'Upper Bound (Units)'
-                    })
-                    
-                    st.dataframe(
-                        display_df.style.format({
-                            'Forecast (Units)': '{:,.1f}',
-                            'Lower Bound (Units)': '{:,.1f}',
-                            'Upper Bound (Units)': '{:,.1f}'
-                        }),
-                        use_container_width=True,
-                        height=320
-                    )
-                    
-                    # Download CSV Action
-                    csv_df = forecast_df.copy()
-                    csv_df.insert(0, 'Material', selected_sku)
-                    csv_df.insert(1, 'Branch', branch_label)
-                    csv = csv_df.to_csv(index=False)
-                    clean_model_tag = re.sub(r'[^a-zA-Z0-9_]', '_', selected_model)
-                    st.download_button(
-                        label=f"📥 Download Strategic Forecast as CSV ({branch_label})",
-                        data=csv,
-                        file_name=f"forecast_{selected_sku}_{branch_file_code}_{clean_model_tag}_{datetime.now().strftime('%Y%m%d')}.csv",
-                        mime="text/csv",
-                        use_container_width=True
-                    )
-                    
-                    # Render ISB Technical Dossier & Feature Engineering Matrix
-                    render_isb_technical_dossier(metrics_dict, selected_model, selected_sku, branch_label, is_dark)
-                    
+                    res = run_engine_forecast(engine_df, selected_sku, engine_branches, forecast_periods,
+                                              confidence_level / 100.0, None if is_automl else selected_model)
+                    board = res if is_automl else run_engine_forecast(engine_df, selected_sku, engine_branches,
+                                                                      forecast_periods, confidence_level / 100.0, None)
                 except Exception as e:
-                    st.error(f"Error running forecast simulation: {str(e)}")
+                    st.error(f"Forecast engine error: {e}")
+                    return
+            if res.get('status') != 'success':
+                st.error(f"Cannot forecast {selected_sku} ({branch_label}): {res.get('error', 'unknown error')}")
+                return
+
+            champ = res['champion']
+            model_name = champ.get('model_name', selected_model)
+            lb = res['leaderboard'].set_index('model')
+            row = lb.loc[model_name] if model_name in lb.index else None
+            wape = float(row['mean_wape']) if row is not None else float('nan')
+            accuracy = accuracy_from_wape(wape) if row is not None else float('nan')
+            n_folds, test_w = res.get('backtest_folds', 0), res.get('backtest_test_weeks', 12)
+
+            if is_automl:
+                st.markdown(f"""
+                <div style="background: {'rgba(16, 185, 129, 0.12)' if is_dark else '#ECFDF5'}; border: 1px solid {'rgba(16, 185, 129, 0.35)' if is_dark else '#A7F3D0'}; border-radius: 12px; padding: 12px 18px; margin-bottom: 14px;">
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; color: {'#10B981' if is_dark else '#059669'}; text-transform: uppercase; letter-spacing: 1px;">
+                        Champion selected by out-of-sample tournament ({len(lb)} models ranked)
+                    </div>
+                    <div style="font-family: 'Outfit'; font-size: 16px; font-weight: 700; margin-top: 2px;">
+                        🏆 {model_name} &bull; backtest WAPE {wape:.1f}% (accuracy {accuracy:.1f}%)
+                    </div>
+                    <div style="color: var(--text-secondary); font-size: 12px; margin-top: 2px;">
+                        {res.get('champion_description', '')} Measured on {n_folds} rolling-origin fold(s) of {test_w} weeks the model had not seen. {res.get('fallback_reason') or ''}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            hist_dates = pd.to_datetime(res['historical_dates'])
+            fig = create_forecast_plot(
+                historical_dates=hist_dates,
+                historical_values=res['historical_demand'],
+                forecast_dates=res['forecast_dates'],
+                forecast_values=res['forecast'],
+                lower_bound=res['p10'],
+                upper_bound=res['p90'],
+                model_name=model_name,
+                branch_label=branch_label,
+                confidence_level=confidence_level
+            )
+            st.plotly_chart(fig, use_container_width=True, theme=None)
+            st.caption(res['interval_calibration'].get('note', ''))
+
+            st.markdown("""
+            <div class="subpanel-title" style="margin: 16px 0 12px 0;">
+                📈 Out-of-Sample Backtest Accuracy (rolling-origin, never in-sample)
+            </div>
+            """, unsafe_allow_html=True)
+            met1, met2, met3, met4 = st.columns(4)
+            if row is not None:
+                bias = float(row['mean_bias_pct'])
+                with met1:
+                    st.markdown(render_kpi_card("Mean Absolute Error", f"{row['mean_mae']:.1f}", "MAE", "cyan", "🎯", f"Units / week, {n_folds} folds"), unsafe_allow_html=True)
+                with met2:
+                    st.markdown(render_kpi_card("Root Mean Sq Error", f"{row['mean_rmse']:.1f}", "RMSE", "amber", "📏", "Ranking metric"), unsafe_allow_html=True)
+                with met3:
+                    st.markdown(render_kpi_card("WAPE", f"{wape:.1f}%", "WAPE", "rose" if wape > 50 else "green", "📊", f"Bias {bias:+.1f}%"), unsafe_allow_html=True)
+                with met4:
+                    st.markdown(render_kpi_card("Forecast Accuracy", f"{accuracy:.1f}%", "1 − WAPE", "green" if accuracy >= 70 else ("amber" if accuracy >= 40 else "rose"), "⭐", f"{test_w}-week horizon"), unsafe_allow_html=True)
+
+            st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+            st.markdown("""
+            <div class="subpanel-title" style="margin-bottom: 10px;">
+                🏆 Model Tournament Leaderboard (same backtest for every candidate, ranked on RMSE)
+            </div>
+            """, unsafe_allow_html=True)
+            if board.get('status') == 'success':
+                disp = board['leaderboard_display'].copy()
+                disp.insert(2, 'Accuracy (%)', disp['WAPE (%)'].apply(accuracy_from_wape).round(1))
+                st.dataframe(disp, use_container_width=True, hide_index=True)
+                bc = board.get('baseline_comparison') or {}
+                if bc.get('verdict'):
+                    st.caption(bc['verdict'])
+
+            st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
+            st.markdown("""
+            <div class="subpanel-title" style="margin-bottom: 10px;">
+                📋 Forward Forecast Horizon Schedule
+            </div>
+            """, unsafe_allow_html=True)
+            lo_col, hi_col = f'Lower Bound ({confidence_level}% PI)', f'Upper Bound ({confidence_level}% PI)'
+            forecast_df = pd.DataFrame({
+                'Date': pd.to_datetime(res['forecast_dates']).strftime('%Y-%m-%d'),
+                'Forecast (Units)': np.round(res['forecast'], 1),
+                lo_col: np.round(res['p10'], 1),
+                hi_col: np.round(res['p90'], 1),
+            })
+            display_df = forecast_df.copy()
+            display_df.insert(0, 'Week', range(1, len(display_df) + 1))
+            display_df.insert(1, 'Branch', branch_label)
+            st.dataframe(display_df, use_container_width=True, height=320, hide_index=True)
+
+            csv_df = forecast_df.copy()
+            csv_df.insert(0, 'Material', selected_sku)
+            csv_df.insert(1, 'Branch', branch_label)
+            csv_df.insert(2, 'Model', model_name)
+            clean_model_tag = re.sub(r'[^a-zA-Z0-9_]', '_', model_name)
+            st.download_button(
+                label=f"📥 Download Forecast as CSV ({branch_label})",
+                data=csv_df.to_csv(index=False),
+                file_name=f"forecast_{selected_sku}_{branch_file_code}_{clean_model_tag}_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+
+            render_model_dossier(res, selected_sku, branch_label, is_dark)
         else:
             # Historical pattern view when simulation not executed
             sku_raw = filtered_forecast_df[filtered_forecast_df['Material'] == selected_sku].copy()
@@ -3834,9 +2687,13 @@ def show_demand_forecasting(df):
                 st.plotly_chart(fig_hist, use_container_width=True, theme=None)
                 
                 st.info("👆 Adjust parameters in the Control Bar on the left and click 'Execute Forecast Simulation' to generate forward predictive curves.")
-                
-                # Render ISB Technical Dossier & Feature Engineering Matrix (Preview)
-                render_isb_technical_dossier(None, selected_model, selected_sku, branch_label, is_dark)
+
+        # Out-of-sample check of every model on FY24-25 billing (independent of the Execute button)
+        if selected_sku:
+            render_holdout_model_validation(
+                selected_sku, engine_branches, branch_label,
+                CHAMPION_LABEL if model_family == "🤖 Champion Model (AutoML)" else selected_model, is_dark)
+
 
 # -----------------------------------------------------------------------------
 # PAGE 3: 🛡️ DATA QUALITY & HEALTH

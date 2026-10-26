@@ -13,6 +13,8 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml import parse_xml, OxmlElement
 from docx.oxml.ns import nsdecls, qn
 
+from report_facts import get_report_facts, fmt_pct
+
 HEX_NAVY = "0E1622"
 HEX_CYAN = "0284C7"
 HEX_TEAL = "00A8CC"
@@ -256,6 +258,48 @@ def add_table_data(doc, headers, rows, col_widths=None):
     p_spacer.paragraph_format.space_after = Pt(4)
 
 print("Starting full document assembly...")
+
+# ---- Facts: every performance / data number below comes from report_facts.py ----
+F = get_report_facts()
+D = F['data']
+DC = F['demand_classes']
+N_MODELS = F['n_candidate_models']
+_h = F.get('holdout') or {}
+_mode = 'rolling' if _h.get('rolling_region_month_acc') is not None else 'static'
+_hg = lambda key: _h.get(f'{_mode}_{key}')
+HOLDOUT_LABEL = ('rolling-origin re-fitted evaluation, lags 1-4 weeks' if _mode == 'rolling'
+                 else 'static evaluation, models fitted once on data to 30 Jun 2024')
+TESTS_TXT = (f"{F['tests']['passed']} passed / {F['tests']['failed']} failed"
+             if F['tests'].get('passed') is not None else 'not run')
+VERIF_TXT = (f"{_h['verification_passed']}/{_h['verification_total']}" if _h.get('verification_total') else 'n/a')
+PI_COVERAGE = fmt_pct(_h.get('static_p10_p90_coverage_pct'))
+
+
+def _vs(snaive, ma4):
+    snaive, ma4 = fmt_pct(snaive), fmt_pct(ma4)
+    return f"{snaive} for seasonal naive" + (f" and {ma4} for a 4-week moving average" if ma4 != 'n/a' else "")
+
+
+HOLDOUT_TXT = (
+    f"On the FY24-25 holdout ({_h.get('period', 'Jul 2024 - Jun 2025')}; {HOLDOUT_LABEL}), engine accuracy "
+    f"(100% - WAPE) was {fmt_pct(_hg('region_month_acc'))} at South Region x Month versus "
+    f"{_vs(_hg('region_month_snaive_acc'), _hg('region_month_ma4_acc'))}; at SKU x Branch x Month it was "
+    f"{fmt_pct(_hg('sku_branch_month_acc'))} versus {_vs(_hg('sku_branch_month_snaive_acc'), _hg('sku_branch_month_ma4_acc'))}."
+)
+DC_TXT = ", ".join(
+    f"{q} {DC[q]['volume_share_pct']:.1f}% of volume ({DC[q]['series']} series)"
+    for q in sorted(['Smooth', 'Erratic', 'Intermittent', 'Lumpy'], key=lambda q: -DC[q]['volume_share_pct']))
+NON_SMOOTH_PCT = 100.0 - DC['Smooth']['volume_share_pct']
+SELECTION_RULE = ("Every candidate is backtested on 4 rolling-origin folds of 12 weeks (expanding window); "
+                  "the champion is the model with the lowest mean RMSE across folds, and WAPE (accuracy = 100% - WAPE) "
+                  "is reported. Governance marks a champion PROVISIONAL (for planner review) when its backtest WAPE "
+                  "exceeds 100%, |bias| exceeds 50% or its stability score is below 40; there is no hard WAPE "
+                  "acceptance threshold.")
+HIERARCHY_TXT = ("Region and branch totals are forecast directly. The hierarchy page compares the bottom-up view "
+                 "(sum of branch forecasts) with the direct region forecast, and shows a top-down split of the region "
+                 "forecast by each branch's share of the last 52 weeks. MinT (minimum-trace) reconciliation is not "
+                 "implemented, and no reconciliation accuracy gain is claimed.")
+
 doc = docx.Document()
 add_header_footer(doc)
 
@@ -294,7 +338,7 @@ meta_rows = [
     ["Corporate Sponsor", "Deloitte Touche Tohmatsu India LLP"],
     ["Project Charter", "AI-Powered SKU-Level Demand Intelligence & Multi-Echelon Replenishment Platform"],
     ["Capstone Authors", "Sai Prashanth Sarathy (12510081), R Arvindshankar (12510053), Hariharan N (12510102), Vedika Sharma (12510071), Vani Som (12510023)"],
-    ["Dataset Scope", "82,034 Transaction Lines | 154 Active SKUs | 5 Regional Depots (MAA, SBD, SBD1, COK, BLR) | 103 Weeks (Jul 2022 – Jun 2024)"],
+    ["Dataset Scope", f"{D['real_rows']:,} Real Billing Rows | {D['skus']} SKUs ({D['odu_skus']} ODU / {D['idu_skus']} IDU) | {D['branches']} Regional Depots (MAA, SBD, SBD1, COK, BLR) | {D['date_min']} – {D['date_max']} | {D['synthetic_rows']:,} synthetic evaluation rows ({D['synthetic_skus']} EVAL-* SKUs) labelled and excluded by default"],
     ["Platform Status", "75% Mid-Review Checkpoint | 100% Core Pipeline & 7-Page Cockpit Live | 42 Series Generating 91,504 Units Forecast"],
     ["Target NotebookLM Use", "Comprehensive primary source document for generating presentations, study guides, executive briefs, audio podcasts, and slide notes"]
 ]
@@ -324,7 +368,7 @@ add_callout(doc, "System Prompt 2: Generate VBA Code to Auto-Build PPT in PowerP
 
 add_callout(doc, "System Prompt 3: Generate Faculty Viva Defense Preparation", [
     "Prompt to paste into NotebookLM chat:",
-    "\"Act as a demanding ISB Capstone Evaluation Panel consisting of a Senior Supply Chain Professor and a Deloitte Data Science Partner. Review the uploaded source document and generate the 10 hardest technical questions regarding: our Syntetos-Boylan demand categorization, the MinT reconciliation proofs, zero temporal data leakage validation, and our handling of the 28.77% Q1 data gap. For each question, provide the bulletproof, quantitatively supported answer that our team should deliver.\""
+    "\"Act as a demanding ISB Capstone Evaluation Panel consisting of a Senior Supply Chain Professor and a Deloitte Data Science Partner. Review the uploaded source document and generate the 10 hardest technical questions regarding: our Syntetos-Boylan demand categorization, the bottom-up vs top-down hierarchy comparison, zero temporal data leakage validation, and our handling of the 28.77% Q1 data gap. For each question, provide the bulletproof, quantitatively supported answer that our team should deliver.\""
 ], HEX_AMBER, HEX_CARD_BG, "🎓")
 
 # SECTION 2
@@ -333,8 +377,8 @@ add_body_p(doc, "The Demand Prediction by SKU capstone project bridges the gap b
 
 add_h2(doc, "2.1 The Core Business Challenge")
 add_body_p(doc, "Room Air Conditioners (RACs) represent capital-intensive, highly seasonal durable goods characterized by severe demand lumpiness. The manufacturing sponsor distributes 154 distinct SKUs across 5 regional mother and satellite distribution hubs in South India (Madras/Chennai [MAA], Sriperumbudur [SBD, SBD1], Cochin [COK], and Bangalore [BLR]). Historical ERP sales data revealed three structural crises:", bold_prefix="Commercial Context: ")
-add_bullet_p(doc, "Commercial demand is severely non-smooth. 70.1% of all active SKUs exhibit lumpy demand patterns (high inter-arrival intervals and high order variance), rendering traditional moving averages and exponential smoothing models invalid.", "1. Demand Lumpiness: ")
-add_bullet_p(doc, "Depot managers in Bangalore and Cochin frequently experienced peak-season stockouts while Sriperumbudur carried surplus inventory, necessitating emergency inter-depot transfers that eroded gross margins by 4.2%.", "2. Network Misalignment: ")
+add_bullet_p(doc, f"Commercial demand is severely non-smooth. Across {DC['total_series']} weekly ODU SKU × Branch series, {DC['Lumpy']['series']} are Lumpy ({DC['Lumpy']['volume_share_pct']:.1f}% of volume) and {DC['Erratic']['series']} Erratic ({DC['Erratic']['volume_share_pct']:.1f}% of volume); only {DC['Smooth']['volume_share_pct']:.1f}% of volume is Smooth, so simple moving averages and exponential smoothing cannot be relied on alone.", "1. Demand Lumpiness: ")
+add_bullet_p(doc, "Depot managers in Bangalore and Cochin frequently experienced peak-season stockouts while Sriperumbudur carried surplus inventory, necessitating emergency inter-depot transfers that eroded gross margins.", "2. Network Misalignment: ")
 add_bullet_p(doc, "Legacy ERP sales data suffered from 5.44% duplicate entries, 94,435 null data cells across transactional attributes, and a catastrophic 28.77% structural data gap in Q1 FY24-25 that broke naive statistical training pipelines.", "3. Dirty Enterprise Data: ")
 
 add_h2(doc, "2.2 Forensic Data Audit & Canonical Grain")
@@ -347,7 +391,7 @@ audit_rows = [
     ["Duplicate Records", "4,463 duplicate rows (5.44%)", "0 duplicates (100% clean)", "Prevented double-counting of bulk dealer consignments"],
     ["Gross vs Net Volume", "Gross: 909,451.5 units", "Net: 902,391.0 units", "Reconciled -7,060.5 returned units (0.78% return rate)"],
     ["ODU vs IDU Split", "Outdoor: 80.8% (729,297 units)", "Indoor: 19.2% (173,094 units)", "Identified independent ODU commercial replacement demand"],
-    ["Training Convergence", "Baseline runtime: 100%", "Runtime improved ~18%", "Optimized vector operations reduce multi-model execution time"]
+    ["Synthetic Evaluation Rows", f"{D['synthetic_rows']:,} generated rows ({D['synthetic_skus']} EVAL-* SKUs)", "Labelled (Data_Sheet) and excluded by default", "Test series never mixed into real demand or reported metrics"]
 ]
 add_table_data(doc, audit_headers, audit_rows, [Inches(1.6), Inches(1.8), Inches(1.8), Inches(1.7)])
 
@@ -402,7 +446,7 @@ slides_data = [
         ],
         "script": "Slide 3 establishes our physical supply chain context. Our manufacturing sponsor operates a multi-echelon distribution network serving South India through five primary regional hubs. Sriperumbudur—represented by SBD and SBD1—acts as the manufacturing plant warehouse and mother distribution hub. Chennai (MAA) serves the dense metropolitan market, while Bangalore (BLR) and Cochin (COK) function as high-growth satellite depots. [Point to map] Across these 5 hubs, the company manages 154 active SKUs. However, consumer air conditioner demand is not homogenous: coastal Tamil Nadu and Kerala demand differs radically from Bangalore's elevated plateau climate. When depot managers lack SKU-level demand intelligence, they resort to emergency inter-depot transfers—shuffling physical inventory between Chennai and Bangalore—which delays customer fulfillment and incurs severe margin degradation.",
         "directive": "Detail the 5-hub multi-echelon supply chain network in South India, explaining the operational dynamics across 154 SKUs.",
-        "qa": "Q: How does multi-echelon network modeling change your forecasting formulation?\nA: Standard independent forecasting creates hierarchical discrepancies where the sum of SKU forecasts does not equal the depot forecast. We implemented a mathematical reconciliation module using Bottom-Up aggregation and Minimum Trace (MinT) optimal combination to guarantee perfect network coherency across all echelons."
+        "qa": "Q: How does multi-echelon network modeling change your forecasting formulation?\nA: Standard independent forecasting creates hierarchical discrepancies where the sum of SKU forecasts does not equal the depot forecast. " + HIERARCHY_TXT
     },
     {
         "num": 4,
@@ -424,16 +468,16 @@ slides_data = [
         "num": 5,
         "title": "Demand Profiling: Syntetos-Boylan Discovery",
         "category": "Statistical Demand Categorization",
-        "layout": "2x2 Syntetos-Boylan Quadrant Matrix (ADI on Y-axis with cutoff 1.32; CV² on X-axis with cutoff 0.49). Callout cards highlighting SKU distribution across the 4 quadrants with a warning callout on the empty Smooth quadrant.",
+        "layout": "2x2 Syntetos-Boylan Quadrant Matrix (ADI on Y-axis with cutoff 1.32; CV² on X-axis with cutoff 0.49). Callout cards highlighting series counts and volume shares across the 4 quadrants with a warning callout on the small Smooth quadrant.",
         "content": [
-            "Syntetos-Boylan Classification: Categorizes time-series demand across Average Demand Interval (ADI) and squared Coefficient of Variation (CV²).",
-            "Lumpy Demand Dominance: 70.1% of active SKUs (108 SKUs) fall into the Lumpy quadrant (ADI ≥ 1.32, CV² ≥ 0.49) — high intermittency and high variance.",
-            "Intermittent Demand: 18.8% of active SKUs (29 SKUs) exhibit sporadic demand with low volume variance (ADI ≥ 1.32, CV² < 0.49).",
-            "Erratic Demand: 11.0% of active SKUs (17 SKUs) exhibit frequent ordering but wild volume fluctuations (ADI < 1.32, CV² ≥ 0.49).",
-            "The Critical Discovery: Exactly ZERO percent (0 SKUs) reside in the Smooth quadrant. Standard Holt-Winters and linear regression are mathematically disqualified across the entire catalog."
+            f"Syntetos-Boylan Classification: Categorizes each of the {DC['total_series']} weekly ODU SKU × Branch series (training period to 1 Jul 2024) by Average Demand Interval (ADI) and squared Coefficient of Variation (CV²).",
+            f"Lumpy Demand: {DC['Lumpy']['series']} series, {DC['Lumpy']['volume_share_pct']:.1f}% of ODU volume (ADI ≥ 1.32, CV² ≥ 0.49) — high intermittency and high variance.",
+            f"Intermittent Demand: {DC['Intermittent']['series']} series, {DC['Intermittent']['volume_share_pct']:.1f}% of ODU volume — sporadic demand with low volume variance (ADI ≥ 1.32, CV² < 0.49).",
+            f"Erratic Demand: {DC['Erratic']['series']} series, {DC['Erratic']['volume_share_pct']:.1f}% of ODU volume — frequent ordering but wild volume fluctuations (ADI < 1.32, CV² ≥ 0.49).",
+            f"The Critical Discovery: only {DC['Smooth']['series']} series ({DC['Smooth']['volume_share_pct']:.1f}% of volume) are Smooth. Standard smoothing and linear-trend models cannot be relied on alone, so intermittent and seasonal-index models compete alongside them."
         ],
-        "script": "Slide 5 represents the central mathematical discovery of our entire capstone project. When businesses struggle with inventory forecasting, the instinctive corporate response is to deploy standard exponential smoothing or linear trends. To evaluate whether that was valid, we subjected all 154 SKUs to the rigorous Syntetos-Boylan demand classification framework. [Point emphatically to the matrix] Look at the bottom-left quadrant: the Smooth quadrant. It is completely empty: zero percent. Exactly 70.1% of our SKUs reside in the top-right Lumpy quadrant—meaning orders arrive sporadically in large, erratic spikes. Another 18.8% are intermittent. Together, nearly 90% of our portfolio violates the fundamental assumptions of classical forecasting. This empirical finding was our turning point: it proved why the sponsor's existing planning was failing, and it justified why we had to build an advanced, dual-track algorithmic architecture.",
-        "directive": "Explain the Syntetos-Boylan classification breakdown (70.1% Lumpy, 18.8% Intermittent, 11% Erratic, 0% Smooth) and why traditional forecasting fails.",
+        "script": f"Slide 5 represents the central mathematical discovery of our entire capstone project. When businesses struggle with inventory forecasting, the instinctive corporate response is to deploy standard exponential smoothing or linear trends. To evaluate whether that was valid, we subjected all {DC['total_series']} weekly ODU SKU-branch series to the rigorous Syntetos-Boylan demand classification framework. [Point emphatically to the matrix] Look at the bottom-left quadrant: the Smooth quadrant. It holds just {DC['Smooth']['series']} series and {DC['Smooth']['volume_share_pct']:.1f}% of volume. Erratic series carry {DC['Erratic']['volume_share_pct']:.1f}% of volume and Lumpy series—where orders arrive sporadically in large spikes—another {DC['Lumpy']['volume_share_pct']:.1f}%. Together, {NON_SMOOTH_PCT:.1f}% of volume violates the fundamental assumptions of classical forecasting. This empirical finding was our turning point: it explained why simple planning rules struggle, and it justified why we had to build a multi-family candidate tournament.",
+        "directive": f"Explain the Syntetos-Boylan classification breakdown by share of ODU volume ({DC_TXT}) and why traditional forecasting fails.",
         "qa": "Q: What mathematical thresholds define the Syntetos-Boylan quadrants?\nA: The cutoff for Average Demand Interval (ADI) is 1.32 periods between non-zero orders. The cutoff for the squared coefficient of variation (CV²) is 0.49. When ADI ≥ 1.32 and CV² ≥ 0.49, demand is classified as Lumpy, where standard exponential smoothing produces massive over-estimation bias during zero periods."
     },
     {
@@ -456,16 +500,16 @@ slides_data = [
         "num": 7,
         "title": "Dual-Track Forecasting Engine Architecture",
         "category": "Methodology & Feature Engineering",
-        "layout": "Two parallel horizontal process lanes. Top Lane: Statistical & Econometric Track (ARIMA, SARIMA, ETS, Croston/SBA). Bottom Lane: Machine Learning Track (Random Forest, Gradient Boosting, XGBoost, LightGBM). Center connector: 40+ Causal Feature Engineering Pipeline.",
+        "layout": "Two parallel horizontal process lanes. Top Lane: Statistical & Econometric Track (pooled Seasonal Index, ARIMA, SARIMA, ETS, Croston/SBA/TSB). Bottom Lane: Machine Learning Track (Random Forest, Gradient Boosting, XGBoost, LightGBM). Center connector: Causal Feature Engineering Pipeline and the pooled seasonal profile.",
         "content": [
-            "Dual-Track Strategy: Parallel execution of statistical and machine learning algorithms to let empirical backtest accuracy select the winning model per SKU.",
-            "Statistical Track: ARIMA(p,d,q) with AIC order search; SARIMA(1,1,1)(0,1,1)12 for quarterly/annual seasonality; Croston & Syntetos-Boylan Approximation (SBA) for lumpy series.",
-            "Machine Learning Track: Random Forest (100 trees), Gradient Boosting, XGBoost, and LightGBM with recursive walk-forward forecasting.",
-            "40+ Causal Features: Calendar harmonics (week/month sine/cosine Fourier terms), strictly shifted autoregressive lags (1, 2, 3, 4, 8, 12, 26, 52W), rolling momentum statistics (4W, 8W, 12W mean, std, min, max), and regional branch encoding.",
-            "Leakage Prevention: 100% left-aligned historical windows with zero contemporaneous or forward-looking information."
+            f"Dual-Track Strategy: {N_MODELS} candidate models (statistical, intermittent, seasonal-index, machine learning, baselines and an inverse-WAPE ensemble) compete per SKU × Branch; the champion is the lowest mean RMSE over 4 rolling-origin folds of 12 weeks.",
+            "Statistical Track: pooled Seasonal Index (region/branch month index × month-end factor; 8-week and 26-week level variants); ARIMA with min-AIC order search; SARIMA = ARIMA on the seasonally adjusted series, re-seasonalised; ETS = damped-trend ETS(A,Ad,N) on the seasonally adjusted series; Croston, SBA and TSB for intermittent series.",
+            "Machine Learning Track: Random Forest, Gradient Boosting, XGBoost, and LightGBM with recursive walk-forward forecasting (need at least 20 weeks of training data in every fold).",
+            "Causal Features: Calendar harmonics (week/month sine/cosine Fourier terms), strictly shifted autoregressive lags (1, 2, 3, 4, 8, 12, 26, 52W), shifted rolling statistics (4W, 8W, 12W mean, std, min, max), momentum terms and the pooled seasonal factor.",
+            "Leakage Prevention: 100% left-aligned historical windows with zero contemporaneous or forward-looking information; the seasonal profile is re-estimated at every fold cutoff from data up to that cutoff."
         ],
-        "script": "Slide 7 outlines our core methodology: the Dual-Track Forecasting Engine. Given that 70% of our demand is lumpy, no single model family can dominate across all 154 SKUs. Rather than forcing a one-size-fits-all algorithm, we architected two parallel competitive tracks. [Point to top track] Track 1 is our Statistical & Econometric engine, featuring automated ARIMA, seasonal SARIMAX with quarterly harmonic cycles, and Croston’s SBA for sporadic series. Track 2 is our Machine Learning Tournament, encompassing Random Forest, Gradient Boosting, and XGBoost. [Point to center] Feeding the ML track is our proprietary causal feature engineering module, generating over 40 temporal features—including Fourier cyclical transformations of summer heat waves, strictly backward-looking demand lags, and rolling volatility indicators. By running both tracks in parallel, our platform evaluates every candidate on held-out test data and deploys the optimal model per series.",
-        "directive": "Describe the dual-track forecasting methodology, contrasting statistical models with ML tree ensembles across 40+ engineered features.",
+        "script": f"Slide 7 outlines our core methodology: the Dual-Track Forecasting Engine. Given that only {DC['Smooth']['volume_share_pct']:.1f}% of our volume is smooth, no single model family can dominate across every SKU and branch. Rather than forcing a one-size-fits-all algorithm, we architected two parallel competitive tracks. [Point to top track] Track 1 is our Statistical & Econometric engine: a pooled seasonal index that borrows the strong April peak and July trough from region and branch history, ARIMA, SARIMA and damped-trend ETS fitted on the seasonally adjusted series, and Croston, SBA and TSB for sporadic series. Track 2 is our Machine Learning Tournament, encompassing Random Forest, Gradient Boosting, XGBoost and LightGBM. [Point to center] Feeding the ML track is our causal feature engineering module—Fourier calendar terms, strictly backward-looking demand lags, rolling volatility indicators and the pooled seasonal factor. Every one of the {N_MODELS} candidates is scored on 4 rolling-origin folds of 12 weeks, and the model with the lowest mean RMSE becomes the champion for that series.",
+        "directive": "Describe the dual-track forecasting methodology, contrasting the pooled seasonal-index and statistical models with ML tree ensembles, and the rolling-origin RMSE selection rule.",
         "qa": "Q: How do you prevent data leakage when generating rolling features for future test periods?\nA: We enforce a recursive walk-forward architecture. For horizon step t+1, features use observed history. For horizons t+2 through t+12, future lag and rolling statistics are calculated recursively using the model's own prior predictions (y_hat_t+1), ensuring zero contamination from future actuals."
     },
     {
@@ -478,7 +522,7 @@ slides_data = [
             "Aggregate Forecast Volume: 91,504 units projected starting from 26 May 2024.",
             "Regional Hub Absorption: Sriperumbudur (SBD) = 31,731 units (34.7%); Chennai (MAA) = 25,578 units (28.0%); SBD1 Ancillary = 17,730 units (19.4%); Bangalore (BLR) = 8,398 units (9.2%); Cochin (COK) = 8,067 units (8.8%).",
             "Top Volume Concentration: SBD and MAA together absorb 62.7% of total regional demand, identifying exactly where inventory capital must be deployed.",
-            "Uncertainty Quantification: All forecasts feature Gaussian state-space 95% confidence intervals and empirical P10/P50/P90 prediction bands."
+            "Uncertainty Quantification: Forecasts carry split-conformal, level-scaled prediction intervals built from the champion's out-of-sample backtest residuals (P10/P50/P90 bands)."
         ],
         "script": "Slide 8 showcases our live production forecasting results. Today, our ARIMA engine is actively generating 12-week rolling forward demand forecasts across 42 branch-SKU combinations. Across these series, the platform projects an aggregate regional demand of 91,504 units starting from late May 2024. [Point to the regional volume breakdown] This regional distribution delivers immediate commercial clarity for Deloitte and the sponsor. Sriperumbudur and Chennai together absorb 62.7% of all projected volume—over 57,000 units. Bangalore and Cochin account for approximately 9% each. This concentration reveals exactly where safety stock buffers and direct factory replenishment lines generate the highest return on capital. Rather than distributing buffer stock evenly across all five depots, the sponsor can concentrate working capital in SBD and MAA while operating Bangalore and Cochin on lean, pull-based replenishment schedules.",
         "directive": "Present the 12-week forward forecast results (42 series, 91,504 units) and detail the regional hub absorption split led by SBD (34.7%) and MAA (28.0%).",
@@ -488,16 +532,16 @@ slides_data = [
         "num": 9,
         "title": "Data Hygiene Pipeline & Operational Impact",
         "category": "Data Engineering & ROI",
-        "layout": "Before vs After comparative impact cards. 4 metric comparisons: Completeness (94.99% -> 98.49%), Duplicate Ratio (5.44% -> 0.00%), Fleet Size (82,034 -> 77,571 curated rows), Model Convergence Speed (+18% faster).",
+        "layout": "Before vs After comparative impact cards. 3 metric comparisons: Completeness (94.99% -> 98.49%), Duplicate Ratio (5.44% -> 0.00%), Fleet Size (82,034 -> 77,571 curated rows).",
         "content": [
             "Data Pipeline Execution: Automated cleaning orchestrator executing deduplication, null field isolation, ISO date normalization, and categorical standardization.",
             "Duplicate Elimination: 4,463 redundant records expunged, preventing artificial demand inflation in historical baselines.",
             "Data Completeness Elevation: Field completeness lifted from 94.99% to 98.49% across all 23 database attributes.",
-            "Storage & Computational Efficiency: +5.44% storage memory reduction; vector-optimized pandas operations accelerate model training convergence by ~18%.",
+            "Storage & Computational Efficiency: +5.44% storage memory reduction; vector-optimized pandas operations keep multi-model training within batch windows (runtime gain not benchmarked).",
             "Continuous Audit Trail: Complete metadata logging tracking every transformation step for enterprise SOC-2 and data governance compliance."
         ],
-        "script": "Slide 9 quantifies the concrete operational impact of our data engineering pipeline. In machine learning, algorithms are only as dependable as the pipeline feeding them. We built an automated, production-grade hygiene orchestrator. By systematically deduplicating transactional lines, isolating 94,435 null fields, and standardizing categorical naming conventions, we elevated enterprise data completeness from 94.99% to 98.49%. [Point to convergence metric] This data cleanliness is not just aesthetic—it delivers direct computational ROI. Our post-cleaning dataset of 77,571 transaction rows trains our multi-model tournament approximately 18% faster than on uncurated data. When training 14 models across 154 SKUs weekly, an 18% efficiency gain saves substantial cloud compute overhead and ensures forecasts refresh inside overnight batch windows.",
-        "directive": "Highlight data hygiene improvements: completeness rising to 98.49%, zero duplicates, and 18% faster model training convergence.",
+        "script": f"Slide 9 quantifies the concrete operational impact of our data engineering pipeline. In machine learning, algorithms are only as dependable as the pipeline feeding them. We built an automated, production-grade hygiene orchestrator. By systematically deduplicating transactional lines, isolating 94,435 null fields, and standardizing categorical naming conventions, we elevated enterprise data completeness from 94.99% to 98.49%. [Point to convergence metric] This data cleanliness is not just aesthetic—it protects every downstream model. Our post-cleaning dataset of 77,571 transaction rows removes double-counted demand before it can inflate forecasts, and when training {N_MODELS} candidate models across every SKU and branch, a lean, de-duplicated input helps forecasts refresh inside overnight batch windows.",
+        "directive": "Highlight data hygiene improvements: completeness rising to 98.49% and zero duplicates.",
         "qa": "Q: How does the pipeline handle unexpected schema changes or null values during automated weekly refreshes?\nA: The DataValidator module executes 11 pre-flight validation checks before ingestion. If an unexpected schema drift or null threshold breach (>5%) occurs, the orchestrator triggers an automated alert, flags the anomalous records, and applies safe fallback median imputation while preserving the raw audit trail."
     },
     {
@@ -515,7 +559,7 @@ slides_data = [
         ],
         "script": "Slide 10 presents our delivery vehicle: the Enterprise Demand Intelligence Cockpit. Our philosophy from Day 1 was that our analytics must not remain trapped in a static report or a Jupyter notebook. We engineered an interactive 7-page web application designed for dual enterprise audiences: executive boardroom presentation and tactical depot planner analysis. [Walk through views] The Executive Cockpit gives leadership instant visibility into total volume and regional stock velocity. The AI Demand Forecasting view allows planners to select any SKU and branch, adjust forecast horizons from 4 to 52 weeks, and compare model predictions with confidence bands. Views 3 through 6 provide deep forensic data quality, correlation, and statistical analysis. Finally, View 7 enables automated one-click PDF and Excel export generation for offline executive review.",
         "directive": "Showcase the 7-page interactive dashboard architecture and how each view serves executive leaders and depot inventory planners.",
-        "qa": "Q: What framework powers the dashboard and how does it perform on large datasets?\nA: The UI is powered by Streamlit and Plotly with extensive `@st.cache_data` caching and lazy-loading evaluation. The entire 82,000-record dataset and pre-computed forecast marts render in under 1.2 seconds, achieving 85% faster page transitions compared to uncached execution."
+        "qa": "Q: What framework powers the dashboard and how does it perform on large datasets?\nA: The UI is powered by Streamlit and Plotly with extensive `@st.cache_data` caching and lazy-loading evaluation. Caching means the full billing dataset and computed forecasts are loaded once per session rather than on every page transition (page-load times have not been benchmarked)."
     },
     {
         "num": 11,
@@ -524,12 +568,12 @@ slides_data = [
         "layout": "Structured two-column problem-solution mapping table. Left: 5 Real-World Technical Challenges Faced. Right: 5 Engineered Solutions & Architectural Pivots. Highlighted with amber alert badges and green solution badges.",
         "content": [
             "Challenge 1: Structural Data Gap (28.77% records missing in Q1 FY24-25) -> Solution: Established strict chronological partition; trained on verified 24-month continuous history and embedded automated anomaly detectors for future gaps.",
-            "Challenge 2: Severe Demand Lumpiness (70% lumpy demand) -> Solution: Applied Syntetos-Boylan classification upstream; deployed Croston SBA alongside ML ensembles to eliminate flat-trend distortion.",
-            "Challenge 3: Algorithmic Diversity -> Solution: Engineered modular decoupled architecture running 14 models across 4 distinct families in parallel.",
+            f"Challenge 2: Severe Demand Lumpiness (only {DC['Smooth']['volume_share_pct']:.1f}% of volume Smooth; Lumpy {DC['Lumpy']['volume_share_pct']:.1f}%, Erratic {DC['Erratic']['volume_share_pct']:.1f}%) -> Solution: Applied Syntetos-Boylan classification upstream; added Croston, SBA and TSB to the candidates for series with more than 30% zero weeks, alongside the pooled seasonal index and ML ensembles.",
+            f"Challenge 3: Algorithmic Diversity -> Solution: Engineered modular decoupled architecture running {N_MODELS} candidate models across baseline, seasonal-index, statistical, intermittent, ML and ensemble families.",
             "Challenge 4: UI Latency on 82K Records -> Solution: Built multi-tier caching, lazy chart evaluation, and canonical aggregation reducing data volume from 82K to 8,951 weekly grain rows.",
             "Challenge 5: Evaluation Bias on Zeros -> Solution: Replaced deceptive MAPE metrics with volume-weighted WAPE, sMAPE, and scaled MASE benchmarks."
         ],
-        "script": "Slide 11 is our project’s hero slide: our Engineering Challenges and Technical Pivots. In applied machine learning, the true measure of engineering rigor is not when everything goes smoothly, but how you adapt when enterprise data contradicts your assumptions. [Point to Challenge 1] When we discovered that nearly 29% of Q1 FY24-25 data was missing due to an unannounced ERP migration, we didn't fudge the numbers with arbitrary interpolation. We segmented our training windows strictly on verified history and built automated gap-detection alarms. [Point to Challenge 2] When Syntetos-Boylan revealed 70% lumpy demand, we abandoned standard smoothing and pivoted to a dual-track Croston and ML tournament. [Point to Challenge 5] When traditional MAPE produced infinite errors due to zero-demand weeks, we implemented WAPE and MASE. Every single challenge we confronted resulted in a superior, more resilient production architecture.",
+        "script": f"Slide 11 is our project’s hero slide: our Engineering Challenges and Technical Pivots. In applied machine learning, the true measure of engineering rigor is not when everything goes smoothly, but how you adapt when enterprise data contradicts your assumptions. [Point to Challenge 1] When we discovered that nearly 29% of Q1 FY24-25 data was missing due to an unannounced ERP migration, we didn't fudge the numbers with arbitrary interpolation. We segmented our training windows strictly on verified history and built automated gap-detection alarms. [Point to Challenge 2] When Syntetos-Boylan showed that only {DC['Smooth']['volume_share_pct']:.1f}% of volume is smooth, we stopped relying on standard smoothing and pivoted to a multi-family tournament of seasonal-index, Croston-type, statistical and ML models. [Point to Challenge 5] When traditional MAPE produced infinite errors due to zero-demand weeks, we implemented WAPE and MASE. Every single challenge we confronted resulted in a superior, more resilient production architecture.",
         "directive": "Highlight the 5 technical challenges and their engineering solutions, demonstrating critical thinking, problem-solving, and technical maturity.",
         "qa": "Q: Why is MAPE deceptive on intermittent or lumpy demand?\nA: MAPE divides the absolute error by actual demand (|y - y_hat| / y). Whenever actual demand is zero (which occurs in over 30% of intermittent SKU weeks), the denominator becomes zero, resulting in division by zero (undefined or infinite MAPE). We adopted WAPE (Weighted Absolute Percentage Error), which sums absolute errors across all periods divided by total aggregate demand."
     },
@@ -546,7 +590,7 @@ slides_data = [
             "Step 4 (Scenario Simulation): Stress-testing demand under a +15% summer heat wave shock and evaluating safety stock buffers.",
             "Step 5 (Reporting): Generating an executive-ready PDF briefing memo and exporting raw forecasts to CSV."
         ],
-        "script": "Slide 12 outlines our live demonstration workflow. [If presenting live: 'Let me now transition directly into our live application...'] A regional inventory planner opens the Executive Cockpit and immediately observes that Sriperumbudur and Chennai demand is trending 12% above seasonal expectations. Navigating to the AI Demand Forecasting module, the planner selects our highest-volume SKU: the 1.5-Ton 5-Star Split AC. With a single click, the platform runs our ARIMA and Random Forest forecasters, rendering a 12-week forward demand curve bounded by 95% confidence intervals. The planner observes a projected requirement of 4,200 units over the next month. Before committing supplier purchase orders, the planner tests a 'What-If' scenario: simulating a 15% pre-monsoon heatwave surge. The platform instantly recalculates dynamic Reorder Points and safety stock buffers, ensuring zero stockouts. Finally, the planner clicks 'Export PDF Briefing' to circulate the replenishment schedule to factory dispatch.",
+        "script": "Slide 12 outlines our live demonstration workflow. [If presenting live: 'Let me now transition directly into our live application...'] A regional inventory planner opens the Executive Cockpit and immediately observes that Sriperumbudur and Chennai demand is trending 12% above seasonal expectations. Navigating to the AI Demand Forecasting module, the planner selects our highest-volume SKU: the 1.5-Ton 5-Star Split AC. With a single click, the platform runs our ARIMA and Random Forest forecasters, rendering a 12-week forward demand curve bounded by 95% confidence intervals. The planner observes a projected requirement of 4,200 units over the next month. Before committing supplier purchase orders, the planner tests a 'What-If' scenario: simulating a 15% pre-monsoon heatwave surge. The platform instantly recalculates dynamic Reorder Points and safety stock buffers for the stressed demand. Finally, the planner clicks 'Export PDF Briefing' to circulate the replenishment schedule to factory dispatch.",
         "directive": "Walk through the 5-step interactive dashboard user journey simulating a live depot planner's workflow.",
         "qa": "Q: Can depot managers adjust model parameters directly from the user interface?\nA: Yes. The forecasting interface exposes horizon sliders (4 to 52 weeks), model family selection dropdowns, confidence interval toggles (80%, 90%, 95%), and seasonal cycle overrides, while maintaining strict guardrails against invalid configurations."
     },
@@ -563,7 +607,7 @@ slides_data = [
             "Export & Governance Layer: FPDF 1.7+ for programmatic C-suite PDF briefing generation; OpenPyXL 3.1+ for auditable multi-tab Excel data mart generation.",
             "Configuration Management: Centralized YAML governance (data_config.yaml, model_config.yaml, business_config.yaml) eliminating hardcoded parameters."
         ],
-        "script": "Slide 13 details our underlying system architecture. We deliberately avoided building a monolithic notebook script; we engineered a modular, four-layer enterprise software architecture. [Point to bottom layer] At the foundation is our centralized configuration layer governed by three YAML files, ensuring zero hardcoded thresholds. Above that sits our analytics and transformation layer, executing robust data validation and aggregation. Our third layer is the forecasting engine, housing 14 distinct algorithms behind unified fit-and-predict interfaces. Finally, our presentation layer utilizes Streamlit and Plotly for responsive visualization. [Pause] This decoupled architecture ensures true commercial maintainability: if the sponsor wishes to swap out the Streamlit frontend for React, or connect our forecasting engine to an enterprise Snowflake data warehouse, our core analytics and forecasting modules remain 100% reusable without refactoring.",
+        "script": f"Slide 13 details our underlying system architecture. We deliberately avoided building a monolithic notebook script; we engineered a modular, four-layer enterprise software architecture. [Point to bottom layer] At the foundation is our centralized configuration layer governed by three YAML files, ensuring zero hardcoded thresholds. Above that sits our analytics and transformation layer, executing robust data validation and aggregation. Our third layer is the forecasting engine, housing {N_MODELS} candidate models behind unified fit-and-predict interfaces. Finally, our presentation layer utilizes Streamlit and Plotly for responsive visualization. [Pause] This decoupled architecture ensures true commercial maintainability: if the sponsor wishes to swap out the Streamlit frontend for React, or connect our forecasting engine to an enterprise Snowflake data warehouse, our core analytics and forecasting modules remain 100% reusable without refactoring.",
         "directive": "Detail the 4-layer decoupled enterprise software architecture, technology versions, and YAML configuration governance.",
         "qa": "Q: How is the platform deployed and maintained in production?\nA: The platform is packaged with a dedicated virtual environment, automated test suites (pytest), containerization configuration, and automated startup scripts (Start.bat), supporting cloud hosting on Vercel or enterprise on-premise servers with zero configuration drift."
     },
@@ -571,16 +615,17 @@ slides_data = [
         "num": 14,
         "title": "Model Validation Registry & Zero-Leakage Audit",
         "category": "Validation Governance & Compliance",
-        "layout": "Validation Status Table (Model Family, Algorithm, Status, Series Scored, Acceptance Gates). Right side: Formal Leakage Audit Verification Badge confirming 100% compliance across all 6 temporal audit checkpoints.",
+        "layout": "Validation Status Table (Model Family, Algorithm, Status, Series Scored, Acceptance Gates). Right side: Leakage Audit panel listing the 4 temporal audit checks and the automated test-suite result.",
         "content": [
             "Champion Model (ARIMA): Live in production; 42 branch-SKU series scored; producing 91,504 forecast units.",
             "Challenger Models: SARIMA and Exponential Smoothing in active validation; Random Forest and Gradient Boosting feature-engineered and ready for tournament scoring.",
-            "Rigorous Acceptance Gates: Out-of-sample WAPE < 20%; Forecast Accuracy (100 - WAPE) > 80%; Non-zero tracking signal within ±4 APICS limits.",
-            "Temporal Data Leakage Audit: 100% compliance verified across all 6 checkpoints: (1) Chronological train/test splits, (2) Autoregressive lag isolation, (3) Left-aligned rolling statistics, (4) In-fold scaling, (5) Recursive horizon rollout, (6) Independent target isolation.",
-            "Automated Test Suite: 3 formal automated leakage test cases executed on every commit (test_leakage_audit.py)."
+            f"Selection Rule & Governance: {SELECTION_RULE}",
+            f"Out-of-Sample Evidence: {HOLDOUT_TXT} Holdout consistency checks passed: {VERIF_TXT}.",
+            "Temporal Data Leakage Audit (src/validation/leakage_audit.py): 4 checks — (1) chronological train/test splits (max(train) < min(test)), (2) autoregressive lag causality, (3) strictly shifted rolling statistics, (4) target leakage / future correlation.",
+            f"Automated Test Suite: leakage test cases in tests/test_leakage_audit.py run as part of the full pytest suite ({TESTS_TXT})."
         ],
-        "script": "Slide 14 reinforces our academic and corporate governance: our Model Validation Registry and Zero-Leakage Audit. In machine learning, a model with 95% training accuracy is worthless if future data leaked into historical training folds. [Point to the leakage table] We conducted a formal 6-checkpoint temporal leakage audit across our entire codebase. We proved that all train-test splits are strictly forward-looking; all lag features use positive time-shifts; and all rolling averages look strictly backward. [Pause] Furthermore, our acceptance gates are uncompromising: no algorithm is promoted to production champion status unless it achieves an out-of-sample WAPE below 20% across expanding backtest windows. ARIMA has passed these gates across 42 series; our ML tournament models are undergoing this exact validation protocol before full promotion.",
-        "directive": "Detail the model validation registry, acceptance criteria (WAPE < 20%), and the 6-checkpoint zero temporal leakage audit.",
+        "script": f"Slide 14 reinforces our academic and corporate governance: our Model Validation Registry and Zero-Leakage Audit. In machine learning, a model with 95% training accuracy is worthless if future data leaked into historical training folds. [Point to the leakage table] Our temporal leakage audit runs four checks across the pipeline. It verifies that all train-test splits are strictly forward-looking; all lag features use positive time-shifts; all rolling averages look strictly backward; and no feature correlates with future targets. [Pause] Model selection is equally transparent: every candidate is backtested on 4 rolling-origin folds of 12 weeks and the lowest mean RMSE wins; a champion whose backtest WAPE exceeds 100%, whose bias exceeds 50% or whose stability score is below 40 is marked provisional for planner review. Finally, we tested the engine on a full year it had never seen: {HOLDOUT_TXT}",
+        "directive": "Detail the model validation registry, the rolling-origin RMSE selection rule and provisional-champion flags, the FY24-25 holdout result, and the 4-check temporal leakage audit.",
         "qa": "Q: What specific test validates that autoregressive lags have zero data leakage?\nA: In `tests/test_leakage_audit.py`, we assert that for any observation at time t, `lag_1` exactly equals the raw actual demand at t-1 and contains zero correlation with actuals at t or t+1. We also verify that expanding window splits satisfy max(train_index) < min(test_index)."
     },
     {
@@ -592,7 +637,7 @@ slides_data = [
             "Move 1 (Scale SKU Breadth): Extend automated scoring from current 15 anchor SKUs to full 154 SKU catalog across all 5 depots (770 total series).",
             "Move 2 (Close Data Gap): Ingest Q1 FY24-25 corrected transaction logs from sponsor's updated SAP instance to expand training history to 104 continuous weeks.",
             "Move 3 (Inventory Policy Integration): Translate probabilistic forecast distributions into dynamic Safety Stock (SS) and Reorder Points (ROP) calibrated to 95% service levels.",
-            "Move 4 (Replenishment Simulation): Deploy APICS Tracking Signals and multi-echelon replenishment smoothing to reduce inter-depot emergency transfers by an estimated 25%.",
+            "Move 4 (Replenishment Simulation): Deploy APICS Tracking Signals and multi-echelon replenishment smoothing to reduce inter-depot emergency transfers (impact not yet quantified).",
             "Final Deliverables: Comprehensive technical documentation, audited codebase, executive briefing decks, and reproducible containerized handoff package."
         ],
         "script": "Finally, Slide 15 charts our strategic roadmap from mid-review to our final capstone defense. We have established our four priority moves. First, we will scale our automated forecasting engine from our current 15 anchor SKUs to all 154 SKUs, deploying candidate models hub by hub. Second, we are collaborating with Deloitte to ingest the reconciled Q1 FY24-25 transaction logs, extending our continuous training history to a full 104 weeks. Third, we are completing our probabilistic inventory optimization module—converting forecast uncertainty distributions into dynamic Safety Stock and Reorder Points calibrated to 95% service levels. And fourth, we will quantify working capital reduction and inter-depot freight savings for Deloitte’s final executive review. [Concluding tone] We thank ISB faculty and Deloitte for their mentorship, and we now welcome your questions.",
@@ -630,9 +675,9 @@ podcast_dialogue = [
     ("Host 1 (Supply Chain Lead)", "Welcome back to Deep Dive! Today we're unpacking a fascinating capstone project coming out of the Indian School of Business, sponsored by Deloitte. It tackles a problem every retail and manufacturing executive loses sleep over: how do you forecast demand when customer orders are wildly unpredictable?"),
     ("Host 2 (ML Quant)", "Right! And this isn't just a toy classroom exercise. We're looking at 82,000 transaction records over two full years from a major Room Air Conditioner manufacturer distributing across South India. Think 154 SKUs, five regional hubs—Chennai, Bangalore, Cochin, Sriperumbudur—and severe real-world data issues."),
     ("Host 1 (Supply Chain Lead)", "And when they first opened the dataset, they found something shocking, didn't they? Traditional demand planning usually assumes demand is smooth—a steady trickle of orders with some seasonal summer peaks. But what did the data actually say?"),
-    ("Host 2 (ML Quant)", "They ran a Syntetos-Boylan demand classification across the entire catalog. And the result was mind-blowing: exactly ZERO percent of their SKUs had smooth demand. Zero! 70.1% was classified as 'Lumpy' demand, and another 19% was intermittent. That means orders don't arrive smoothly; they sit at zero for weeks, and then boom—a commercial contractor orders 300 units out of nowhere."),
+    ("Host 2 (ML Quant)", f"They ran a Syntetos-Boylan demand classification across every SKU and branch series. And the result was striking: only {DC['Smooth']['volume_share_pct']:.1f}% of volume had smooth demand. {DC['Erratic']['volume_share_pct']:.1f}% of volume was 'Erratic' and another {DC['Lumpy']['volume_share_pct']:.1f}% was 'Lumpy'. That means orders don't arrive smoothly; they sit at zero for weeks, and then boom—a commercial contractor orders 300 units out of nowhere."),
     ("Host 1 (Supply Chain Lead)", "Which completely disqualifies basic exponential smoothing or linear trends! If you use standard models on lumpy demand, you end up massively over-forecasting during quiet periods, stockpiling millions of rupees in dead inventory, and then stocking out during heatwaves."),
-    ("Host 2 (ML Quant)", "Exactly. So Group 4 did something smart. They built a Dual-Track forecasting platform. Track 1 uses specialized intermittent econometric methods like Croston's and Syntetos-Boylan Approximation alongside ARIMA and seasonal SARIMAX. Track 2 runs a full machine learning tournament—Random Forest, Gradient Boosting, XGBoost—fed by over 40 causal features."),
+    ("Host 2 (ML Quant)", f"Exactly. So Group 4 did something smart. They built a Dual-Track forecasting platform. Track 1 uses a pooled seasonal index plus specialized intermittent methods like Croston's and the Syntetos-Boylan Approximation alongside ARIMA, SARIMA and damped-trend ETS on the seasonally adjusted series. Track 2 runs a full machine learning tournament—Random Forest, Gradient Boosting, XGBoost, LightGBM—fed by lag, rolling, calendar and seasonal-factor features. All {N_MODELS} candidates are judged on four rolling 12-week backtests, and the lowest RMSE wins."),
     ("Host 1 (Supply Chain Lead)", "And they didn't just write python scripts in a notebook; they built a fully functional 7-page interactive dashboard in Streamlit and Plotly. It’s live today, already generating 12-week forward forecasts for 42 branch-SKU combinations—over 91,000 units!"),
     ("Host 2 (ML Quant)", "And look at where that volume sits: Sriperumbudur and Chennai absorb nearly 63% of total demand. That immediately tells leadership where to concentrate inventory buffers rather than spreading capital thinly across all depots."),
     ("Host 1 (Supply Chain Lead)", "What impressed me most was their data engineering rigor. They found 4,463 duplicate records in the raw ERP extract—over 5% of the data—and a 28% data gap in Q1 FY24-25. They cleaned it up, lifted data completeness to 98.5%, and verified zero temporal data leakage across all ML models."),
@@ -649,16 +694,16 @@ add_body_p(doc, "This dossier equips the student team with mathematically rigoro
 
 qa_master = [
     {
-        "q": "1. Why did traditional Holt-Winters exponential smoothing fail, and why is Croston's SBA required?",
-        "a": "Holt-Winters assumes continuous Gaussian error residuals around a deterministic level and trend. Under our empirical demand distribution, 70.1% of SKUs exhibit Average Demand Interval (ADI) ≥ 1.32 and CV² ≥ 0.49. In non-demand periods, Holt-Winters continuously attenuates downward, creating lag error, and when a lump occurs, it violently over-adjusts upward. Croston decomposes the process into two independent sub-processes: demand size z_t and inter-arrival interval p_t. The Syntetos-Boylan Approximation (SBA) further applies a deflator factor of (1 - alpha/2), mathematically eliminating Croston’s known positive forecast bias on lumpy distributions."
+        "q": "1. Why is classical Holt-Winters exponential smoothing unsuitable here, and why are Croston-type methods (SBA, TSB) in the candidate set?",
+        "a": f"Holt-Winters assumes continuous Gaussian error residuals around a deterministic level, trend and a per-series seasonal cycle—and with about two years of weekly history per SKU × Branch there is too little data to estimate a 52-week season per series (the engine instead uses a pooled region/branch seasonal index). Under our empirical demand distribution, {DC['Lumpy']['series']} of {DC['total_series']} weekly ODU series ({DC['Lumpy']['volume_share_pct']:.1f}% of volume) are Lumpy, with Average Demand Interval (ADI) ≥ 1.32 and CV² ≥ 0.49. In non-demand periods, smoothing continuously attenuates downward, creating lag error, and when a lump occurs, it over-adjusts upward. Croston decomposes the process into two independent sub-processes: demand size z_t and inter-arrival interval p_t. The Syntetos-Boylan Approximation (SBA) applies a deflator factor of (1 - alpha/2) to reduce Croston’s known positive bias, and TSB updates a per-period demand probability. These models are added when more than 30% of weeks are zero and compete with every other candidate on mean backtest RMSE."
     },
     {
         "q": "2. How do you mathematically guarantee zero temporal data leakage in your recursive ML forecasting?",
         "a": "We enforce three structural constraints audited in `tests/test_leakage_audit.py`: (1) Expanding chronological folds where max(train_index) < min(test_index). (2) All lag features are strictly positive time-shifts (t-1, t-2, ..., t-52), and rolling windows use left-aligned historical windows looking backward. (3) For multi-step forecasting across 12 forward weeks, we utilize recursive autoregressive rollout: predictions at horizon h+1 take predicted values (y_hat_h) as input features rather than unobserved future actuals."
     },
     {
-        "q": "3. What is hierarchical reconciliation and how does MinT outperform standard Bottom-Up aggregation?",
-        "a": "In a multi-echelon supply chain, independent forecasts generated at national, depot, and SKU levels fail to sum coherently. Bottom-Up (BU) sums SKU forecasts upward, but aggregates high variance from volatile low-level series. Top-Down (TD) disaggregates regional forecasts based on historical proportions, failing to capture SKU-level localized trends. Minimum Trace (MinT) optimal combination reconciliation projects base forecasts through an optimal reconciliation operator: y_tilde = S(S' W^-1 S)^-1 S' W^-1 y_hat, where S is the structural summation matrix and W is the error covariance matrix estimated via Ledoit-Wolf shrinkage. This mathematically guarantees coherency while minimizing total forecast variance across the entire network (+4.8% accuracy gain)."
+        "q": "3. What is hierarchical reconciliation and how does the platform handle it?",
+        "a": "In a multi-echelon supply chain, independent forecasts generated at region, depot, and SKU levels fail to sum coherently. Bottom-Up (BU) sums lower-level forecasts upward, but aggregates high variance from volatile low-level series. Top-Down (TD) disaggregates regional forecasts based on historical proportions, failing to capture localized trends. " + HIERARCHY_TXT + " Optimal-combination methods such as MinT are a possible extension, not part of the current engine."
     },
     {
         "q": "4. How did you handle the 28.77% structural data gap in Q1 FY24-25 without compromising training?",
@@ -670,11 +715,11 @@ qa_master = [
     },
     {
         "q": "6. How are conformal prediction intervals (P10, P50, P90) computed for inventory safety stock?",
-        "a": "Standard Gaussian confidence intervals assume symmetric normal residuals (mu ± 1.96 sigma), which fails catastrophically on non-negative, right-skewed lumpy demand. We implemented non-parametric conformal prediction intervals. By taking out-of-sample non-conformity scores alpha_t = |y_t - y_hat_t| across historical rolling backtest folds, we compute empirical quantiles q_P10 and q_P90. This guarantees finite-sample marginal coverage (e.g., exactly 90% of future realizations fall within the interval) without making any distributional assumptions."
+        "a": "Standard Gaussian confidence intervals assume symmetric normal residuals (mu ± 1.96 sigma), which fails catastrophically on non-negative, right-skewed lumpy demand. We implemented split-conformal, level-scaled prediction intervals (src/uncertainty/prediction_intervals.py): the champion's out-of-sample backtest residuals are scaled by (forecast + mean demand), their empirical (1-c)/2 and (1+c)/2 quantiles are taken with the finite-sample conformal correction, and the result is applied to the forward forecast—so the band widens in peak season and narrows in the trough, and widens further by sqrt(h/12) beyond the 12-week backtest horizon. With fewer than 8 residuals a normal approximation is used and labelled uncalibrated. " + f"Coverage is an empirical property, not an exact guarantee: on the FY24-25 holdout the P10-P90 band contained {PI_COVERAGE} of actuals against a nominal 80%."
     },
     {
         "q": "7. How does your platform translate demand forecast distributions into actionable inventory policies (SS and ROP)?",
-        "a": "In `src/inventory/inventory_engine.py`, we model Lead Time Demand (LTD) by compounding weekly forecast mean mu_LTD = L * mu_forecast with lead-time variance. Safety Stock (SS) is calibrated via SS = Z_alpha * sqrt(L * sigma_demand^2 + mu_demand^2 * sigma_L^2), where Z_alpha is the service-level factor (Z = 1.645 for 95% service level) and L is regional lead time (1 week for mother hub SBD; 3 weeks for satellite hub COK). The Reorder Point is calculated dynamically as ROP = LTD + SS."
+        "a": "In `src/inventory/inventory_engine.py`, Lead Time Demand (LTD) is the forecast demand over the next L weeks. Safety Stock is SS = Z_alpha * sqrt(L) * sigma, where sigma is the standard deviation of the champion's out-of-sample backtest residuals (so the buffer reflects measured forecast error), Z_alpha is the service-level factor (Z = 1.645 for 95% service level) and L is the planner-set lead time in weeks (default 2). The Reorder Point is ROP = LTD + SS. Stock-out probability is reported only when the planner enters on-hand stock, which is not in the billing extract."
     },
     {
         "q": "8. What explains the 80.8% ODU vs 19.2% IDU volume split in room air conditioners?",
@@ -685,8 +730,8 @@ qa_master = [
         "a": "Our monitoring engine (`src/monitoring/drift.py`) computes the Population Stability Index (PSI) and executes Kolmogorov-Smirnov (KS) two-sample non-parametric hypothesis tests every week. PSI = sum((Actual_% - Expected_%) * ln(Actual_% / Expected_%)). A PSI < 0.10 indicates stable demand; 0.10 to 0.25 flags moderate drift; and PSI > 0.25 triggers an automated retraining alert. We also compute APICS Tracking Signals (Cumulative Sum of Errors / Mean Absolute Deviation); if TS exceeds ±4.0, the system automatically flags structural bias."
     },
     {
-        "q": "10. What is the quantified financial ROI delivered to Deloitte and the manufacturing client?",
-        "a": "The commercial business impact spans three quantifiable pillars: (1) Working Capital Optimization: By identifying that Sriperumbudur and Chennai absorb 62.7% of volume, central inventory buffers are reduced by 14% across Bangalore and Cochin without sacrificing availability. (2) Stockout Mitigation: Replacing naive smoothing with Croston SBA and ML ensembles reduces peak-season stockout risk from 18% to under 6%. (3) Freight Optimization: SKU-level depot matching reduces emergency inter-hub transfers between SBD and BLR, yielding an estimated 4.2% logistics margin improvement."
+        "q": "10. What financial value does the platform deliver to Deloitte and the manufacturing client?",
+        "a": f"The financial impact has not been measured: the billing extract has no on-hand stock, cost or transfer data, so buffer, stock-out and freight savings cannot be quantified yet. What the platform provides is the capability across three pillars: (1) Working Capital Sizing: historical ODU volume is concentrated in {', '.join(f'{b} ({s:.1f}%)' for b, s in D['branch_share_odu_pct'].items())}, and safety stock is sized per SKU × Branch from measured out-of-sample forecast error (SS = z * sqrt(L) * sigma, ROP = LTD + SS) rather than from a uniform rule. (2) Stock-out Exposure: once a planner enters on-hand stock, the inventory engine reports stock-out probability for the chosen lead time and service level. (3) Measured Forecast Quality: {HOLDOUT_TXT}"
     }
 ]
 
@@ -703,16 +748,16 @@ prompts_bank = [
      "Based on the 15 slide blueprints in the uploaded document, output a complete, executable PowerPoint VBA macro script. Set slide dimensions to 16:9 widescreen, dark background RGB(14,22,34), Cyan headers RGB(2,132,199), and white body text. Include all bullet points, numbers, and add the verbatim speaker script into the slide notes for all 15 slides."),
     
     ("Prompt B: Generate 1-Page Deloitte Executive Briefing Memo",
-     "Generate an executive briefing memo formatted for a Deloitte Supply Chain Practice Partner summarizing the ISB Capstone Mid-Review. Organize under 4 sections: 1. Executive Summary & Problem Context, 2. Forensic Data & Syntetos-Boylan Findings, 3. Algorithmic Breakthroughs & Production Forecasts (42 series, 91.5K units), and 4. Commercial ROI & Production Roadmap."),
+     "Generate an executive briefing memo formatted for a Deloitte Supply Chain Practice Partner summarizing the ISB Capstone Mid-Review. Organize under 4 sections: 1. Executive Summary & Problem Context, 2. Forensic Data & Syntetos-Boylan Findings, 3. Forecasting Engine & FY24-25 Holdout Results, and 4. Business Value & Production Roadmap."),
     
     ("Prompt C: Generate Flashcards for Faculty Viva Defense",
-     "Create 12 high-yield study flashcards for our team to prepare for faculty questioning. Include cards on: Syntetos-Boylan ADI and CV² cutoffs, Croston deflator formula, Ledoit-Wolf MinT reconciliation proof, temporal data leakage checkpoints, WAPE vs MAPE justification, and conformal prediction interval quantiles."),
+     "Create 12 high-yield study flashcards for our team to prepare for faculty questioning. Include cards on: Syntetos-Boylan ADI and CV² cutoffs, Croston deflator formula, bottom-up vs top-down hierarchy comparison, rolling-origin RMSE champion selection, temporal data leakage checks, WAPE vs MAPE justification, and conformal prediction interval quantiles."),
     
     ("Prompt D: Generate Slide Speaker Cue Cards with Timestamps",
      "Generate a set of speaker cue cards for a 25-minute team presentation (Slides 1-15). For each slide, provide: Presenter Name, Allocated Time (e.g., 2 minutes), 3 Bullet Talking Points, and a smooth Transition Hook to the next slide."),
     
     ("Prompt E: Generate 2-Minute Elevator Pitch for Academic Directors",
-     "Write a compelling 2-minute elevator pitch summarizing our capstone. Emphasize how our team resolved 70% lumpy demand across 154 SKUs in South India, transformed 82K dirty ERP records into an operational 7-page intelligence dashboard, and built a dual-track forecasting engine with zero temporal data leakage."),
+     f"Write a compelling 2-minute elevator pitch summarizing our capstone. Emphasize how our team tackled highly non-smooth demand (only {DC['Smooth']['volume_share_pct']:.1f}% of volume Smooth) across {D['skus']} SKUs in South India, transformed 82K dirty ERP records into an operational 7-page intelligence dashboard, and built a dual-track forecasting engine with zero temporal data leakage."),
     
     ("Prompt F: Deep Dive Model Comparison & Error Analysis Table",
      "Extract and synthesize a detailed model comparison table from the source text comparing ARIMA, SARIMA, ETS, Croston SBA, Random Forest, and Gradient Boosting across: Algorithm Family, Suitable Demand Profile, Key Hyperparameters, Forecast Horizon, and Error Metric Performance.")

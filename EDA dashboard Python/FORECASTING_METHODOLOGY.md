@@ -1,79 +1,79 @@
-# Forecasting Methodology & Modeling Framework
+# Forecasting Methodology
 
-## 1. Overview of Implemented Model Families
+This describes the engine as implemented in `src/` (entry point `ModelSelector.select_and_fit`, used by every dashboard page through `ForecastService`). Out-of-sample results on FY24-25 are in [VALIDATION_FY25.md](VALIDATION_FY25.md).
 
-The platform implements 14 distinct forecasting algorithms spanning 4 core model families, ensuring rigorous candidate evaluation across diverse demand profiles:
+## 1. Data and series
 
-### A. Baseline Forecasters (Mandatory Benchmarks)
-- **Naive (Random Walk)**: Repeats the most recently observed weekly demand value ($\hat{y}_{t+h} = y_t$).
-- **Seasonal Naive**: Projects the value observed exactly 52 weeks prior ($\hat{y}_{t+h} = y_{t+h-52}$), benchmarking seasonality.
-- **Moving Average (SMA)**: Rolling mean of the preceding 4 weeks.
-- **Simple Exponential Smoothing (SES)**: Level smoothing with configurable attenuation ($\alpha = 0.3$).
+- **Unit of forecasting:** weekly (W-MON) billed outdoor-unit (ODU) quantity per SKU × branch, or an aggregate of branches.
+- **Series window:** from the SKU's first sale to the dataset's latest week. Weeks with no billing are zeros, so a SKU that stopped selling is forecast from the latest week, not from its last sale.
+- **Excluded from modelling inputs:**
+  - **Synthetic SKUs.** The 10 `EVAL-*` SKUs (`Data_Sheet = Evaluation_10_SKUs`) are generated test series. The dashboard excludes them unless the user switches them on.
+  - **IDU rows in pooled statistics.** The extract carries indoor-unit (IDU) rows for Apr–Jun 2024 only, so pooling them would double that quarter.
 
-### B. Statistical & Econometric Models
-- **ARIMA $(p, d, q)$**: Auto-order selection via Akaike Information Criterion (AIC) or fixed parameter specification.
-- **SARIMA $(p, d, q)(P, D, Q)_s$**: Seasonal autoregressive integrated moving average with 12/52-week seasonal orders.
-- **Exponential Smoothing (ETS)**: State-space formulation supporting additive error, trend, and seasonal components.
+## 2. Pooled seasonal profile
 
-### C. Intermittent & Lumpy Demand Models
-- **Croston's Method**: Decomposes intermittent series into demand level $z_t$ and inter-arrival interval $p_t$ ($\hat{y} = z / p$).
-- **Syntetos-Boylan Approximation (SBA)**: Deflates Croston's forecast by $(1 - \alpha / 2)$ to eliminate over-forecasting bias.
-- **Teunter-Syntetos-Babai (TSB)**: Updates demand probability $\beta_t$ at every period, handling product obsolescence.
+Room-AC demand is strongly seasonal. In the training data, April runs at about 2–2.6× the average week and July at about 0.2–0.3×. A month-end billing push also makes the last week of a month about 1.4× the other weeks. Each SKU × branch series has only about two years of noisy weekly history, which is too little to estimate a 52-week season per series. The profile is therefore estimated from pooled demand (`src/forecasting/seasonal_profile.py`):
 
-### D. Machine Learning Regression Models
-- **Random Forest Regressor**: 100 orthogonal trees across 40+ multi-resolution lags and rolling statistics.
-- **Gradient Boosting Regressor**: Sequentially penalized boosted trees minimizing mean squared error.
-- **XGBoost**: Regularized gradient boosting with L1/L2 shrinkage.
-- **LightGBM**: Fast leaf-wise histogram tree boosting.
-
-### E. Ensemble Strategies
-- **Inverse-WAPE Weighted Ensemble**: Allocates weights inversely proportional to walk-forward validation error:
-  $$w_i = \frac{1 / (\text{WAPE}_i + \epsilon)}{\sum_j 1 / (\text{WAPE}_j + \epsilon)}$$
-- **Median Ensemble**: Outlier-resilient consensus forecast.
-
----
-
-## 2. Demand Profiling & Categorization (Syntetos-Boylan)
-
-Every SKU is dynamically profiled across two statistical dimensions:
-1. **Average Demand Interval (ADI)**: Average number of periods between non-zero order arrivals:
-   $$\text{ADI} = \frac{N}{N_{\text{non-zero}}}$$
-2. **Squared Coefficient of Variation ($CV^2$)**: Relative dispersion of non-zero quantities:
-   $$CV^2 = \left(\frac{\sigma_{\text{non-zero}}}{\mu_{\text{non-zero}}}\right)^2$$
-
-### Quadrant Rules:
-- **Smooth**: $\text{ADI} < 1.32, CV^2 < 0.49 \implies$ ARIMA, ETS, ML
-- **Erratic**: $\text{ADI} < 1.32, CV^2 \ge 0.49 \implies$ Random Forest, Smoothing
-- **Intermittent**: $\text{ADI} \ge 1.32, CV^2 < 0.49 \implies$ Croston, SBA
-- **Lumpy**: $\text{ADI} \ge 1.32, CV^2 \ge 0.49 \implies$ TSB, SBA
-
----
-
-## 3. Rolling-Origin Backtesting Framework
-
-Validation strictly enforces **chronological walk-forward expanding folds** without future leakage:
-
-```
-Fold 1:  [ Train: W01 - W26 ] ───────> [ Test: W27 - W30 ]
-Fold 2:  [ Train: W01 - W30 ] ─────────────> [ Test: W31 - W34 ]
-Fold 3:  [ Train: W01 - W34 ] ───────────────────> [ Test: W35 - W38 ]
-Fold 4:  [ Train: W01 - W38 ] ─────────────────────────> [ Test: W39 - W42 ]
+```text
+S(week) = MonthIndex(month) × PositionFactor(last week of month or not)
+MonthIndex = 0.5 × branch index + 0.5 × region index    (averaged over complete 52-week blocks, up to 3 years)
 ```
 
-### Metrics Computed:
-- **WAPE**: $\frac{\sum |y - \hat{y}|}{\sum y} \times 100$
-- **sMAPE**: $\frac{100\%}{n} \sum \frac{2|y - \hat{y}|}{|y| + |\hat{y}|}$
-- **MASE**: Scaled relative to in-sample naive difference.
-- **RMSE & MAE**: Quadratic and linear error penalties.
-- **Bias %**: Directional over/under forecasting percentage.
+The profile is re-estimated **at every backtest fold cutoff using only data up to that cutoff**, so the backtest has no look-ahead. The design choices (window, branch shrinkage, month-end factor) were made on an inner validation that used training data only (origins in FY23-24), never on the FY24-25 holdout.
 
----
+## 3. Candidate models (`src/forecasting/model_zoo.py`)
 
-## 4. Hierarchical Reconciliation
+| Family | Model | Specification |
+| --- | --- | --- |
+| Baseline | Naive | Last observed week |
+| Baseline | Seasonal Naive | Same week last year (requires ≥ 52 weeks) |
+| Baseline | Moving Average | Mean of last 4 weeks |
+| Baseline | Exponential Smoothing | SES level, α = 0.3 |
+| Seasonal | **Seasonal Index** | SKU level over last 8 weeks ÷ seasonal factors × future factors |
+| Seasonal | **Seasonal Index (smooth)** | Same, 26-week level window |
+| Statistical | ARIMA | Non-seasonal; order by min AIC from (0,1,1), (1,1,1), (1,0,1), (1,0,0) |
+| Statistical | SARIMA | ARIMA (min-AIC order) on the seasonally adjusted series, re-seasonalised |
+| Statistical | ETS | Damped-trend ETS(A,Ad,N) on the seasonally adjusted series, re-seasonalised |
+| Intermittent | Croston / SBA / TSB | Croston (1972); SBA ×(1 − α/2); TSB with per-period probability update (α = β = 0.1) |
+| ML | Random Forest, Gradient Boosting, XGBoost, LightGBM | Lags 1–52, rolling statistics, calendar and the pooled seasonal factor; recursive multi-step |
+| Ensemble | Ensemble (Consensus) | Inverse-WAPE weighted average of all candidates (weights from earlier folds only) |
 
-Multi-echelon reconciliation enforces coherency across:
-$$\text{South Region} \longrightarrow \text{Branches (BLR, MAA, COK, SBD, SBD1)} \longrightarrow \text{SKUs}$$
+- **Intermittent models** are added when more than 30% of weeks are zero.
+- **ML models** need at least 20 weeks of training data in every fold.
 
-Mathematical coherency guarantees:
-$$\sum_{\text{SKU} \in \text{Branch}} \hat{y}_{\text{SKU}} = \hat{y}_{\text{Branch}} \quad \text{and} \quad \sum_{\text{Branch}} \hat{y}_{\text{Branch}} = \hat{y}_{\text{Region}}$$
-Both **Bottom-Up (BU)** summation and **Top-Down (TD)** historical share disaggregation are supported.
+## 4. Model selection (`src/validation/backtesting.py`, `src/selection/model_selector.py`)
+
+- **Rolling-origin backtest:**
+  - 4 folds with 12-week test windows, stepped 12 weeks apart, on an expanding window. The folds cover the most recent year, so every model is judged across the seasonal cycle and at the dashboard's 12-week horizon.
+  - A model must produce a valid forecast in **every** fold to be ranked.
+  - Short series get a single shortened fold, with at least 5 weeks of history and 2 billing weeks.
+- **Ranking rule: lowest mean RMSE across folds.** RMSE is minimised by the mean (expected demand), which replenishment needs. WAPE/MAE is minimised by the median, which for lumpy series is often zero, so a "forecast nothing" model would win. WAPE stays the reported accuracy KPI (accuracy = 100% − WAPE, floored at 0).
+- **Forward forecast:** the champion is refitted on the full history.
+  - If the ensemble wins, every member is refitted and combined with weights based on backtest WAPE.
+  - If the champion cannot be refitted, the next-ranked model is used, and the substitution is disclosed in `fallback_reason`.
+
+## 5. Prediction intervals (`src/uncertainty/prediction_intervals.py`)
+
+Split-conformal and level-scaled:
+
+1. Take the champion's out-of-sample backtest residuals and scale each by `forecast + mean demand`.
+2. Take their empirical (1−c)/2 and (1+c)/2 quantiles, with the finite-sample conformal correction.
+3. Apply them to the forward forecast.
+
+The interval therefore widens in peak season and narrows in the trough. Beyond the 12-week backtest horizon it widens further by √(h/12). With fewer than 8 residuals, a normal approximation is used and labelled as uncalibrated.
+
+## 6. Downstream use
+
+- **Inventory:**
+  - LTD = sum of the next L weeks of forecast.
+  - SS = z × √L × σ, where σ is the standard deviation of the champion's backtest residuals.
+  - ROP = LTD + SS.
+  - Stock-out probability needs on-hand stock, which the user enters; it isn't in the billing extract.
+- **Monitoring:** the tracking signal and accuracy degradation are measured on the champion's latest out-of-sample fold, relative to its WAPE in earlier folds. PSI and KS tests check drift in weekly demand.
+- **Hierarchy:** region and branch totals are forecast directly. The page compares bottom-up (sum of branches) with the direct region forecast, and shows top-down (region × branch share of the last 52 weeks). MinT reconciliation is **not** implemented.
+
+## 7. Known limitations
+
+- No price, promotion, weather or stock-availability data, so the engine cannot anticipate demand shocks or product substitution.
+- New SKUs can be forecast only after about 5 weeks of sales. The FY24-25 holdout shows how much this matters, because new launches took volume from existing SKUs.
+- About two years of history: seasonality is pooled across SKUs, not estimated per SKU.

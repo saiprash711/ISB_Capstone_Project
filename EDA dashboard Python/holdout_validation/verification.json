@@ -1,0 +1,100 @@
+[
+  {
+    "check": "Pivot reconciliation - BLR",
+    "expected": "44,513",
+    "observed": "44,513",
+    "status": "PASS",
+    "note": "Net ODU (incl. returns) vs file Pivot sheet"
+  },
+  {
+    "check": "Pivot reconciliation - COK",
+    "expected": "61,409",
+    "observed": "61,409",
+    "status": "PASS",
+    "note": "Net ODU (incl. returns) vs file Pivot sheet"
+  },
+  {
+    "check": "Pivot reconciliation - MAA",
+    "expected": "148,291",
+    "observed": "148,291",
+    "status": "PASS",
+    "note": "Net ODU (incl. returns) vs file Pivot sheet"
+  },
+  {
+    "check": "Pivot reconciliation - SBD",
+    "expected": "109,958",
+    "observed": "109,958",
+    "status": "PASS",
+    "note": "Net ODU (incl. returns) vs file Pivot sheet"
+  },
+  {
+    "check": "Pivot reconciliation - SBD1",
+    "expected": "75,901",
+    "observed": "75,901",
+    "status": "PASS",
+    "note": "Net ODU (incl. returns) vs file Pivot sheet"
+  },
+  {
+    "check": "Pivot reconciliation - South total",
+    "expected": "440,072",
+    "observed": "440,072",
+    "status": "PASS",
+    "note": ""
+  },
+  {
+    "check": "Holdout period",
+    "expected": "2024-07-01 .. 2025-06-30",
+    "observed": "2024-07-02 .. 2025-06-30",
+    "status": "PASS",
+    "note": ""
+  },
+  {
+    "check": "No date overlap with training",
+    "expected": "train ends 2024-06-30",
+    "observed": "holdout starts 2024-07-02",
+    "status": "PASS",
+    "note": ""
+  },
+  {
+    "check": "No shared invoices with training",
+    "expected": "0",
+    "observed": "0",
+    "status": "PASS",
+    "note": "Billing Doc. numbers"
+  },
+  {
+    "check": "Returns / credit memos removed",
+    "expected": "removed (as in training cleaning)",
+    "observed": "733 rows, -4,202 units",
+    "status": "PASS",
+    "note": "0.9% of gross volume"
+  },
+  {
+    "check": "Missing dates / SKUs / branches",
+    "expected": "0",
+    "observed": "0",
+    "status": "PASS",
+    "note": ""
+  },
+  {
+    "check": "Branches known to model",
+    "expected": "BLR, COK, MAA, SBD, SBD1",
+    "observed": "BLR, COK, MAA, SBD, SBD1",
+    "status": "PASS",
+    "note": ""
+  },
+  {
+    "check": "Weekly panel = cleaned holdout volume",
+    "expected": "444,274",
+    "observed": "444,274",
+    "status": "PASS",
+    "note": "W-MON weekly aggregation loses no volume"
+  },
+  {
+    "check": "SKUs seen in training",
+    "expected": "informational",
+    "observed": "54 of 93 SKUs, 84.5% of volume",
+    "status": "PASS",
+    "note": "39 new-launch SKUs (68,765 units) cannot be forecast at SKU level"
+  }
+]

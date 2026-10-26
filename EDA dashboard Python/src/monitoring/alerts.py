@@ -31,8 +31,8 @@ class AlertEngine:
             branch = item.get('branch', 'Branch')
             
             # 1. Stockout risk check
-            stockout_risk = item.get('stockout_risk_pct', 0.0)
-            if stockout_risk > 20.0:
+            stockout_risk = item.get('stockout_risk_pct')   # None when no on-hand stock is known
+            if stockout_risk is not None and stockout_risk > 20.0:
                 queue.append({
                     'priority': 'HIGH',
                     'category': 'INVENTORY',
@@ -42,7 +42,7 @@ class AlertEngine:
                     'detail': f"Projected lead time demand exceeds target safety stock buffer at {branch}.",
                     'recommended_action': f"Expedite purchase order or reallocate stock from adjacent hub."
                 })
-            elif stockout_risk > 10.0:
+            elif stockout_risk is not None and stockout_risk > 10.0:
                 queue.append({
                     'priority': 'MEDIUM',
                     'category': 'INVENTORY',
@@ -63,7 +63,7 @@ class AlertEngine:
                     'sku': sku,
                     'branch': branch,
                     'title': f"Model Degradation on {sku} ({branch})",
-                    'detail': f"Tracking signal ({ts:+.2f}) has breached statistical control limits (±6.0).",
+                    'detail': item.get('health_detail') or f"Tracking signal ({ts:+.2f}) has breached statistical control limits (±6.0).",
                     'recommended_action': f"Trigger automatic model selector and promote top challenger."
                 })
             elif health == 'Watch':
@@ -73,7 +73,7 @@ class AlertEngine:
                     'sku': sku,
                     'branch': branch,
                     'title': f"Forecast Bias Drift on {sku}",
-                    'detail': f"Mild tracking signal deviation detected. Forecast tending to over/under-shoot.",
+                    'detail': item.get('health_detail') or "Mild tracking signal deviation detected. Forecast tending to over/under-shoot.",
                     'recommended_action': f"Log variance and inspect promotional calendar alignment."
                 })
                 

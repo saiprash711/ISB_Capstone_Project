@@ -22,27 +22,38 @@ class ForecastMonitor:
     WAPE_HEALTHY_MAX = 25.0
     WAPE_WATCH_MAX = 35.0
 
-    def evaluate_model_health(self, actuals: np.ndarray, 
+    # Degradation vs the model's own earlier backtest WAPE (used when a reference is supplied)
+    DEGRADATION_HEALTHY_MAX = 1.25
+    DEGRADATION_WATCH_MAX = 1.50
+
+    def evaluate_model_health(self, actuals: np.ndarray,
                               forecasts: np.ndarray,
-                              model_name: str = "Champion Model") -> Dict[str, Any]:
+                              model_name: str = "Champion Model",
+                              reference_wape: Optional[float] = None) -> Dict[str, Any]:
         """
         Evaluate forecast tracking signal and health status over time.
-        
+
         Args:
             actuals: Array of realized historical actual demands
-            forecasts: Array of corresponding generated forecasts
+            forecasts: Forecasts made for those same periods (out-of-sample)
             model_name: Name of evaluated model
+            reference_wape: the model's WAPE on earlier periods. When given, accuracy health is
+                judged as degradation against it (SKU-week WAPE levels differ widely by SKU);
+                otherwise the absolute WAPE thresholds apply.
         """
         y = np.asarray(actuals, dtype=float)
         y_hat = np.asarray(forecasts, dtype=float)
-        
+
         mask = np.isfinite(y) & np.isfinite(y_hat)
         if not np.any(mask) or len(y[mask]) < 2:
             return {
-                'health_status': 'Healthy',
+                'model_name': model_name,
+                'health_status': 'Not evaluated',
+                'badge_color': 'cyan',
                 'tracking_signal': 0.0,
-                'status_color': 'green',
-                'recommendation': 'Insufficient live telemetry; monitoring initialized.'
+                'ts_trajectory': [],
+                'n_periods_evaluated': int(mask.sum()),
+                'recommendation': 'Too few forecast/actual pairs to assess model health.'
             }
 
         yt = y[mask]
@@ -62,18 +73,25 @@ class ForecastMonitor:
         bias = calculate_bias(yt, yh)
         
         # Determine Health State
-        if abs_ts <= self.TS_HEALTHY_MAX and wape <= self.WAPE_HEALTHY_MAX:
+        if reference_wape is not None and np.isfinite(reference_wape) and reference_wape > 0:
+            ratio = wape / reference_wape
+            acc_ok, acc_watch = ratio <= self.DEGRADATION_HEALTHY_MAX, ratio <= self.DEGRADATION_WATCH_MAX
+            acc_txt = f"WAPE {wape:.1f}% vs {reference_wape:.1f}% in earlier periods"
+        else:
+            acc_ok, acc_watch = wape <= self.WAPE_HEALTHY_MAX, wape <= self.WAPE_WATCH_MAX
+            acc_txt = f"WAPE: {wape:.1f}%"
+        if abs_ts <= self.TS_HEALTHY_MAX and acc_ok:
             health_status = "Healthy"
             badge_color = "green"
-            rec = f"Model '{model_name}' is performing within statistical control limits (WAPE: {wape:.1f}%, TS: {tracking_signal:+.2f})."
-        elif abs_ts <= self.TS_WATCH_MAX and wape <= self.WAPE_WATCH_MAX:
+            rec = f"Model '{model_name}' is performing within statistical control limits ({acc_txt}, TS: {tracking_signal:+.2f})."
+        elif abs_ts <= self.TS_WATCH_MAX and acc_watch:
             health_status = "Watch"
             badge_color = "amber"
-            rec = f"Model '{model_name}' exhibits mild tracking bias (TS: {tracking_signal:+.2f}, WAPE: {wape:.1f}%). Monitor closely next cycle."
+            rec = f"Model '{model_name}' shows mild bias or degradation (TS: {tracking_signal:+.2f}, {acc_txt}). Monitor closely next cycle."
         else:
             health_status = "Retrain Required"
             badge_color = "rose"
-            rec = f"Model '{model_name}' has breached operational thresholds (TS: {tracking_signal:+.2f}, WAPE: {wape:.1f}%). Immediate retraining recommended."
+            rec = f"Model '{model_name}' has breached control limits (TS: {tracking_signal:+.2f}, {acc_txt}). Re-run model selection."
 
         # Compute period-by-period tracking signal trajectory
         ts_trajectory = []

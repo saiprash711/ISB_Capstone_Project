@@ -1,7 +1,7 @@
 # ❄️ Enterprise SKU Demand Intelligence & Forecasting Platform
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-41%2F41%20passing%20(100%25)-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-pytest-brightgreen.svg)]()
 [![Methodology](https://img.shields.io/badge/validation-walk--forward%20rolling--origin-success.svg)]()
 [![Architecture](https://img.shields.io/badge/design-consulting--grade%20enterprise-blueviolet.svg)]()
 
@@ -15,8 +15,8 @@ This platform transforms supply chain planning from disconnected spreadsheet for
 
 1. **Enterprise Data Engineering**: Ingests SAP transactional data, enforces non-negative constraints, standardizes 8,951 canonical SKU-Branch-Week observations (`Filtered.csv`), and performs automated data health audits.
 2. **Syntetos-Boylan Demand Profiling**: Categorizes demand curves into **Smooth, Erratic, Intermittent, and Lumpy** regimes using Average Demand Interval (ADI) and squared coefficient of variation ($CV^2$), automatically routing SKUs to optimal algorithmic families.
-3. **14 Forecasting Architectures**: Spanning classical baselines, ARIMA/SARIMA, Holt-Winters ETS, Croston's intermittent methods (SBA, TSB), Tree-based ML (Random Forest, Gradient Boosting, LightGBM, XGBoost), and performance-weighted inverse-WAPE ensembles.
-4. **Leakage-Free Rolling-Origin Backtesting**: Strictly chronological expanding-window walk-forward cross-validation with zero future-data leakage, reporting APICS-standard metrics (WAPE, sMAPE, MASE, RMSE, Bias).
+3. **16 Candidate Models**: classical baselines, a pooled **Seasonal Index** model (region/branch seasonal profile × SKU level), ARIMA, seasonal ARIMA and damped-trend ETS on seasonally adjusted demand, Croston/SBA/TSB, tree-based ML (Random Forest, Gradient Boosting, LightGBM, XGBoost) and an inverse-WAPE ensemble.
+4. **Leakage-Free Rolling-Origin Backtesting**: 4 chronological folds × 12 weeks; the seasonal profile is re-estimated at each fold cutoff. Champion = lowest RMSE; WAPE, sMAPE, MASE and bias are reported. Validated out-of-sample on FY24-25 billing: see [VALIDATION_FY25.md](VALIDATION_FY25.md).
 5. **Automated Champion/Challenger Governance**: Transparent tournament selection promoting models based on out-of-sample WAPE lift ($\ge 3\%$) and bias tolerance ($\le 15\%$) against naive baselines.
 6. **Multi-Echelon Hierarchical Reconciliation**: Guarantees mathematical coherency between aggregate South Region projections, Branch allocations, and SKU-level forecasts via Bottom-Up and Top-Down disaggregation.
 7. **Business Inventory Engine**: Converts statistical predictions into operational inventory policies, computing Lead Time Demand, Safety Stock ($SS = Z \times \sigma_{LTD}$), Reorder Points, and service level sensitivity matrices (85%–99%).
@@ -96,7 +96,7 @@ EDA dashboard Python/
 │       ├── forecast_monitor.py
 │       └── registry.py
 │
-├── tests/                             # Automated Test Suite (41 Tests, 100% Pass Rate)
+├── tests/                             # Automated Test Suite (pytest)
 │   ├── test_backtesting.py
 │   ├── test_hierarchy.py
 │   ├── test_inventory.py
@@ -110,7 +110,7 @@ EDA dashboard Python/
     ├── ARCHITECTURE.md                # System design & separation of concerns
     ├── FORECASTING_METHODOLOGY.md     # Mathematical formulations & backtesting
     ├── LEAKAGE_AUDIT.md               # Formal zero temporal data leakage audit
-    ├── MODEL_CARD.md                  # Specifications for all 14 algorithms
+    ├── MODEL_CARD.md                  # Intended use, data, model and limitations
     ├── ASSUMPTIONS.md                 # Business & operational assumptions
     └── PHASE_COMPLETION_REPORT.md     # Full consulting audit & delivery sign-off
 ```
@@ -133,7 +133,7 @@ pip install -r requirements.txt
 
 ### 2. Run the Automated Verification Suite
 
-Verify all 41 test assertions across metrics, rolling-origin backtesting, demand classification, hierarchy reconciliation, inventory logic, scenarios, and zero temporal data leakage:
+Run the test suite (metrics, rolling-origin backtesting, demand classification, hierarchy, inventory, scenarios, leakage checks):
 
 ```bash
 python -m pytest tests/ -v
@@ -161,10 +161,11 @@ Or on Windows, simply double-click **`Start.bat`**.
 | Algorithmic Category | Implemented Models | Primary Use Case |
 |----------------------|--------------------|------------------|
 | **Baselines** | Naive (Random Walk), Seasonal Naive (52W Lag), Moving Average (SMA 4W), SES | Benchmark standards & lift calculation |
-| **Statistical** | ARIMA $(p,d,q)$, SARIMA $(p,d,q)(P,D,Q)_{12}$, Holt-Winters ETS | Smooth trended and seasonal series |
+| **Seasonal** | Seasonal Index (8-week and 26-week level windows) | Pooled annual cycle + month-end billing push |
+| **Statistical** | ARIMA (min-AIC order), seasonal ARIMA and damped-trend ETS on seasonally adjusted demand | Trended and seasonal series |
 | **Intermittent** | Croston's Method, Syntetos-Boylan (SBA), Teunter-Syntetos-Babai (TSB) | Sparse, zero-inflated, and lumpy demand |
 | **Machine Learning** | Random Forest, Gradient Boosting, XGBoost, LightGBM | Non-linear relationships & multi-lag interactions |
-| **Ensemble** | Inverse-WAPE Performance Weighted Ensemble, Median Consensus | Blended multi-model risk minimization |
+| **Ensemble** | Inverse-WAPE weighted ensemble (weights from earlier backtest folds) | Blended multi-model risk minimization |
 
 ---
 
@@ -175,7 +176,8 @@ For comprehensive methodology, mathematics, and operational guides, consult the 
 - 📐 [ARCHITECTURE.md](ARCHITECTURE.md) &ndash; System architecture, modular boundaries, and data flow.
 - 📊 [FORECASTING_METHODOLOGY.md](FORECASTING_METHODOLOGY.md) &ndash; Mathematical formulations, backtesting protocols, and metric formulas.
 - 🛡️ [LEAKAGE_AUDIT.md](LEAKAGE_AUDIT.md) &ndash; Formal temporal data leakage audit with empirical proofs.
-- 🏷️ [MODEL_CARD.md](MODEL_CARD.md) &ndash; Hyperparameters, assumptions, strengths, and limitations of all 14 models.
+- 🏷️ [MODEL_CARD.md](MODEL_CARD.md) &ndash; Intended use, data, model and limitations.
+- ✅ [VALIDATION_FY25.md](VALIDATION_FY25.md) &ndash; Out-of-sample results on FY24-25 billing (generated).
 - 📑 [ASSUMPTIONS.md](ASSUMPTIONS.md) &ndash; Lead times, unit costs, review periods, and service levels.
 - 🏁 [PHASE_COMPLETION_REPORT.md](PHASE_COMPLETION_REPORT.md) &ndash; Comprehensive final phase completion and sign-off report.
 

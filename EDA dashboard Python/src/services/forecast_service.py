@@ -54,7 +54,8 @@ class ForecastService:
         """
         Produce a canonical end-to-end forecast package for a SKU x Branch.
         """
-        cache_key = f"{sku}_{branch}_{horizon}_{target_service_level}_{lead_time_weeks}_{current_on_hand}"
+        data_sig = (len(self.df), str(self.df.iloc[:, 0].iloc[-1]) if self.df is not None and len(self.df) else '') if self.df is not None else ()
+        cache_key = f"{sku}_{branch}_{horizon}_{target_service_level}_{lead_time_weeks}_{current_on_hand}_{data_sig}"
         if cache_key in self._forecast_cache:
             return self._forecast_cache[cache_key]
 
@@ -103,18 +104,34 @@ class ForecastService:
             current_on_hand=current_on_hand
         )
 
-        # Health and Drift tracking against production champion
+        # Health: champion's most recent out-of-sample backtest fold (predictions vs the actuals they forecast)
         hist_y = res.get('historical_demand', np.array([]))
-        if len(hist_y) >= 4:
-            drift_res = self.drift_detector.detect_demand_drift(hist_y, recent_window=min(8, max(4, len(hist_y) // 3)))
+        champ_name = res['champion'].get('model_name', 'Champion')
+        last_fold = (res.get('fold_details') or [{}])[-1]
+        fold_preds = (last_fold.get('predictions') or {}).get(champ_name)
+        earlier = []
+        for f in (res.get('fold_details') or [])[:-1]:
+            a_f, p_f = np.asarray(f['actuals'], dtype=float), f.get('predictions', {}).get(champ_name)
+            if p_f is not None and a_f.sum() > 0:
+                earlier.append(np.abs(a_f - np.asarray(p_f, dtype=float)).sum() / a_f.sum() * 100.0)
+        if fold_preds is not None and len(fold_preds) >= 4:
             health_res = self.monitor.evaluate_model_health(
-                actuals=hist_y[-min(8, len(hist_y)):],
-                forecasts=res['forecast'][:min(8, len(hist_y))],
-                model_name=res['champion'].get('model_name', 'Champion')
+                actuals=np.asarray(last_fold['actuals'], dtype=float),
+                forecasts=np.asarray(fold_preds, dtype=float),
+                model_name=champ_name,
+                reference_wape=float(np.mean(earlier)) if earlier else None
             )
+            health_res['evaluation_window'] = (f"Backtest fold {last_fold.get('fold')}: "
+                                               f"{(last_fold.get('test_dates') or ['?'])[0]} to {(last_fold.get('test_dates') or ['?'])[-1]}")
         else:
-            drift_res = {'drift_detected': False, 'psi': 0.0, 'drift_status': 'Insufficient History', 'badge_color': 'green'}
-            health_res = {'health_status': 'Healthy', 'tracking_signal': 0.0, 'badge_color': 'green', 'recommendation': 'Baseline operational'}
+            health_res = {'health_status': 'Not evaluated', 'tracking_signal': 0.0, 'badge_color': 'cyan',
+                          'recommendation': 'Too little history for an out-of-sample health check',
+                          'evaluation_window': 'n/a'}
+        if len(hist_y) >= 8:
+            drift_res = self.drift_detector.detect_demand_drift(hist_y, recent_window=min(8, max(4, len(hist_y) // 3)))
+        else:
+            drift_res = {'drift_detected': False, 'psi': float('nan'), 'drift_status': 'Not evaluated (short history)',
+                         'badge_color': 'cyan'}
 
         output = {
             'status': 'success',
@@ -139,7 +156,11 @@ class ForecastService:
             'model_health': health_res,
             'historical_dates': res.get('historical_dates'),
             'historical_demand': res.get('historical_demand'),
-            'historical_residuals': residuals
+            'historical_residuals': residuals,
+            'fold_details': res.get('fold_details'),
+            'backtest_folds': res.get('backtest_folds'),
+            'forecast_dates': res.get('forecast_dates'),
+            'seasonal_profile': res.get('seasonal_profile')
         }
         self._forecast_cache[cache_key] = output
         return output

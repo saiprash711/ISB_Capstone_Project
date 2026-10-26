@@ -42,9 +42,10 @@ def test_backtest_execution_on_synthetic_series():
     assert 'model' in leaderboard.columns
     assert 'mean_wape' in leaderboard.columns
     assert 'rank' in leaderboard.columns
-    # Check that rank 1 has lowest or equal WAPE to rank 2
+    # Ranking is on RMSE (mean-targeting loss); rank 1 has the lowest RMSE
     if len(leaderboard) >= 2:
-        assert leaderboard.iloc[0]['mean_wape'] <= leaderboard.iloc[1]['mean_wape']
+        assert leaderboard['mean_rmse'].is_monotonic_increasing
+        assert list(leaderboard['rank']) == list(range(1, len(leaderboard) + 1))
 
 
 def test_model_leaderboard_champion_and_lift():

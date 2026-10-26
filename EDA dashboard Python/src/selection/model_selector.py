@@ -5,292 +5,274 @@ rolling-origin backtesting, and champion model selection with transparent reason
 """
 import numpy as np
 import pandas as pd
-from typing import Dict, Any, Optional
+from typing import Callable, Dict, Any, List, Optional, Sequence, Union
 import logging
 
 from .demand_classifier import DemandClassifier
 from .champion_challenger import ChampionChallengerManager
 from src.validation.backtesting import RollingOriginBacktest
 from src.validation.cross_validation import ModelLeaderboard
-from src.forecasting.baseline import BaselineForecastingModels
-from src.forecasting.statistical import StatisticalModels
-from src.forecasting.intermittent import IntermittentDemandModels
-from src.forecasting.ml_models import MLModels
+from src.forecasting.model_zoo import (
+    ENSEMBLE_NAME, MODEL_DESCRIPTIONS, combine, forecast_models, future_week_dates, inverse_wape_weights,
+)
+from src.forecasting.seasonal_profile import build_seasonal_profile, pooled_weekly
 from src.features import FeatureEngineer
-
 from src.uncertainty.prediction_intervals import ProbabilisticForecastEngine
 from src.monitoring.registry import ModelRegistry
 
 logger = logging.getLogger(__name__)
+
+SYNTHETIC_SHEET = 'Evaluation_10_SKUs'
+SKU_COLS = ['sku', 'Material', 'material', 'Material Description']
+BRANCH_COLS = ['branch', 'SALES OFFICE CODE', 'SALES OFFICE CODE.1', 'Branch', 'Region']
+DATE_COLS = ['date', 'Billing Date', 'billing_date']
+DEMAND_COLS = ['total_demand', 'Billing Quantity ODU', 'quantity_odu', 'demand']
+
+
+def _first_col(df: pd.DataFrame, options: Sequence[str]) -> Optional[str]:
+    return next((c for c in options if c in df.columns), None)
+
+
+def _row_demand(df: pd.DataFrame, demand_col: str) -> pd.Series:
+    """Per-row demand; raw SAP rows combine ODU and IDU quantities (a material carries one of them)."""
+    q = pd.to_numeric(df[demand_col], errors='coerce').fillna(0.0)
+    if demand_col == 'Billing Quantity ODU' and 'Billing Quantity IDU' in df.columns:
+        q = q + pd.to_numeric(df['Billing Quantity IDU'], errors='coerce').fillna(0.0)
+    return q
 
 
 class ModelSelector:
     """
     Automated decision engine for selecting the champion model for a SKU x Branch.
     """
-    
-    def __init__(self, config: Optional[Any] = None, n_folds: Optional[int] = None, 
-                 test_weeks: Optional[int] = None, min_train_weeks: Optional[int] = None):
+
+    def __init__(self, config: Optional[Any] = None, n_folds: Optional[int] = None,
+                 test_weeks: Optional[int] = None, min_train_weeks: Optional[int] = None,
+                 target_coverage: float = 0.80):
         self.classifier = DemandClassifier()
         self.backtester = RollingOriginBacktest(
             config=config, n_folds=n_folds, test_weeks=test_weeks, min_train_weeks=min_train_weeks
         )
         self.governance = ChampionChallengerManager()
         self.feature_engineer = FeatureEngineer()
-        self.probabilistic_engine = ProbabilisticForecastEngine(target_coverage=0.80)
+        self.target_coverage = target_coverage
         self.registry = ModelRegistry()
 
-    def select_and_fit(self, df: pd.DataFrame, sku: str, branch: str, 
-                       horizon: int = 12) -> Dict[str, Any]:
+    # ------------------------------------------------------------------ data preparation
+    def prepare_series(self, df: pd.DataFrame, sku: Optional[str],
+                       branch: Union[str, Sequence[str], None] = None) -> Dict[str, Any]:
+        """
+        Build the weekly (W-MON) demand series for a SKU at one branch, a set of branches
+        (aggregated) or the whole region, plus a leakage-safe seasonal-profile factory.
+        `sku=None` aggregates all SKUs (outdoor units only, so IDU rows are not double counted).
+
+        The series runs from the SKU's first sale to the dataset's as-of week, with
+        zero-demand weeks filled, so forecasts always start after the latest data
+        even for SKUs that have stopped selling.
+        """
+        sku_col, branch_col = _first_col(df, SKU_COLS), _first_col(df, BRANCH_COLS)
+        date_col, demand_col = _first_col(df, DATE_COLS), _first_col(df, DEMAND_COLS)
+        if sku_col is None or date_col is None or demand_col is None:
+            return {'status': 'failed', 'error': 'SKU, date or demand dimension missing from dataset'}
+
+        branches = None if branch in (None, '', 'All') else ([branch] if isinstance(branch, str) else list(branch))
+        keep = [sku_col, branch_col, date_col, demand_col, 'Billing Quantity IDU', 'Data_Sheet', 'EXT MAT GROUP']
+        work = df[list(dict.fromkeys(c for c in keep if c and c in df.columns))].copy()
+        work['_date'] = pd.to_datetime(work[date_col], errors='coerce')
+        work = work.dropna(subset=['_date'])
+        if work.empty:
+            return {'status': 'failed', 'error': 'No dated records'}
+        work['_q'] = _row_demand(work, demand_col)
+        as_of = work['_date'].max()
+        if date_col != 'date':            # raw billing dates -> W-MON label of the latest week
+            as_of = pd.Timestamp(as_of).to_period('W-MON').end_time.normalize()
+
+        if sku is None:
+            mask = pd.Series(True, index=work.index)
+            if 'EXT MAT GROUP' in work.columns and (work['EXT MAT GROUP'] == 'RA-ODU').any():
+                mask &= work['EXT MAT GROUP'] == 'RA-ODU'
+        else:
+            mask = work[sku_col].astype(str) == str(sku)
+        if branches is not None and branch_col is not None:
+            mask &= work[branch_col].astype(str).isin([str(b) for b in branches])
+        sub = work[mask]
+        weekly = sub.groupby(pd.Grouper(key='_date', freq='W-MON'))['_q'].sum().clip(lower=0.0)
+        weekly = weekly[weekly.index <= as_of]
+        nz = weekly[weekly > 0]
+        if nz.empty:
+            return {'status': 'failed', 'error': f"No positive demand for {sku or 'the selection'}"}
+        idx = pd.date_range(nz.index.min(), as_of, freq='W-MON')
+        y = weekly.reindex(idx, fill_value=0.0)
+        label = ', '.join(branches) if branches else 'All'
+        sku_label = 'All SKUs' if sku is None else str(sku)
+        sku_data = pd.DataFrame({'date': idx, 'total_demand': y.values.astype(float), 'sku': sku_label, 'branch': label})
+
+        # Pooled seasonal profile: real outdoor-unit billing only. Synthetic evaluation rows are
+        # excluded, and so are IDU rows, which the source extract carries for Apr-Jun 2024 only
+        # (pooling them would double that quarter and distort the seasonal shape).
+        pool = work
+        if 'Data_Sheet' in pool.columns:
+            pool = pool[pool['Data_Sheet'].astype(str) != SYNTHETIC_SHEET]
+        if 'EXT MAT GROUP' in pool.columns and (pool['EXT MAT GROUP'] == 'RA-ODU').any():
+            pool = pool[pool['EXT MAT GROUP'] == 'RA-ODU']
+        pw = pooled_weekly(pool, '_date', '_q', branch_col)
+        region = pw['__region__']
+        if branches is not None and branch_col is not None:
+            parts = [pw[str(b)] for b in branches if str(b) in pw]
+            branch_series = pd.concat(parts, axis=1).fillna(0.0).sum(axis=1) if parts else None
+        else:
+            branch_series = None
+        cache: Dict[pd.Timestamp, Any] = {}
+
+        def profile_factory(cutoff) -> Any:
+            key = pd.Timestamp(cutoff)
+            if key not in cache:
+                cache[key] = build_seasonal_profile(region, branch_series, as_of=key, branch_weight=0.5)
+            return cache[key]
+
+        return {'status': 'success', 'sku_data': sku_data, 'as_of': as_of, 'branch_label': label,
+                'profile_factory': profile_factory, 'n_records': int(mask.sum())}
+
+    # ------------------------------------------------------------------ selection
+    def select_and_fit(self, df: pd.DataFrame, sku: Optional[str], branch: Union[str, Sequence[str], None] = None,
+                       horizon: int = 12, target_coverage: Optional[float] = None,
+                       candidate_models: Optional[List[str]] = None) -> Dict[str, Any]:
         """
         Execute full automated model selection workflow:
-        1. Extract & prepare SKU × Branch series
+        1. Extract & prepare the SKU x Branch weekly series (to the data as-of week)
         2. Profile demand & classify pattern
-        3. Identify candidate models
-        4. Execute rolling-origin backtest
-        5. Rank candidates & assign Champion / Challengers
-        6. Generate forward forecast from Champion with calibrated P10/P50/P90 intervals
+        3. Rolling-origin backtest of all applicable candidates (12-week folds)
+        4. Rank candidates & assign Champion / Challengers
+        5. Forward forecast from the Champion with calibrated intervals
         """
-        # 1. Resolve column names flexibly across both clean data mart and raw transaction frames
-        sku_col = next((c for c in ['sku', 'Material', 'material', 'Material Description'] if c in df.columns), None)
-        branch_col = next((c for c in ['branch', 'SALES OFFICE CODE', 'SALES OFFICE CODE.1', 'Branch', 'Region'] if c in df.columns), None)
-        date_col = next((c for c in ['date', 'Billing Date', 'billing_date'] if c in df.columns), None)
-        demand_col = next((c for c in ['total_demand', 'Billing Quantity ODU', 'quantity_odu', 'demand'] if c in df.columns), None)
+        prep = self.prepare_series(df, sku, branch)
+        if prep.get('status') != 'success':
+            return {'status': 'failed', 'sku': sku, 'branch': branch, 'error': prep.get('error')}
+        return self.select_and_fit_series(prep['sku_data'], prep['profile_factory'], sku=prep['sku_data']['sku'].iloc[0],
+                                          branch=prep['branch_label'], horizon=horizon,
+                                          target_coverage=target_coverage, candidate_models=candidate_models)
 
-        if sku_col is None:
-            return {'status': 'failed', 'sku': sku, 'branch': branch, 'error': 'SKU dimension missing from dataset'}
+    def select_and_fit_series(self, sku_data: pd.DataFrame, profile_factory: Optional[Callable] = None,
+                              sku: str = '', branch: str = '', horizon: int = 12,
+                              target_coverage: Optional[float] = None,
+                              candidate_models: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Model selection on a prepared weekly frame with columns date, total_demand."""
+        y = np.maximum(0.0, pd.to_numeric(sku_data['total_demand'], errors='coerce').fillna(0.0).values.astype(float))
+        dates = pd.DatetimeIndex(sku_data['date'])
+        if len(y) < 5 or np.count_nonzero(y) < 2:
+            return {'status': 'failed', 'sku': sku, 'branch': branch,
+                    'error': f'Insufficient history ({len(y)} weeks, {np.count_nonzero(y)} with demand)'}
 
-        if branch_col is not None and branch:
-            subset = df[(df[sku_col].astype(str) == str(sku)) & (df[branch_col].astype(str) == str(branch))].copy()
+        profile = profile_factory(dates[-1]) if profile_factory else None
+        demand_profile = self.classifier.profile_demand(y, dates=dates.values)
+        candidates = candidate_models or self.backtester.default_candidates(y, sku_data)
+        demand_profile['candidate_models'] = candidates
+        if profile is not None:
+            demand_profile['pooled_seasonal_amplitude'] = round(max(profile.month_index.values()) /
+                                                                max(1e-6, min(profile.month_index.values())), 2)
+
+        bt = self.backtester.evaluate_sku_series(y, dates=dates, sku_df=sku_data,
+                                                 candidate_models=candidates, profile_factory=profile_factory)
+        leaderboard_df = bt.get('leaderboard', pd.DataFrame())
+        if leaderboard_df.empty:
+            return {'status': 'failed', 'sku': sku, 'branch': branch,
+                    'error': bt.get('reason', 'No candidate model completed every backtest fold')}
+
+        gov_entry = self.governance.register_evaluation(sku, branch, leaderboard_df, demand_profile)
+        champion_meta = dict(gov_entry.get('champion', {}))
+        ranked = leaderboard_df['model'].tolist()
+
+        # Forward forecast: the ensemble needs every member; otherwise only the champion
+        members = [m for m in ranked if m != ENSEMBLE_NAME]
+        champion_name = champion_meta.get('model_name', ranked[0])
+        to_fit = members if champion_name == ENSEMBLE_NAME else [champion_name]
+        fwd, fwd_err, details = forecast_models(to_fit, y, dates, horizon, profile=profile, sku_df=sku_data,
+                                                feature_engineer=self.feature_engineer)
+        point_forecast, fallback_reason = None, None
+        if champion_name == ENSEMBLE_NAME:
+            wapes = leaderboard_df.set_index('model')['mean_wape'].to_dict()
+            point_forecast = combine(fwd, inverse_wape_weights({m: wapes[m] for m in fwd if m in wapes}))
+            details[ENSEMBLE_NAME] = {'weights': {m: round(w, 4) for m, w in
+                                                  inverse_wape_weights({m: wapes[m] for m in fwd if m in wapes}).items()}}
         else:
-            subset = df[df[sku_col].astype(str) == str(sku)].copy()
+            point_forecast = fwd.get(champion_name)
+        if point_forecast is None:
+            # Champion could not be refitted on the full history: next-ranked model, disclosed
+            for alt in [m for m in members if m != champion_name]:
+                f2, _, d2 = forecast_models([alt], y, dates, horizon, profile=profile, sku_df=sku_data,
+                                            feature_engineer=self.feature_engineer)
+                if alt in f2:
+                    fallback_reason = (f"{champion_name} failed on full history "
+                                       f"({fwd_err.get(champion_name, 'no forecast')}); using next-ranked {alt}.")
+                    champion_meta.update({'model_name': alt, 'fallback_reason': fallback_reason})
+                    point_forecast, details = f2[alt], {**details, **d2}
+                    champion_name = alt
+                    break
+        if point_forecast is None:
+            return {'status': 'failed', 'sku': sku, 'branch': branch, 'error': 'No model could produce a forward forecast'}
 
-        if len(subset) < 4:
-            return {
-                'status': 'failed',
-                'sku': sku,
-                'branch': branch,
-                'error': f'Insufficient records ({len(subset)})'
-            }
-
-        # Check if already aggregated weekly by date (e.g. standard data mart)
-        if 'total_demand' in subset.columns and 'date' in subset.columns and not subset.duplicated(subset=['date']).any():
-            sku_data = subset.copy()
-            if 'sku' not in sku_data.columns:
-                sku_data['sku'] = sku
-            if 'branch' not in sku_data.columns:
-                sku_data['branch'] = branch
-            sku_data = sku_data.sort_values('date').reset_index(drop=True)
-        elif date_col is not None and demand_col is not None:
-            subset[date_col] = pd.to_datetime(subset[date_col], errors='coerce')
-            subset = subset.dropna(subset=[date_col])
-            
-            # Combine ODU and IDU if present in raw transaction frame
-            if 'Billing Quantity IDU' in subset.columns and demand_col == 'Billing Quantity ODU':
-                subset['_calc_demand'] = pd.to_numeric(subset['Billing Quantity ODU'], errors='coerce').fillna(0) + \
-                                         pd.to_numeric(subset['Billing Quantity IDU'], errors='coerce').fillna(0)
-                metric_col = '_calc_demand'
-            else:
-                metric_col = demand_col
-                subset[metric_col] = pd.to_numeric(subset[metric_col], errors='coerce').fillna(0)
-
-            weekly = subset.groupby(pd.Grouper(key=date_col, freq='W-MON'))[metric_col].sum().reset_index()
-            weekly = weekly.sort_values(date_col).reset_index(drop=True)
-            weekly['sku'] = sku
-            weekly['branch'] = branch
-            weekly = weekly.rename(columns={date_col: 'date', metric_col: 'total_demand'})
-            sku_data = weekly
-        else:
-            sku_data = subset.copy()
-            if demand_col and demand_col != 'total_demand':
-                sku_data['total_demand'] = pd.to_numeric(sku_data[demand_col], errors='coerce').fillna(0)
-            if 'sku' not in sku_data.columns:
-                sku_data['sku'] = sku
-            if 'branch' not in sku_data.columns:
-                sku_data['branch'] = branch
-
-        if len(sku_data) < 4:
-            return {
-                'status': 'failed',
-                'sku': sku,
-                'branch': branch,
-                'error': f'Insufficient records after temporal aggregation ({len(sku_data)})'
-            }
-
-        sku_data['total_demand'] = np.maximum(0.0, pd.to_numeric(sku_data['total_demand'], errors='coerce').fillna(0.0))
-        y = sku_data['total_demand'].values.astype(float)
-        dates = sku_data['date'].values if 'date' in sku_data.columns else None
-        
-        # 2. Demand Profiling
-        profile = self.classifier.profile_demand(y, dates=dates)
-        candidates = profile.get('candidate_models', ['Naive', 'Moving Average', 'Exponential Smoothing'])
-        
-        # 3. Rolling-Origin Backtesting
-        bt_results = self.backtester.evaluate_sku_series(
-            y, dates=dates, sku_df=sku_data, candidate_models=candidates
-        )
-        leaderboard_df = bt_results.get('leaderboard', pd.DataFrame())
-        
-        # 4. Governance & Champion Selection
-        gov_entry = self.governance.register_evaluation(sku, branch, leaderboard_df, profile)
-        champion_meta = gov_entry.get('champion', {})
-        champion_name = champion_meta.get('model_name', 'Moving Average')
-        
-        # 5. Fit Champion on entire history to produce final forward point forecast
-        point_forecast = self._generate_champion_point_forecast(
-            champion_name, y, sku_data, horizon
-        )
-        
-        # Extract backtest residuals for champion to calibrate P10, P50, P90
-        residuals = []
-        for fold in bt_results.get('fold_details', []):
-            acts = np.array(fold.get('actuals', []))
-            preds = np.array(fold.get('predictions', {}).get(champion_name, []))
+        # Out-of-sample backtest residuals of the champion calibrate the intervals
+        residuals, res_preds = [], []
+        for fold in bt.get('fold_details', []):
+            acts = np.array(fold.get('actuals', []), dtype=float)
+            preds = np.array(fold.get('predictions', {}).get(champion_name, []), dtype=float)
             if len(acts) == len(preds) and len(acts) > 0:
                 residuals.extend((acts - preds).tolist())
-                
-        calib_res = self.probabilistic_engine.calibrate_intervals(
+                res_preds.extend(preds.tolist())
+        coverage = target_coverage or self.target_coverage
+        calib = ProbabilisticForecastEngine(target_coverage=coverage).calibrate_intervals(
             point_forecast=point_forecast,
-            historical_residuals=np.array(residuals) if len(residuals) >= 4 else None,
+            historical_residuals=np.array(residuals) if residuals else None,
+            historical_predictions=np.array(res_preds) if res_preds else None,
             historical_actuals=y,
-            rmse_estimate=champion_meta.get('mean_rmse')
+            rmse_estimate=champion_meta.get('rmse'),
+            residual_horizon=self.backtester.test_weeks,
         )
-        
-        p10 = calib_res['p10']
-        p50 = calib_res['p50']
-        p90 = calib_res['p90']
-        
-        # Register Champion in persistent ModelRegistry with demand classification
+
         try:
             self.registry.register_model(
-                sku=sku,
-                branch=branch,
-                model_name=champion_name,
-                validation_metrics=champion_meta,
-                hyperparameters={'horizon': horizon, 'n_folds': bt_results.get('n_folds', 0)},
-                feature_list=list(sku_data.columns),
-                demand_class=profile.get('demand_type', 'Standard'),
-                status=champion_meta.get('status', 'ACTIVE_CHAMPION')
-            )
+                sku=sku, branch=branch, model_name=champion_name, validation_metrics=champion_meta,
+                hyperparameters={'horizon': horizon, 'n_folds': bt.get('n_folds', 0),
+                                 'test_weeks': self.backtester.test_weeks},
+                feature_list=list(sku_data.columns), demand_class=demand_profile.get('demand_type', 'Standard'),
+                status=champion_meta.get('status', 'ACTIVE_CHAMPION'))
         except Exception as e:
             logger.debug(f"Registry persist skipped: {e}")
-        
-        # Baseline lift comparison
+
         lb_manager = ModelLeaderboard(leaderboard_df)
-        baseline_comp = lb_manager.compare_with_baseline()
-        
         return {
             'status': 'success',
             'sku': sku,
             'branch': branch,
             'horizon': horizon,
-            'demand_profile': profile,
+            'demand_profile': demand_profile,
             'candidate_models': candidates,
-            'backtest_folds': bt_results.get('n_folds', 0),
+            'backtest_folds': bt.get('n_folds', 0),
+            'backtest_test_weeks': self.backtester.test_weeks,
+            'fold_details': bt.get('fold_details', []),
+            'model_errors': {k: v for f in bt.get('fold_details', []) for k, v in f.get('model_errors', {}).items()},
             'leaderboard': leaderboard_df,
             'leaderboard_display': lb_manager.to_display_table(),
             'champion': champion_meta,
+            'champion_description': MODEL_DESCRIPTIONS.get(champion_name, ''),
+            'model_details': details.get(champion_name, details),
             'challengers': gov_entry.get('challengers', []),
-            'baseline_comparison': baseline_comp,
+            'baseline_comparison': lb_manager.compare_with_baseline(),
             'forecast': point_forecast,
-            'forward_forecast': p50,
-            'lower_bound': p10,
-            'upper_bound': p90,
-            'p10': p10,
-            'p50': p50,
-            'p90': p90,
-            'interval_calibration': calib_res,
+            'forward_forecast': calib['p50'],
+            'forecast_dates': future_week_dates(dates, horizon),
+            'lower_bound': calib['p10'],
+            'upper_bound': calib['p90'],
+            'p10': calib['p10'],
+            'p50': calib['p50'],
+            'p90': calib['p90'],
+            'interval_calibration': calib,
+            'seasonal_profile': ({'month_index': profile.month_index, 'month_end_ratio': profile.last_week_ratio,
+                                  'years_pooled': profile.n_years} if profile is not None else None),
             'selection_reason': champion_meta.get('selection_reason', 'Top backtested accuracy'),
-            'historical_dates': dates,
+            'fallback_reason': fallback_reason,
+            'historical_dates': dates.values,
             'historical_demand': y,
-            'historical_residuals': residuals
+            'historical_residuals': residuals,
+            'historical_residual_predictions': res_preds,
         }
-
-    def _generate_champion_point_forecast(self, model_name: str, y: np.ndarray, 
-                                          sku_data: pd.DataFrame, horizon: int) -> np.ndarray:
-        """Fit specified champion model on all available history and return true forward forecast."""
-        # Baseline family
-        b_map = {
-            'Naive': 'naive',
-            'Seasonal Naive': 'seasonal_naive',
-            'Moving Average': 'moving_average',
-            'Exponential Smoothing': 'exponential_smoothing'
-        }
-        if model_name in b_map:
-            bm = BaselineForecastingModels()
-            bm.fit_all(y)
-            preds = bm.predict_all(horizon)
-            pred = preds.get(b_map[model_name])
-            if pred is not None and len(pred) == horizon and not np.any(np.isnan(pred)):
-                return np.maximum(0.0, np.array(pred, dtype=float))
-            
-        # Statistical family
-        s_map = {'ARIMA': 'arima', 'SARIMA': 'sarima', 'ETS': 'ets'}
-        if model_name in s_map:
-            sm = StatisticalModels()
-            sm.fit_all(y)
-            preds = sm.predict_all(horizon)
-            pred_obj = preds.get(s_map[model_name])
-            if isinstance(pred_obj, dict):
-                pred = pred_obj.get('forecast')
-            elif isinstance(pred_obj, (tuple, list)):
-                pred = pred_obj[0]
-            else:
-                pred = pred_obj
-            if pred is not None and len(pred) == horizon and not np.any(np.isnan(pred)):
-                return np.maximum(0.0, np.array(pred, dtype=float))
-            
-        # Intermittent family
-        i_map = {'Croston': 'croston', 'SBA': 'sba', 'TSB': 'tsb'}
-        if model_name in i_map:
-            im = IntermittentDemandModels()
-            im.fit_all(y)
-            preds = im.predict_all(horizon)
-            pred_obj = preds.get(i_map[model_name])
-            pred = pred_obj[0] if isinstance(pred_obj, (tuple, list)) else pred_obj
-            if pred is not None and len(pred) == horizon and not np.any(np.isnan(pred)):
-                return np.maximum(0.0, np.array(pred, dtype=float))
-            
-        # ML family (True recursive walk-forward forecasting)
-        ml_map = {
-            'Random Forest': 'random_forest',
-            'Gradient Boosting': 'gradient_boosting',
-            'XGBoost': 'xgboost',
-            'LightGBM': 'lightgbm'
-        }
-        if model_name in ml_map:
-            try:
-                X_df, f_cols = self.feature_engineer.engineer_features(sku_data)
-                num_cols = [c for c in f_cols if c in X_df.columns and pd.api.types.is_numeric_dtype(X_df[c])]
-                if not num_cols:
-                    num_cols = ['lag_1']
-                    X_df['lag_1'] = pd.Series(y).shift(1).bfill().fillna(0)
-                X_mat = X_df[num_cols].to_numpy(dtype=np.float32)
-                X_mat[~np.isfinite(X_mat)] = 0.0
-                
-                ml_hub = MLModels()
-                ml_hub.fit_all(X_mat, y)
-                ml_key = ml_map[model_name]
-                if ml_key in ml_hub.models:
-                    base_date = sku_data['date'].iloc[-1] if 'date' in sku_data.columns and len(sku_data) > 0 else None
-                    pred = self.feature_engineer.predict_recursive(
-                        model=ml_hub.models[ml_key],
-                        history_series=pd.Series(y),
-                        horizon=horizon,
-                        feature_cols=num_cols,
-                        base_date=base_date
-                    )
-                    if pred is not None and len(pred) == horizon and not np.any(np.isnan(pred)):
-                        return np.maximum(0.0, pred)
-            except Exception as e:
-                logger.warning(f"ML forecast error: {e}")
-
-        # Legitimate fallback to robust Moving Average if specific architecture failed to converge
-        bm = BaselineForecastingModels()
-        bm.fit_all(y)
-        preds = bm.predict_all(horizon)
-        ma_pred = preds.get('moving_average', preds.get('naive'))
-        if ma_pred is not None and len(ma_pred) == horizon and not np.any(np.isnan(ma_pred)):
-            return np.maximum(0.0, np.array(ma_pred, dtype=float))
-            
-        return np.maximum(0.0, np.full(horizon, float(np.mean(y)) if len(y) > 0 else 0.0))

@@ -212,10 +212,12 @@ class MLModels:
         if not self.models:
             logger.warning("No ML libraries available. Install sklearn, xgboost, or lightgbm.")
     
-    def fit_all(self, X: np.ndarray, y: np.ndarray) -> Dict:
-        """Fit all available ML models."""
+    def fit_all(self, X: np.ndarray, y: np.ndarray, names: Optional[List[str]] = None) -> Dict:
+        """Fit all available ML models (or only `names`)."""
         results = {}
         for name, model in self.models.items():
+            if names is not None and name not in names:
+                continue
             try:
                 result = model.fit(X, y)
                 results[name] = result

@@ -46,13 +46,19 @@ class ScenarioSimulator:
     def __init__(self, inventory_engine: Optional[InventoryEngine] = None):
         self.inventory_engine = inventory_engine or InventoryEngine()
 
-    def simulate(self, base_forecast: np.ndarray, 
+    def simulate(self, base_forecast: np.ndarray,
                  scenario_name: str = 'Base Case',
                  custom_multiplier: Optional[float] = None,
                  lead_time_weeks: int = 2,
-                 service_level: float = 0.95) -> Dict[str, Any]:
+                 service_level: float = 0.95,
+                 forecast_residuals: Optional[np.ndarray] = None) -> Dict[str, Any]:
         """
         Execute scenario simulation on a base forecast curve.
+
+        Scenario multipliers are planning assumptions (not estimated from the data).
+        `forecast_residuals` are the champion's out-of-sample backtest errors; they set the
+        safety-stock uncertainty and are scaled by the multiplier for the scenario case
+        (errors assumed proportional to demand level). Without them safety stock is 0.
         """
         base_f = np.asarray(base_forecast, dtype=float)
         
@@ -74,11 +80,13 @@ class ScenarioSimulator:
         scenario_forecast = np.maximum(0.0, base_f * mult)
         
         # Calculate base and scenario inventory policies
+        res = np.asarray(forecast_residuals, dtype=float) if forecast_residuals is not None else None
         base_inv = self.inventory_engine.calculate_inventory_policy(
-            base_f, lead_time_weeks=lead_time_weeks, target_service_level=service_level
+            base_f, forecast_residuals=res, lead_time_weeks=lead_time_weeks, target_service_level=service_level
         )
         scen_inv = self.inventory_engine.calculate_inventory_policy(
-            scenario_forecast, lead_time_weeks=lead_time_weeks, target_service_level=service_level
+            scenario_forecast, forecast_residuals=None if res is None else res * mult,
+            lead_time_weeks=lead_time_weeks, target_service_level=service_level
         )
 
         delta_total_demand = float(np.sum(scenario_forecast) - np.sum(base_f))
@@ -110,17 +118,20 @@ class ScenarioSimulator:
             'scenario_stockout_risk_pct': scen_inv['stockout_risk_pct']
         }
 
-    def get_all_scenarios_summary(self, base_forecast: np.ndarray) -> pd.DataFrame:
+    def get_all_scenarios_summary(self, base_forecast: np.ndarray,
+                                  forecast_residuals: Optional[np.ndarray] = None,
+                                  lead_time_weeks: int = 2, service_level: float = 0.95) -> pd.DataFrame:
         """
         Run all pre-defined scenarios and return comparative executive summary table.
         """
         rows = []
         for name in self.SCENARIO_PROFILES.keys():
-            res = self.simulate(base_forecast, scenario_name=name)
+            res = self.simulate(base_forecast, scenario_name=name, forecast_residuals=forecast_residuals,
+                                lead_time_weeks=lead_time_weeks, service_level=service_level)
             rows.append({
                 'Scenario': name,
                 'Multiplier': f"{res['multiplier']:.2f}x",
-                'Total 12W Demand': f"{res['scenario_total_volume']:,.0f} units",
+                f'Total {len(base_forecast)}W Demand': f"{res['scenario_total_volume']:,.0f} units",
                 'Delta Units': f"{res['delta_volume_units']:+,.0f}",
                 'Required Safety Stock': f"{res['scenario_safety_stock']:,} units",
                 'Delta Working Capital': f"{'₹' + format(int(res['delta_capital_inr']), ',') if res['delta_capital_inr'] >= 0 else '-₹' + format(int(abs(res['delta_capital_inr'])), ',')}"

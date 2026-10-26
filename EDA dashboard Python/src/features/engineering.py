@@ -4,7 +4,7 @@ Generates features for machine learning models and statistical analysis.
 """
 import pandas as pd
 import numpy as np
-from typing import List, Dict, Tuple
+from typing import Any, List, Dict, Optional, Tuple
 import logging
 
 logger = logging.getLogger(__name__)
@@ -55,6 +55,11 @@ class FeatureEngineer:
         # Seasonal features
         seasonal_feats = self._add_seasonal_features(df)
         feature_cols.extend(seasonal_feats)
+
+        # Pooled seasonal factor (supplied by the caller from the region/branch seasonal profile)
+        if 'seasonal_index' in df.columns:
+            df['seasonal_index'] = pd.to_numeric(df['seasonal_index'], errors='coerce').fillna(1.0)
+            feature_cols.append('seasonal_index')
         
         logger.info(f"Engineered {len(feature_cols)} features")
         return df, feature_cols
@@ -237,11 +242,14 @@ class FeatureEngineer:
         
         return importance_dict
 
-    def generate_step_features(self, history_series: pd.Series, target_date: Optional[pd.Timestamp] = None) -> pd.Series:
+    def generate_step_features(self, history_series: pd.Series, target_date: Optional[pd.Timestamp] = None,
+                               seasonal_factor: Optional[float] = None) -> pd.Series:
         """
         Generate feature row for step t+h given autoregressive history up to t+h-1 and target date.
         """
         feats = {}
+        if seasonal_factor is not None:
+            feats['seasonal_index'] = float(seasonal_factor)
         if target_date is not None:
             t_dt = pd.to_datetime(target_date)
             woy = int(t_dt.isocalendar().week)
@@ -299,7 +307,8 @@ class FeatureEngineer:
         return pd.Series(feats)
 
     def predict_recursive(self, model: Any, history_series: pd.Series, horizon: int,
-                          feature_cols: List[str], base_date: Optional[Any] = None) -> np.ndarray:
+                          feature_cols: List[str], base_date: Optional[Any] = None,
+                          future_factors: Optional[np.ndarray] = None) -> np.ndarray:
         """
         True multi-step recursive walk-forward prediction.
         At each forecast step h=1..H:
@@ -313,7 +322,8 @@ class FeatureEngineer:
 
         for step in range(1, horizon + 1):
             next_date = (cur_date + pd.Timedelta(weeks=step)) if cur_date is not None else None
-            step_feats = self.generate_step_features(sim_history, target_date=next_date)
+            factor = float(future_factors[step - 1]) if future_factors is not None else None
+            step_feats = self.generate_step_features(sim_history, target_date=next_date, seasonal_factor=factor)
             
             # Align features with training columns
             x_row = []

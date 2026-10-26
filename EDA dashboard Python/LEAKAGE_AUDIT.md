@@ -28,4 +28,24 @@ Automated verification suite `tests/test_leakage_audit.py` executes 3 formal lea
 - `test_no_future_information_in_rolling_features`: Verifies rolling mean at $t=3$ matches indices $0 \dots 3$.
 - `test_strict_chronological_splits_zero_leakage`: Verifies disjointness and chronological monotonicity of all fold splits.
 
-**All leakage tests pass with 100% compliance.**
+The suite runs with `pytest tests/`.
+
+---
+
+## 4. Leakage Controls in Model Selection
+
+| Control | Implementation |
+| --- | --- |
+| Seasonal profile | Re-estimated at every backtest fold cutoff from pooled data up to that cutoff only (`ModelSelector.prepare_series` → `profile_factory(cutoff)`). |
+| Ensemble weights | Each fold's ensemble uses WAPE from **earlier** folds only. An earlier version weighted by the current fold's own errors, which flattered the ensemble; this has been fixed. |
+| Champion forecast | The champion is refitted on all history up to the as-of week; forecasts start after the latest data week. |
+| Model Lab audit | Runs on the engineered ML feature matrix. If it cannot run, the page shows *Not run*; there is no default pass. |
+
+## 5. Independent Out-of-Sample Check
+
+The FY24-25 billing file (Jul-2024 to Jun-2025) is used purely as a holdout. `validate_holdout_fy25.py verify` confirms:
+- no date overlap with training;
+- no shared invoice numbers;
+- reconciliation to the file's own pivot.
+
+Results are in [VALIDATION_FY25.md](VALIDATION_FY25.md).

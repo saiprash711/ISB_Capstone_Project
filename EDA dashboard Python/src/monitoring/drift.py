@@ -70,10 +70,10 @@ class DriftDetector:
         if n < recent_window + 8:
             return {
                 'drift_detected': False,
-                'drift_status': 'Stable',
-                'badge_color': 'green',
-                'psi': 0.0,
-                'ks_p_value': 1.0,
+                'drift_status': 'Not evaluated',
+                'badge_color': 'cyan',
+                'psi': float('nan'),
+                'ks_p_value': float('nan'),
                 'message': 'Insufficient data points to evaluate distribution drift.'
             }
 

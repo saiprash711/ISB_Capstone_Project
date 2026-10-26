@@ -27,12 +27,15 @@ from src.monitoring.alerts import AlertEngine
 from src.forecasting.ensemble import EnsembleForecaster
 from src.forecasting.baseline import BaselineForecastingModels
 from src.forecasting.statistical import StatisticalModels
+from src.forecasting.seasonal_profile import SeasonalIndexForecaster
+from src.forecasting.model_zoo import ALL_MODELS, INTERMITTENT_MAP, ML_MAP
 from src.validation.backtesting import RollingOriginBacktest
 from src.validation.cross_validation import ModelLeaderboard
 from src.validation.leakage_audit import LeakageAuditor
 from src.hierarchy.aggregation import HierarchyAggregator
 from src.hierarchy.reconciliation import HierarchicalReconciler
 from src.services.forecast_service import ForecastService
+from src.features import FeatureEngineer
 
 
 import logging
@@ -44,71 +47,61 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 @st.cache_data(show_spinner=False)
 def compute_fleet_action_queue(df: pd.DataFrame) -> List[Dict[str, Any]]:
-    """Fast, cached calculation of operational fleet action items from demand statistics."""
+    """
+    Action items for the 8 highest-volume SKU x Branch series of the latest 52 weeks.
+    Health is a genuine out-of-sample check: the Seasonal Index model is fitted on data up to
+    8 weeks ago and compared with the 8 weeks of billing since, judged against the same check
+    one window earlier. Stock-out alerts are not raised: the billing extract has no on-hand stock.
+    """
     branch_col = next((c for c in ['SALES OFFICE CODE', 'SALES OFFICE CODE.1', 'Branch', 'branch'] if c in df.columns), None)
     sku_col = next((c for c in ['Material', 'sku'] if c in df.columns), 'Material')
     demand_col = next((c for c in ['Billing Quantity ODU', 'total_demand', 'quantity_odu'] if c in df.columns), None)
     date_col = next((c for c in ['Billing Date', 'date'] if c in df.columns), None)
-
-    if not (branch_col and sku_col and demand_col):
+    if not (branch_col and sku_col and demand_col and date_col):
         return []
 
-    top_pairs = (
-        df.groupby([sku_col, branch_col])[demand_col]
-        .sum()
-        .sort_values(ascending=False)
-        .head(8)
-        .reset_index()
-    )
+    dates = pd.to_datetime(df[date_col], errors='coerce')
+    recent = df[dates >= dates.max() - pd.Timedelta(weeks=52)]
+    top_pairs = recent.groupby([sku_col, branch_col])[demand_col].sum().sort_values(ascending=False).head(8)
 
-    inv_engine = InventoryEngine()
+    selector = ModelSelector()
     drift_detector = DriftDetector()
     monitor = ForecastMonitor()
-    baseline = BaselineForecastingModels()
+    window = 8
+
+    def _check(y, wk, profile_factory, end):
+        """Seasonal Index forecast made at y[:end-window], scored on y[end-window:end]."""
+        cut = end - window
+        prof = profile_factory(wk[cut - 1]) if cut >= 5 else None
+        if prof is None:
+            return None, None
+        si = SeasonalIndexForecaster(window=8).fit(y[:cut], prof.factors(wk[:cut]))
+        return y[cut:end], si.predict(prof.factors(wk[cut:end]))
 
     sku_assessments = []
-    for _, row in top_pairs.iterrows():
-        s_val = str(row[sku_col]).strip()
-        b_val = str(row[branch_col]).strip()
-        if not s_val or s_val.lower() == 'nan' or not b_val or b_val.lower() == 'nan':
-            continue
-
-        sub = df[(df[sku_col].astype(str) == s_val) & (df[branch_col].astype(str) == b_val)]
-        if date_col and date_col in sub.columns:
-            weekly = sub.groupby(pd.Grouper(key=date_col, freq='W-MON'))[demand_col].sum().values.astype(float)
-        else:
-            weekly = sub[demand_col].values.astype(float)
-
-        if len(weekly) < 4:
-            continue
-
+    for (s_val, b_val), _ in top_pairs.items():
         try:
-            baseline.fit_all(weekly)
-            preds = baseline.predict_all(8)
-            f_vals = preds.get('exponential_smoothing', preds.get('moving_average', np.full(8, np.mean(weekly))))
-            if f_vals is None or np.all(np.isnan(f_vals)):
-                f_vals = np.full(8, np.mean(weekly))
-            f_vals = np.maximum(0.0, f_vals)
-            rmse = float(np.std(weekly)) if len(weekly) > 1 else max(1.0, float(np.mean(weekly)) * 0.25)
-
-            policy = inv_engine.calculate_inventory_policy(
-                forecast_values=f_vals,
-                historical_demand=weekly,
-                forecast_rmse=rmse,
-                lead_time_weeks=2,
-                target_service_level=0.95
-            )
-            drift = drift_detector.detect_demand_drift(weekly)
-            health = monitor.evaluate_model_health(
-                actuals=weekly[-min(8, len(weekly)):],
-                forecasts=f_vals[:min(8, len(weekly))],
-                model_name='Baseline-ETS'
-            )
+            prep = selector.prepare_series(df, s_val, b_val)
+            if prep.get('status') != 'success':
+                continue
+            y = prep['sku_data']['total_demand'].values.astype(float)
+            wk = pd.DatetimeIndex(prep['sku_data']['date'])
+            if len(y) < 2 * window + 5:
+                continue
+            act, fc = _check(y, wk, prep['profile_factory'], len(y))
+            ref_act, ref_fc = _check(y, wk, prep['profile_factory'], len(y) - window)
+            if act is None:
+                continue
+            ref_wape = (float(np.abs(ref_act - ref_fc).sum() / ref_act.sum() * 100)
+                        if ref_act is not None and ref_act.sum() > 0 else None)
+            health = monitor.evaluate_model_health(act, fc, model_name='Seasonal Index', reference_wape=ref_wape)
+            drift = drift_detector.detect_demand_drift(y)
             sku_assessments.append({
-                'sku': s_val,
-                'branch': b_val,
-                'stockout_risk_pct': policy.get('stockout_risk_pct') or 0.0,
+                'sku': str(s_val),
+                'branch': str(b_val),
+                'stockout_risk_pct': None,
                 'health_status': health['health_status'],
+                'health_detail': health['recommendation'],
                 'tracking_signal': health['tracking_signal'],
                 'drift_detected': drift['drift_detected'],
                 'psi': drift['psi']
@@ -140,7 +133,7 @@ def render_executive_action_queue(df: pd.DataFrame, theme: str = "dark"):
             <span class="kpi-badge {badge_type}">{badge_label}</span>
         </div>
         <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px;">
-            Dynamic operational directives synthesized from real inventory safety thresholds, walk-forward tracking signals, and distribution stability.
+            Top 8 SKU &times; branch series of the last 52 weeks: an 8-week out-of-sample forecast check (tracking signal and error vs the previous window) and demand-distribution drift (PSI). Stock-out alerts need on-hand inventory, which is not in the billing extract.
         </p>
     """, unsafe_allow_html=True)
     
@@ -166,9 +159,9 @@ def render_executive_action_queue(df: pd.DataFrame, theme: str = "dark"):
         st.markdown(f"""
         <div style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; padding: 16px; text-align: center;">
             <div style="font-size: 20px; margin-bottom: 4px;">🛡️</div>
-            <strong style="color: {accent_green}; font-size: 14px;">All Fleet Units Operating Within Parameters</strong>
+            <strong style="color: {accent_green}; font-size: 14px;">No forecast-health or drift alerts</strong>
             <p style="font-size: 12.5px; color: var(--text-secondary); margin: 4px 0 0 0;">
-                All monitored high-volume SKUs across South Region branches currently maintain adequate safety stock coverage with zero critical tracking signal breaches.
+                The 8 highest-volume SKU &times; branch series show no tracking-signal breach, accuracy degradation or distribution drift in the latest 8-week check.
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -180,43 +173,27 @@ def render_executive_action_queue(df: pd.DataFrame, theme: str = "dark"):
 # 2. MODEL LAB & BACKTESTING LEADERBOARD VIEW
 # -----------------------------------------------------------------------------
 @st.cache_data(show_spinner="Executing walk-forward cross-validation across candidate models...")
-def compute_cached_model_lab_backtest(df: pd.DataFrame, sel_branch: str, sel_sku: str, folds: int, min_train: int = 16):
-    branch_col = next((c for c in ['SALES OFFICE CODE', 'SALES OFFICE CODE.1', 'Branch', 'branch'] if c in df.columns), None)
-    sku_col = next((c for c in ['Material', 'sku'] if c in df.columns), 'Material')
-    demand_col = next((c for c in ['Billing Quantity ODU', 'total_demand', 'quantity_odu'] if c in df.columns), None)
-    date_col = next((c for c in ['Billing Date', 'date'] if c in df.columns), None)
-    
-    subset = df[(df[branch_col] == sel_branch) & (df[sku_col] == sel_sku)].copy()
-    if date_col and date_col in subset.columns:
-        subset[date_col] = pd.to_datetime(subset[date_col], errors='coerce')
-        subset = subset.dropna(subset=[date_col])
-        weekly_sub = subset.groupby(pd.Grouper(key=date_col, freq='W-MON'))[demand_col].sum().reset_index()
-        weekly_sub = weekly_sub.sort_values(date_col).reset_index(drop=True)
-        y = weekly_sub[demand_col].values.astype(float)
-        dates = weekly_sub[date_col].values
-        sku_series_df = weekly_sub.rename(columns={date_col: 'date', demand_col: 'total_demand'})
-    else:
-        y = subset[demand_col].values.astype(float)
-        dates = None
-        sku_series_df = subset
+def compute_cached_model_lab_backtest(df: pd.DataFrame, sel_branch: str, sel_sku: str, folds: int, min_train: int = 13):
+    """Same series preparation, seasonal profile and 12-week folds as the production champion tournament."""
+    selector = ModelSelector()
+    prep = selector.prepare_series(df, sel_sku, sel_branch)
+    if prep.get('status') != 'success':
+        return {'leaderboard': pd.DataFrame(), 'reason': prep.get('error')}, 0
+    sku_series_df = prep['sku_data']
+    y = sku_series_df['total_demand'].values.astype(float)
+    dates = sku_series_df['date'].values
 
-    backtester = RollingOriginBacktest(n_folds=folds, test_weeks=4, min_train_weeks=min_train)
-    bt_results = backtester.evaluate_sku_series(y, dates=dates, sku_df=sku_series_df)
+    backtester = RollingOriginBacktest(n_folds=folds, test_weeks=12, min_train_weeks=min_train)
+    bt_results = backtester.evaluate_sku_series(y, dates=dates, sku_df=sku_series_df,
+                                                profile_factory=prep['profile_factory'])
 
-    # Automated Leakage Audit
+    # Leakage audit on the engineered feature matrix the ML candidates are trained on
     try:
-        auditor = LeakageAuditor()
-        splits = backtester.generate_folds(len(y))
-        audit_report = auditor.run_full_audit(sku_series_df, folds=splits)
-        bt_results['audit_report'] = audit_report
+        feat_df, _ = FeatureEngineer().engineer_features(sku_series_df)
+        bt_results['audit_report'] = LeakageAuditor().run_full_audit(feat_df, folds=backtester.generate_folds(len(y)))
     except Exception as e:
         logger.warning(f"Leakage audit check skipped: {e}")
-        bt_results['audit_report'] = {
-            'leakage_percentage': 0.0,
-            'checks_passed': 4,
-            'checks_total': 4,
-            'is_fully_compliant': True
-        }
+        bt_results['audit_report'] = {'not_run': True, 'error': str(e)}
 
     return bt_results, len(y)
 
@@ -230,7 +207,7 @@ def render_model_lab_page(df: pd.DataFrame, theme: str = "dark"):
     <div class="section-title-wrap">
         <div>
             <h2 class="section-title">🔬 Model Lab & Backtesting Leaderboard</h2>
-            <p class="section-subtitle">Rigorous rolling-origin walk-forward cross-validation, champion/challenger tournaments & stability scoring</p>
+            <p class="section-subtitle">Rolling-origin walk-forward cross-validation (12-week folds, same engine as the forecast page), ranked on RMSE, with stability scoring</p>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -257,7 +234,7 @@ def render_model_lab_page(df: pd.DataFrame, theme: str = "dark"):
     with c3:
         folds = st.slider("Walk-Forward Folds:", min_value=2, max_value=6, value=3)
         
-    min_train = 16
+    min_train = 13
     bt_results, len_y = compute_cached_model_lab_backtest(df, sel_branch, sel_sku, folds, min_train)
     leaderboard_df = bt_results.get('leaderboard', pd.DataFrame())
     
@@ -272,8 +249,8 @@ def render_model_lab_page(df: pd.DataFrame, theme: str = "dark"):
                 Selected series <strong>{sel_sku}</strong> at <strong>{sel_branch}</strong> contains only <strong>{len_y}</strong> weekly periods.
             </p>
             <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
-                Statistically rigorous walk-forward cross-validation with <strong>{folds} folds</strong> and <strong>4-week test horizons</strong> 
-                requires at least <strong>{min_train + folds * 4} contiguous weeks</strong> of history to avoid test sample overlap and artificial bias.
+                Walk-forward cross-validation needs at least 5 weekly periods with 2 or more billing weeks
+                ({folds} full 12-week folds need {min_train + folds * 12} weeks). {bt_results.get('reason') or ''}
             </p>
             <div style="font-size: 12.5px; color: {accent_color}; font-weight: 500;">
                 💡 Corrective Actions: Select fewer folds (e.g. 2 folds), or choose an established SKU with ≥24 weeks of active billing history.
@@ -286,13 +263,14 @@ def render_model_lab_page(df: pd.DataFrame, theme: str = "dark"):
     champion = lb_manager.get_champion()
     baseline_comp = lb_manager.compare_with_baseline()
     
-    # Real Leakage Audit Check from cached evaluation
-    audit_report = bt_results.get('audit_report') or {
-        'leakage_percentage': 0.0,
-        'checks_passed': 4,
-        'checks_total': 4,
-        'is_fully_compliant': True
-    }
+    audit_report = bt_results.get('audit_report') or {'not_run': True, 'error': 'audit unavailable'}
+    if audit_report.get('not_run'):
+        audit_value, audit_sub, audit_color = "Not run", f"Audit error: {audit_report.get('error', '')[:60]}", "#F59E0B"
+    else:
+        audit_value = f"{audit_report['leakage_percentage']:.1f}% Leakage"
+        audit_sub = f"{audit_report['checks_passed']}/{audit_report['checks_total']} checks passed on the ML feature matrix"
+        audit_color = "#00E5FF" if audit_report.get('is_fully_compliant') else "#F43F5E"
+    lift = baseline_comp.get('pct_accuracy_lift', 0.0)
     
     # 4 Luxury KPI Cards for Model Lab
     k1, k2, k3, k4 = st.columns(4)
@@ -302,16 +280,16 @@ def render_model_lab_page(df: pd.DataFrame, theme: str = "dark"):
             <div class="kpi-card-top"><span class="kpi-badge kpi-badge-cyan">Tournament Champion</span><span>🏆</span></div>
             <div class="kpi-label">Active Champion Model</div>
             <div class="kpi-value" style="font-size: 18px !important;">{champion['model']}</div>
-            <div style="font-size: 12px; color: var(--text-secondary);">Lowest WAPE: <strong>{champion['mean_wape']:.1f}%</strong></div>
+            <div style="font-size: 12px; color: var(--text-secondary);">Lowest RMSE ({champion['mean_rmse']:.1f}) &bull; WAPE <strong>{champion['mean_wape']:.1f}%</strong></div>
         </div>
         """, unsafe_allow_html=True)
     with k2:
         st.markdown(f"""
         <div class="kpi-card">
             <div class="kpi-card-top"><span class="kpi-badge kpi-badge-green">Benchmarked Lift</span><span>🚀</span></div>
-            <div class="kpi-label">Accuracy Lift vs Naive</div>
-            <div class="kpi-value" style="color: #10B981 !important;">+{baseline_comp['pct_accuracy_lift']:.1f}%</div>
-            <div style="font-size: 12px; color: var(--text-secondary);">WAPE cut: <strong>-{baseline_comp['wape_reduction_points']:.1f} pts</strong></div>
+            <div class="kpi-label">WAPE change vs {baseline_comp.get('baseline_name', 'Naive')}</div>
+            <div class="kpi-value" style="color: {'#10B981' if lift > 0 else '#F43F5E'} !important;">{-lift:+.1f}%</div>
+            <div style="font-size: 12px; color: var(--text-secondary);">WAPE {baseline_comp.get('champion_wape', 0):.1f}% vs <strong>{baseline_comp.get('baseline_wape', 0):.1f}%</strong></div>
         </div>
         """, unsafe_allow_html=True)
     with k3:
@@ -328,8 +306,8 @@ def render_model_lab_page(df: pd.DataFrame, theme: str = "dark"):
         <div class="kpi-card">
             <div class="kpi-card-top"><span class="kpi-badge kpi-badge-cyan">Validation Integrity</span><span>🔒</span></div>
             <div class="kpi-label">Temporal Leakage Audit</div>
-            <div class="kpi-value" style="color: #00E5FF !important;">{audit_report['leakage_percentage']:.1f}% Leakage</div>
-            <div style="font-size: 12px; color: var(--text-secondary);">{audit_report['checks_passed']}/{audit_report['checks_total']} checks passed &bull; Verified</div>
+            <div class="kpi-value" style="color: {audit_color} !important;">{audit_value}</div>
+            <div style="font-size: 12px; color: var(--text-secondary);">{audit_sub}</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -391,88 +369,88 @@ def render_model_lab_page(df: pd.DataFrame, theme: str = "dark"):
 
 
 # -----------------------------------------------------------------------------
+# SHARED: SKU / BRANCH SELECTION + CANONICAL FORECAST
+# -----------------------------------------------------------------------------
+REGION_OPTION = "All branches (South Region)"
+
+
+def _sku_branch_controls(df: pd.DataFrame, key: str, sku_label: str = "Select Target SKU:"):
+    """SKU picker (top 20 by volume) plus an explicit branch picker; None branch = region total."""
+    sku_col = next((c for c in ['Material', 'sku'] if c in df.columns), 'Material')
+    branch_col = next((c for c in ['SALES OFFICE CODE', 'SALES OFFICE CODE.1', 'Branch', 'branch'] if c in df.columns), None)
+    demand_col = next((c for c in ['Billing Quantity ODU', 'total_demand', 'quantity_odu'] if c in df.columns), None)
+    top_skus = df.groupby(sku_col)[demand_col].sum().sort_values(ascending=False).head(20).index.tolist()
+    sel_sku = st.selectbox(sku_label, top_skus, key=f"{key}_sku")
+    options = [REGION_OPTION]
+    if branch_col:
+        vols = df[df[sku_col] == sel_sku].groupby(branch_col)[demand_col].sum().sort_values(ascending=False)
+        options += [str(b) for b in vols.index]
+    sel_branch = st.selectbox("Branch:", options, key=f"{key}_branch")
+    return sel_sku, (None if sel_branch == REGION_OPTION else sel_branch)
+
+
+@st.cache_data(show_spinner="Running the champion model tournament (out-of-sample backtest)...", max_entries=64)
+def compute_cached_service_forecast(df: pd.DataFrame, sel_sku: Optional[str], branch: Optional[str], horizon: int = 12):
+    """Canonical champion forecast package from ForecastService (same engine as every other page)."""
+    return ForecastService(df).get_forecast(sel_sku, branch, horizon=horizon)
+
+
+def _champion_caption(f_res: Dict[str, Any]) -> str:
+    champ = f_res.get('champion') or {}
+    return (f"Champion **{champ.get('model_name', 'n/a')}**: backtest WAPE {champ.get('wape', float('nan')):.1f}% "
+            f"over {f_res.get('backtest_folds') or 0} out-of-sample 12-week fold(s).")
+
+
+# -----------------------------------------------------------------------------
 # 3. INVENTORY INTELLIGENCE COCKPIT VIEW
 # -----------------------------------------------------------------------------
-@st.cache_data(show_spinner=False)
-def compute_cached_inventory_forecast(df: pd.DataFrame, sel_sku: str):
-    sku_col = next((c for c in ['Material', 'sku'] if c in df.columns), 'Material')
-    demand_col = next((c for c in ['Billing Quantity ODU', 'total_demand', 'quantity_odu'] if c in df.columns), None)
-    sku_records = df[df[sku_col] == sel_sku]
-    hist_demand = sku_records[demand_col].values.astype(float) if len(sku_records) > 0 else np.array([40.0])
-    avg_demand = float(np.mean(hist_demand)) if len(hist_demand) > 0 else 40.0
-    
-    if len(hist_demand) >= 12:
-        sm = StatisticalModels()
-        sm.fit_all(hist_demand)
-        preds = sm.predict_all(12)
-        stat_item = preds.get('arima', preds.get('ARIMA'))
-        if isinstance(stat_item, dict):
-            f_res = stat_item.get('forecast')
-        elif isinstance(stat_item, (tuple, list)):
-            f_res = stat_item[0]
-        else:
-            f_res = stat_item
-            
-        if f_res is None or np.all(np.isnan(f_res)):
-            bm = BaselineForecastingModels()
-            bm.fit_all(hist_demand)
-            b_preds = bm.predict_all(12)
-            f_vals = b_preds.get('moving_average', b_preds.get('Moving Average', np.full(12, avg_demand)))
-        else:
-            f_vals = np.maximum(0.0, f_res)
-    else:
-        f_vals = np.full(12, avg_demand)
-        
-    rmse_est = float(np.std(hist_demand)) if len(hist_demand) > 1 else max(1.0, avg_demand * 0.25)
-    return hist_demand, avg_demand, f_vals, rmse_est
-
-
 def render_inventory_page(df: pd.DataFrame, theme: str = "dark"):
-    """Dedicated Inventory Optimization Cockpit consuming genuine forward forecasts."""
+    """Inventory policy from the champion forecast and its out-of-sample error distribution."""
     is_dark = (theme == "dark")
-    accent_color = "#00E5FF" if is_dark else "#0284C7"
-    
+
     st.markdown(f"""
     <div class="section-title-wrap">
         <div>
             <h2 class="section-title">📦 Inventory Intelligence & Optimization Cockpit</h2>
-            <p class="section-subtitle">Lead time demand modeling, safety stock buffers, reorder points & working capital exposure</p>
+            <p class="section-subtitle">Lead time demand, safety stock, reorder point & working capital from the champion forecast and its backtest errors</p>
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
-    sku_col = next((c for c in ['Material', 'sku'] if c in df.columns), 'Material')
-    demand_col = next((c for c in ['Billing Quantity ODU', 'total_demand', 'quantity_odu'] if c in df.columns), None)
-    
-    if not demand_col or not sku_col:
+
+    if not any(c in df.columns for c in ['Billing Quantity ODU', 'total_demand', 'quantity_odu']):
         st.error("Required demand or SKU columns missing.")
         return
-        
-    top_skus = df.groupby(sku_col)[demand_col].sum().sort_values(ascending=False).head(20).index.tolist()
-    
-    ic1, ic2, ic3, ic4 = st.columns(4)
+
+    ic1, ic2, ic3, ic4, ic5 = st.columns([1.4, 1.2, 1, 1, 1])
     with ic1:
-        sel_sku = st.selectbox("Select Target SKU:", top_skus, key="inv_sku")
+        sel_sku, sel_branch = _sku_branch_controls(df, "inv")
     with ic2:
         lead_time = st.slider("Replenishment Lead Time (Weeks):", 1, 8, 2, key="inv_lt")
     with ic3:
-        target_sl = st.select_slider("Target Service Level:", [0.85, 0.90, 0.95, 0.98, 0.99], value=0.95, 
+        target_sl = st.select_slider("Target Service Level:", [0.85, 0.90, 0.95, 0.98, 0.99], value=0.95,
                                      format_func=lambda x: f"{int(x*100)}%", key="inv_sl")
     with ic4:
-        unit_cost = st.number_input("Unit RAC Cost (INR):", min_value=5000, max_value=150000, value=25000, step=1000)
+        unit_cost = st.number_input("Unit RAC Cost (INR):", min_value=5000, max_value=150000, value=25000, step=1000,
+                                    help="Planning assumption; the billing extract has no cost data.")
+    with ic5:
+        on_hand = st.number_input("Current on-hand (units):", min_value=0, value=None, step=10,
+                                  help="Optional. Needed to estimate stock-out probability; not in the billing extract.")
 
-    # Extract actual demand series via cached model
-    hist_demand, avg_demand, f_vals, rmse_est = compute_cached_inventory_forecast(df, sel_sku)
-    
-    inv_engine = InventoryEngine(
-        default_lead_time=lead_time, default_service_level=target_sl, unit_cost=unit_cost
-    )
+    f_res = compute_cached_service_forecast(df, sel_sku, sel_branch, 12)
+    if f_res.get('status') != 'success':
+        st.info(f"Cannot forecast {sel_sku}: {f_res.get('message') or f_res.get('error', 'insufficient history')}")
+        return
+
+    inv_engine = InventoryEngine(default_lead_time=lead_time, default_service_level=target_sl, unit_cost=unit_cost)
+    residuals = f_res.get('historical_residuals')
     policy = inv_engine.calculate_inventory_policy(
-        f_vals, historical_demand=hist_demand, forecast_rmse=rmse_est,
-        lead_time_weeks=lead_time, target_service_level=target_sl
+        np.asarray(f_res['p50'], dtype=float), historical_demand=f_res.get('historical_demand'),
+        forecast_rmse=(f_res.get('champion') or {}).get('rmse'),
+        forecast_residuals=np.asarray(residuals, dtype=float) if residuals and len(residuals) >= 3 else None,
+        lead_time_weeks=lead_time, target_service_level=target_sl, current_on_hand=on_hand
     )
-    
-    # Inventory KPI Cards
+    st.caption(_champion_caption(f_res) + f" Safety-stock uncertainty basis: `{policy.get('uncertainty_basis', 'n/a')}`.")
+
     k1, k2, k3, k4 = st.columns(4)
     with k1:
         st.markdown(f"""
@@ -480,16 +458,16 @@ def render_inventory_page(df: pd.DataFrame, theme: str = "dark"):
             <div class="kpi-card-top"><span class="kpi-badge kpi-badge-cyan">Lead Time Demand</span><span>⏱️</span></div>
             <div class="kpi-label">Demand During Lead Time</div>
             <div class="kpi-value">{policy['lead_time_demand']:,.0f} units</div>
-            <div style="font-size: 12px; color: var(--text-secondary);">{lead_time} weeks &times; {policy['mean_weekly_demand']:.1f} weekly avg</div>
+            <div style="font-size: 12px; color: var(--text-secondary);">Next {lead_time} forecast weeks ({policy['mean_weekly_demand']:.1f}/week avg)</div>
         </div>
         """, unsafe_allow_html=True)
     with k2:
         st.markdown(f"""
         <div class="kpi-card">
-            <div class="kpi-card-top"><span class="kpi-badge kpi-badge-green">Dynamic Safety Buffer</span><span>🛡️</span></div>
+            <div class="kpi-card-top"><span class="kpi-badge kpi-badge-green">Safety Buffer</span><span>🛡️</span></div>
             <div class="kpi-label">Recommended Safety Stock</div>
             <div class="kpi-value" style="color: #10B981 !important;">{policy['safety_stock_units']:,} units</div>
-            <div style="font-size: 12px; color: var(--text-secondary);">Z={policy['target_service_level_pct']:.0f}% service target</div>
+            <div style="font-size: 12px; color: var(--text-secondary);">{policy['target_service_level_pct']:.0f}% cycle service level</div>
         </div>
         """, unsafe_allow_html=True)
     with k3:
@@ -507,13 +485,11 @@ def render_inventory_page(df: pd.DataFrame, theme: str = "dark"):
             <div class="kpi-card-top"><span class="kpi-badge kpi-badge-cyan">Working Capital</span><span>💰</span></div>
             <div class="kpi-label">Capital in Safety Stock</div>
             <div class="kpi-value">₹{policy['safety_stock_capital_inr']:,.0f}</div>
-            <div style="font-size: 12px; color: var(--text-secondary);">Weekly holding cost: ₹{policy['weekly_holding_cost_inr']:,.0f}</div>
+            <div style="font-size: 12px; color: var(--text-secondary);">At the assumed unit cost; weekly holding ₹{policy['weekly_holding_cost_inr']:,.0f}</div>
         </div>
         """, unsafe_allow_html=True)
 
     st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
-
-    # Sensitivity Table & Stockout Chart
     s_col1, s_col2 = st.columns([1.8, 1.2])
     with s_col1:
         st.markdown("""
@@ -524,95 +500,81 @@ def render_inventory_page(df: pd.DataFrame, theme: str = "dark"):
         st.dataframe(policy['sensitivity_table'], use_container_width=True)
 
     with s_col2:
-        fig_risk = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=policy['stockout_risk_pct'],
-            number={'suffix': "%", 'font': {'size': 38, 'family': "Outfit", 'color': '#FFFFFF' if is_dark else '#0F172A'}},
-            title={'text': "Stockout Probability Risk", 'font': {'size': 16, 'family': "Outfit"}},
-            gauge={
-                'axis': {'range': [0, 100]},
-                'bar': {'color': '#10B981' if policy['stockout_risk_pct'] <= 10 else ('#F59E0B' if policy['stockout_risk_pct'] <= 25 else '#F43F5E')},
-                'steps': [
-                    {'range': [0, 10], 'color': 'rgba(16, 185, 129, 0.2)'},
-                    {'range': [10, 25], 'color': 'rgba(245, 158, 11, 0.2)'},
-                    {'range': [25, 100], 'color': 'rgba(244, 63, 94, 0.2)'}
-                ]
-            }
-        ))
-        fig_risk.update_layout(height=280, margin=dict(l=20, r=20, t=30, b=20), template='plotly_dark' if is_dark else 'plotly_white')
-        st.plotly_chart(fig_risk, use_container_width=True)
+        risk = policy.get('stockout_risk_pct')
+        if risk is None:
+            st.info("Enter the current on-hand stock to estimate the probability of a stock-out within the lead time.")
+        else:
+            fig_risk = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=risk,
+                number={'suffix': "%", 'font': {'size': 38, 'family': "Outfit", 'color': '#FFFFFF' if is_dark else '#0F172A'}},
+                title={'text': "Stock-out Probability (lead time)", 'font': {'size': 16, 'family': "Outfit"}},
+                gauge={
+                    'axis': {'range': [0, 100]},
+                    'bar': {'color': '#10B981' if risk <= 10 else ('#F59E0B' if risk <= 25 else '#F43F5E')},
+                    'steps': [
+                        {'range': [0, 10], 'color': 'rgba(16, 185, 129, 0.2)'},
+                        {'range': [10, 25], 'color': 'rgba(245, 158, 11, 0.2)'},
+                        {'range': [25, 100], 'color': 'rgba(244, 63, 94, 0.2)'}
+                    ]
+                }
+            ))
+            fig_risk.update_layout(height=280, margin=dict(l=20, r=20, t=30, b=20), template='plotly_dark' if is_dark else 'plotly_white')
+            st.plotly_chart(fig_risk, use_container_width=True)
 
 
 # -----------------------------------------------------------------------------
 # 4. SCENARIO & WHAT-IF SIMULATOR VIEW
 # -----------------------------------------------------------------------------
-@st.cache_data(show_spinner=False)
-def compute_cached_scenario_forecast(df: pd.DataFrame, sel_sku: str, primary_branch: str):
-    svc = ForecastService(df)
-    return svc.get_forecast(sel_sku, primary_branch, horizon=12)
-
-
 def render_scenario_simulator_page(df: pd.DataFrame, theme: str = "dark"):
-    """Dedicated What-If scenario simulator view driven by real baseline model forecast."""
+    """What-if scenarios applied to the champion forecast; uncertainty from its backtest errors."""
     is_dark = (theme == "dark")
     accent_color = "#00E5FF" if is_dark else "#0284C7"
-    
+
     st.markdown(f"""
     <div class="section-title-wrap">
         <div>
             <h2 class="section-title">🔮 Scenario & What-If Stress Simulator</h2>
-            <p class="section-subtitle">Evaluate temperature heatwave spikes, promotional shocks, supply throttles & custom demand shifts</p>
+            <p class="section-subtitle">Apply assumed demand shocks (heatwave, schemes, supply constraints) to the champion forecast</p>
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
-    sku_col = next((c for c in ['Material', 'sku'] if c in df.columns), 'Material')
-    branch_col = next((c for c in ['SALES OFFICE CODE', 'SALES OFFICE CODE.1', 'Branch', 'branch', 'Region'] if c in df.columns), None)
-    demand_col = next((c for c in ['Billing Quantity ODU', 'total_demand', 'quantity_odu'] if c in df.columns), None)
-    
-    if not demand_col or not sku_col:
+
+    if not any(c in df.columns for c in ['Billing Quantity ODU', 'total_demand', 'quantity_odu']):
         st.error("Required demand or SKU columns missing.")
         return
-        
-    top_skus = df.groupby(sku_col)[demand_col].sum().sort_values(ascending=False).head(20).index.tolist()
-    
+
     sc1, sc2 = st.columns([1.5, 2.5])
     with sc1:
-        sel_sku = st.selectbox("Select Focus SKU:", top_skus, key="scen_sku")
+        sel_sku, sel_branch = _sku_branch_controls(df, "scen", "Select Focus SKU:")
         scen_choice = st.selectbox(
             "Choose Demand Scenario:",
             list(ScenarioSimulator.SCENARIO_PROFILES.keys()) + ["Custom Percentage Shock"]
         )
-        custom_pct = 0.0
+        multiplier = None
         if scen_choice == "Custom Percentage Shock":
             custom_pct = st.slider("Demand Adjustment Percentage (%):", -50, 100, 25, step=5)
             multiplier = 1.0 + (custom_pct / 100.0)
-        else:
-            multiplier = None
 
-    # Base Forecast: compute actual production champion forecast trajectory via ForecastService
-    b_candidates = df[df[sku_col] == sel_sku][branch_col].dropna().unique() if branch_col in df.columns else []
-    primary_branch = str(b_candidates[0]) if len(b_candidates) > 0 else ""
-    f_res = compute_cached_scenario_forecast(df, sel_sku, primary_branch)
-    
-    if f_res.get('status') == 'success':
-        base_curve = np.array(f_res['p50'], dtype=float)
-    else:
-        st.info(f"Insufficient transaction history for {sel_sku} to execute scenario simulation.")
+    f_res = compute_cached_service_forecast(df, sel_sku, sel_branch, 12)
+    if f_res.get('status') != 'success':
+        st.info(f"Cannot forecast {sel_sku}: {f_res.get('message') or f_res.get('error', 'insufficient history')}")
         return
-    
+    base_curve = np.array(f_res['p50'], dtype=float)
+    residuals = f_res.get('historical_residuals') or None
+
     simulator = ScenarioSimulator()
-    if scen_choice == "Custom Percentage Shock":
-        res = simulator.simulate(base_curve, custom_multiplier=multiplier)
+    if multiplier is not None:
+        res = simulator.simulate(base_curve, custom_multiplier=multiplier, forecast_residuals=residuals)
     else:
-        res = simulator.simulate(base_curve, scenario_name=scen_choice)
-        
+        res = simulator.simulate(base_curve, scenario_name=scen_choice, forecast_residuals=residuals)
+
     with sc2:
         st.markdown(f"""
         <div class="glass-panel" style="padding: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <strong style="color: {accent_color}; font-size: 16px;">Scenario: {res['scenario_name']}</strong>
-                <span class="kpi-badge kpi-badge-cyan">{res['multiplier']:.2f}x Multiplier</span>
+                <span class="kpi-badge kpi-badge-cyan">{res['multiplier']:.2f}x assumed multiplier</span>
             </div>
             <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">{res['description']}</p>
             <div style="display: flex; gap: 20px; font-size: 13px;">
@@ -621,11 +583,11 @@ def render_scenario_simulator_page(df: pd.DataFrame, theme: str = "dark"):
             </div>
         </div>
         """, unsafe_allow_html=True)
+        st.caption(_champion_caption(f_res) + " Scenario multipliers are planning assumptions, not estimated from the data.")
 
     st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
-    # Forward Curve Visualization
-    future_weeks = [f"Week +{i+1}" for i in range(12)]
+    future_weeks = pd.to_datetime(f_res.get('forecast_dates', pd.date_range(pd.Timestamp.today(), periods=12, freq='W-MON')))
     fig_scen = go.Figure()
     fig_scen.add_trace(go.Scatter(
         x=future_weeks, y=res['base_forecast'], mode='lines+markers',
@@ -633,88 +595,68 @@ def render_scenario_simulator_page(df: pd.DataFrame, theme: str = "dark"):
     ))
     fig_scen.add_trace(go.Scatter(
         x=future_weeks, y=res['scenario_forecast'], mode='lines+markers',
-        name=f"Stress Scenario ({res['scenario_name']})",
+        name=f"Scenario ({res['scenario_name']})",
         line=dict(color='#00E5FF' if is_dark else '#0284C7', width=3.5),
         fill='tonexty', fillcolor='rgba(0, 229, 255, 0.12)' if is_dark else 'rgba(2, 132, 199, 0.12)'
     ))
     fig_scen.update_layout(
-        title=f"12-Week Forward Demand Trajectory: Base vs {res['scenario_name']}",
+        title=f"12-Week Forward Demand: Base vs {res['scenario_name']}",
         height=380, template='plotly_dark' if is_dark else 'plotly_white'
     )
     st.plotly_chart(fig_scen, use_container_width=True)
 
-    # Comparative Summary Matrix Across All Scenarios
     st.markdown("""
     <div class="subpanel-title" style="margin-bottom: 10px;">
-        📋 Comparative Scenario Matrix & Working Capital Requirements
+        📋 Comparative Scenario Matrix & Working Capital Requirements (2-week lead time, 95% service)
     </div>
     """, unsafe_allow_html=True)
-    all_summary = simulator.get_all_scenarios_summary(base_curve)
-    st.dataframe(all_summary, use_container_width=True)
+    st.dataframe(simulator.get_all_scenarios_summary(base_curve, forecast_residuals=residuals), use_container_width=True)
 
 
 # -----------------------------------------------------------------------------
 # 5. FORECAST MONITORING & DRIFT RADAR VIEW
 # -----------------------------------------------------------------------------
-@st.cache_data(show_spinner=False)
-def compute_cached_monitoring_forecast(df: pd.DataFrame, sel_sku: str, primary_branch: str, eval_window: int):
-    svc = ForecastService(df)
-    return svc.get_forecast(sel_sku, primary_branch, horizon=eval_window)
-
-
 def render_monitoring_drift_page(df: pd.DataFrame, theme: str = "dark"):
-    """Dedicated Forecast Monitoring & Distribution Drift Cockpit using genuine historical tracking."""
+    """Model health from the champion's latest out-of-sample period and demand-distribution drift."""
     is_dark = (theme == "dark")
     accent_color = "#00E5FF" if is_dark else "#0284C7"
-    
+
     st.markdown(f"""
     <div class="section-title-wrap">
         <div>
             <h2 class="section-title">📡 Forecast Monitoring & Drift Radar</h2>
-            <p class="section-subtitle">Real-time tracking signal control limits, Population Stability Index (PSI), and model health auditing</p>
+            <p class="section-subtitle">Tracking signal on out-of-sample forecasts, accuracy degradation vs earlier periods, and Population Stability Index (PSI)</p>
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
-    sku_col = next((c for c in ['Material', 'sku'] if c in df.columns), 'Material')
-    branch_col = next((c for c in ['SALES OFFICE CODE', 'SALES OFFICE CODE.1', 'Branch', 'branch', 'Region'] if c in df.columns), None)
-    demand_col = next((c for c in ['Billing Quantity ODU', 'total_demand', 'quantity_odu'] if c in df.columns), None)
-    
-    if not demand_col or not sku_col:
+
+    if not any(c in df.columns for c in ['Billing Quantity ODU', 'total_demand', 'quantity_odu']):
         st.error("Required demand or SKU columns missing.")
         return
-        
-    top_skus = df.groupby(sku_col)[demand_col].sum().sort_values(ascending=False).head(20).index.tolist()
-    
+
     m1, m2 = st.columns([1.5, 2.5])
     with m1:
-        sel_sku = st.selectbox("Select Audited SKU:", top_skus, key="mon_sku")
-        eval_window = st.slider("Monitoring Evaluation Window (Weeks):", 4, 16, 8)
-        
-    # Ingest production champion metrics and telemetry via ForecastService
-    b_candidates = df[df[sku_col] == sel_sku][branch_col].dropna().unique() if branch_col in df.columns else []
-    primary_branch = str(b_candidates[0]) if len(b_candidates) > 0 else ""
-    f_res = compute_cached_monitoring_forecast(df, sel_sku, primary_branch, eval_window)
-    
+        sel_sku, sel_branch = _sku_branch_controls(df, "mon", "Select Audited SKU:")
+        eval_window = st.slider("Drift comparison window (recent weeks):", 4, 16, 8)
+
+    f_res = compute_cached_service_forecast(df, sel_sku, sel_branch, 12)
     if f_res.get('status') != 'success':
-        st.info(f"Insufficient transaction history for {sel_sku} to compute live model telemetry.")
+        st.info(f"Cannot evaluate {sel_sku}: {f_res.get('message') or f_res.get('error', 'insufficient history')}")
         return
-        
+
     health_res = f_res['model_health']
-    drift_res = f_res['drift_analysis']
-    y_actuals = f_res['historical_demand']
-    y_forecasts = f_res['point_forecast']
+    y_actuals = np.asarray(f_res['historical_demand'], dtype=float)
+    drift_res = DriftDetector().detect_demand_drift(y_actuals, recent_window=eval_window)
 
     with m2:
-        status_badge = f"kpi-badge-{health_res['badge_color']}"
-        drift_badge = f"kpi-badge-{drift_res['badge_color']}"
         st.markdown(f"""
         <div class="glass-panel" style="padding: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <span class="subpanel-title" style="margin:0; font-size: 16px; color: {accent_color};">Model Health Status:</span>
-                <span class="kpi-badge {status_badge}">{health_res['health_status']}</span>
+                <span class="kpi-badge kpi-badge-{health_res.get('badge_color', 'cyan')}">{health_res['health_status']}</span>
             </div>
             <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 10px;">{health_res['recommendation']}</p>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">Evaluated on: {health_res.get('evaluation_window', 'n/a')} (forecasts made before these weeks, compared with actual billing).</p>
             <div style="display: flex; justify-content: space-between; font-size: 12.5px; border-top: 1px solid var(--border-glass); padding-top: 8px;">
                 <span>Distribution Drift Status: <strong style="color: {'#10B981' if not drift_res['drift_detected'] else '#F43F5E'};">{drift_res['drift_status']}</strong></span>
                 <span>PSI Score: <strong>{drift_res['psi']:.3f}</strong> (Limit: 0.25)</span>
@@ -724,23 +666,23 @@ def render_monitoring_drift_page(df: pd.DataFrame, theme: str = "dark"):
 
     st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
-    # 2 Telemetry Charts: Tracking Signal & PSI Histogram
     t_c1, t_c2 = st.columns(2)
     with t_c1:
         ts_traj = health_res.get('ts_trajectory', [])
+        last_fold = (f_res.get('fold_details') or [{}])
+        last_fold = last_fold[-1] if last_fold else {}
+        periods = last_fold.get('test_dates') or [f"W{i+1}" for i in range(len(ts_traj))]
         fig_ts = go.Figure()
-        periods = [f"W{i+1}" for i in range(len(ts_traj))]
         fig_ts.add_trace(go.Scatter(
-            x=periods, y=ts_traj, mode='lines+markers', name='Tracking Signal',
+            x=periods[:len(ts_traj)], y=ts_traj, mode='lines+markers', name='Tracking Signal',
             line=dict(color='#00E5FF' if is_dark else '#0284C7', width=3)
         ))
-        # Add control boundaries
         fig_ts.add_hline(y=4.0, line_dash="dash", line_color="#F59E0B", annotation_text="Upper Watch (+4.0)")
         fig_ts.add_hline(y=-4.0, line_dash="dash", line_color="#F59E0B", annotation_text="Lower Watch (-4.0)")
         fig_ts.add_hline(y=6.0, line_dash="dash", line_color="#F43F5E", annotation_text="Upper Breach (+6.0)")
         fig_ts.add_hline(y=-6.0, line_dash="dash", line_color="#F43F5E", annotation_text="Lower Breach (-6.0)")
         fig_ts.update_layout(
-            title="Tracking Signal Control Chart (Cumulative Error / MAD)",
+            title="Tracking Signal (cumulative error / MAD) on the latest out-of-sample period",
             yaxis_title="Tracking Signal",
             height=360, template='plotly_dark' if is_dark else 'plotly_white'
         )
@@ -750,261 +692,180 @@ def render_monitoring_drift_page(df: pd.DataFrame, theme: str = "dark"):
         n = len(y_actuals)
         ref_pts = y_actuals[:-eval_window] if n > eval_window else y_actuals
         cur_pts = y_actuals[-eval_window:] if n > eval_window else y_actuals
-        
         fig_drift = go.Figure()
-        fig_drift.add_trace(go.Histogram(
-            x=ref_pts, name=f"Baseline Reference ({len(ref_pts)}W)",
-            opacity=0.65, marker_color='#6366F1'
-        ))
-        fig_drift.add_trace(go.Histogram(
-            x=cur_pts, name=f"Recent Window ({len(cur_pts)}W)",
-            opacity=0.65, marker_color='#00E5FF' if is_dark else '#0284C7'
-        ))
+        fig_drift.add_trace(go.Histogram(x=ref_pts, name=f"Baseline Reference ({len(ref_pts)}W)", opacity=0.65, marker_color='#6366F1'))
+        fig_drift.add_trace(go.Histogram(x=cur_pts, name=f"Recent Window ({len(cur_pts)}W)", opacity=0.65,
+                                         marker_color='#00E5FF' if is_dark else '#0284C7'))
         fig_drift.update_layout(
-            title=f"Distribution Comparison: PSI = {drift_res['psi']:.3f} (KS p-val: {drift_res['ks_p_value']:.2f})",
+            title=f"Weekly demand distribution: PSI = {drift_res['psi']:.3f} (KS p-val: {drift_res['ks_p_value']:.2f})",
             barmode='overlay', height=360, template='plotly_dark' if is_dark else 'plotly_white'
         )
         st.plotly_chart(fig_drift, use_container_width=True)
+        st.caption("Drift compares weekly billing volumes, so the seasonal cycle itself can register as drift.")
 
 
 # -----------------------------------------------------------------------------
-# 6. HIERARCHICAL RECONCILIATION & MULTI-ECHELON COHERENCY VIEW
+# 6. HIERARCHICAL RECONCILIATION VIEW
 # -----------------------------------------------------------------------------
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner="Forecasting the region and each branch total with the champion engine...")
 def compute_cached_hierarchy_reconciliation(df: pd.DataFrame, horizon: int = 12) -> Dict[str, Any]:
-    """Cached computation of hierarchical trees, proportions, and multi-echelon coherency matrices."""
+    """
+    Region total and each branch total forecast directly by the champion engine (all SKUs, ODU).
+    Bottom-up = sum of branch forecasts; top-down = direct region forecast split by the branches'
+    last-52-week shares. SKU allocation splits each branch forecast by SKU share of its last 13 weeks.
+    """
     branch_col = next((c for c in ['SALES OFFICE CODE', 'SALES OFFICE CODE.1', 'Branch', 'branch'] if c in df.columns), None)
     sku_col = next((c for c in ['Material', 'sku'] if c in df.columns), 'Material')
     demand_col = next((c for c in ['Billing Quantity ODU', 'total_demand', 'quantity_odu'] if c in df.columns), None)
     date_col = next((c for c in ['Billing Date', 'date'] if c in df.columns), None)
-
-    if not branch_col or not sku_col or not demand_col:
+    if not branch_col or not demand_col or not date_col:
         return {}
 
-    clean_df = df.dropna(subset=[branch_col, sku_col, demand_col]).copy()
-    clean_df = clean_df.rename(columns={branch_col: 'branch', sku_col: 'sku', demand_col: 'total_demand'})
-    if date_col and date_col in clean_df.columns:
-        clean_df = clean_df.rename(columns={date_col: 'date'})
-        clean_df['date'] = pd.to_datetime(clean_df['date'], errors='coerce')
-        clean_df = clean_df.dropna(subset=['date'])
+    # Aggregate series are smooth and seasonal: the tournament runs every non-ML candidate
+    # (the recursive ML models add minutes per series on these long aggregates)
+    candidates = [m for m in ALL_MODELS if m not in ML_MAP and m not in INTERMITTENT_MAP]
 
-    aggregator = HierarchyAggregator(region_name="South Region")
-    tree = aggregator.build_hierarchy_tree(clean_df)
-    proportions = aggregator.compute_historical_proportions(clean_df)
+    def _fit(branch):
+        sel = ModelSelector()
+        sel.registry.save = lambda: None
+        return sel.select_and_fit(df, None, branch, horizon=horizon, candidate_models=candidates)
 
-    top_skus = clean_df.groupby('sku')['total_demand'].sum().sort_values(ascending=False).head(10).index.tolist()
-    branches = sorted(clean_df['branch'].unique().tolist())
+    region = _fit(None)
+    if region.get('status') != 'success':
+        return {'error': region.get('error')}
+    branches = sorted(df[branch_col].dropna().astype(str).unique().tolist())
+    branch_res = {b: _fit(b) for b in branches}
+    branch_res = {b: r for b, r in branch_res.items() if r.get('status') == 'success'}
 
-    sku_forecasts = {}
-    for b in branches:
-        for s in top_skus:
-            sub = clean_df[(clean_df['branch'] == b) & (clean_df['sku'] == s)]
-            if len(sub) >= 4:
-                base_val = float(np.mean(sub['total_demand'].values[-4:]))
-            elif len(sub) > 0:
-                base_val = float(np.mean(sub['total_demand'].values))
-            else:
-                base_val = 0.0
-            steps = np.arange(horizon)
-            f_curve = np.maximum(0.0, base_val * (1.0 + 0.08 * np.sin(2 * np.pi * steps / 12)))
-            sku_forecasts[(s, b)] = f_curve
+    work = df[[branch_col, sku_col, demand_col, date_col]].copy()
+    if 'EXT MAT GROUP' in df.columns:
+        work = work[df['EXT MAT GROUP'] == 'RA-ODU']
+    work[date_col] = pd.to_datetime(work[date_col], errors='coerce')
+    last = work[date_col].max()
+    yr = work[work[date_col] > last - pd.Timedelta(weeks=52)]
+    shares = (yr.groupby(branch_col)[demand_col].sum() / yr[demand_col].sum()).to_dict()
+    q = work[work[date_col] > last - pd.Timedelta(weeks=13)]
+    sku_shares = {b: (g.groupby(sku_col)[demand_col].sum() / g[demand_col].sum()).sort_values(ascending=False)
+                  for b, g in q.groupby(branch_col)}
 
-    reconciler = HierarchicalReconciler(method='bottom_up')
-    bu_results = reconciler.reconcile_bottom_up(sku_forecasts)
-    coherency_check = reconciler.verify_coherency(sku_forecasts, bu_results['branch_forecasts'])
-
-    td_results = reconciler.reconcile_top_down(
-        bu_results['region_forecast'],
-        proportions['branch_shares'],
-        proportions['sku_branch_shares']
-    )
-
+    region_fc = np.asarray(region['forecast'], dtype=float)
+    bu = np.sum([np.asarray(r['forecast'], dtype=float) for r in branch_res.values()], axis=0)
+    td = {b: region_fc * shares.get(b, 0.0) for b in branch_res}
     return {
-        'tree': tree,
-        'proportions': proportions,
-        'top_skus': top_skus,
-        'branches': branches,
-        'sku_forecasts': sku_forecasts,
-        'bu_results': bu_results,
-        'coherency_check': coherency_check,
-        'td_results': td_results,
-        'horizon': horizon
+        'region': region, 'branch_res': branch_res, 'branches': list(branch_res),
+        'region_fc': region_fc, 'bottom_up': bu, 'top_down': td, 'shares': shares,
+        'sku_shares': sku_shares, 'horizon': horizon,
     }
 
 
 def render_hierarchy_page(df: pd.DataFrame, theme: str = "dark"):
-    """Dedicated view for Hierarchical Forecasting & Mathematical Coherency across Region -> Branch -> SKU."""
+    """Region and branch forecasts from the champion engine and how bottom-up and top-down compare."""
     is_dark = (theme == "dark")
-    accent_color = "#00E5FF" if is_dark else "#0284C7"
-    
-    st.markdown(f"""
+    template = 'plotly_dark' if is_dark else 'plotly_white'
+
+    st.markdown("""
     <div class="section-title-wrap">
         <div>
-            <h2 class="section-title">🌐 Hierarchical Forecasting & Multi-Echelon Reconciliation</h2>
-            <p class="section-subtitle">Mathematical coherency verification: &Sigma; SKU Forecasts = Branch Forecast &bull; &Sigma; Branch Forecasts = Region Total</p>
+            <h2 class="section-title">🌐 Hierarchical Forecasting & Reconciliation</h2>
+            <p class="section-subtitle">Region and branch totals forecast directly by the champion engine (statistical &amp; seasonal candidates) &bull; bottom-up vs top-down comparison &bull; SKU allocation</p>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    recon_data = compute_cached_hierarchy_reconciliation(df, horizon=12)
-    if not recon_data:
-        st.error("Required dimensions (Branch, SKU, Demand) not found in dataset for hierarchy.")
+    data = compute_cached_hierarchy_reconciliation(df, horizon=12)
+    if not data or 'error' in data:
+        st.error(f"Hierarchy unavailable: {data.get('error', 'branch / demand / date columns not found') if data else 'branch / demand / date columns not found'}")
         return
 
-    tree = recon_data['tree']
-    proportions = recon_data['proportions']
-    top_skus = recon_data['top_skus']
-    branches = recon_data['branches']
-    sku_forecasts = recon_data['sku_forecasts']
-    bu_results = recon_data['bu_results']
-    coherency_check = recon_data['coherency_check']
-    td_results = recon_data['td_results']
-    horizon = recon_data['horizon']
+    region, branch_res, branches = data['region'], data['branch_res'], data['branches']
+    region_fc, bu = data['region_fc'], data['bottom_up']
+    dates = pd.to_datetime(region['forecast_dates'])
+    gap_pct = (bu.sum() - region_fc.sum()) / region_fc.sum() * 100 if region_fc.sum() else float('nan')
 
-    # 4 Luxury KPI Cards
     k1, k2, k3, k4 = st.columns(4)
     with k1:
         st.markdown(f"""
         <div class="kpi-card">
-            <div class="kpi-card-top"><span class="kpi-badge kpi-badge-cyan">Echelon 1 (Apex)</span><span>🌍</span></div>
-            <div class="kpi-label">South Region Reconciled</div>
-            <div class="kpi-value">{np.sum(bu_results['region_forecast']):,.0f} units</div>
-            <div style="font-size: 12px; color: var(--text-secondary);">12-Week Apex Aggregate Demand</div>
+            <div class="kpi-card-top"><span class="kpi-badge kpi-badge-cyan">Region (direct)</span><span>🌍</span></div>
+            <div class="kpi-label">South Region 12-week forecast</div>
+            <div class="kpi-value">{region_fc.sum():,.0f} units</div>
+            <div style="font-size: 12px; color: var(--text-secondary);">{region['champion'].get('model_name')} &bull; backtest WAPE {region['champion'].get('wape', float('nan')):.1f}%</div>
         </div>
         """, unsafe_allow_html=True)
     with k2:
         st.markdown(f"""
         <div class="kpi-card">
-            <div class="kpi-card-top"><span class="kpi-badge kpi-badge-green">Echelon 2 (Nodes)</span><span>🏢</span></div>
-            <div class="kpi-label">Active Regional Branches</div>
-            <div class="kpi-value" style="color: #10B981 !important;">{len(branches)} Branches</div>
-            <div style="font-size: 12px; color: var(--text-secondary);">BLR, MAA, COK, SBD, SBD1</div>
+            <div class="kpi-card-top"><span class="kpi-badge kpi-badge-green">Bottom-up</span><span>🏢</span></div>
+            <div class="kpi-label">Sum of {len(branches)} branch forecasts</div>
+            <div class="kpi-value" style="color: #10B981 !important;">{bu.sum():,.0f} units</div>
+            <div style="font-size: 12px; color: var(--text-secondary);">Each branch forecast by its own champion</div>
         </div>
         """, unsafe_allow_html=True)
     with k3:
         st.markdown(f"""
         <div class="kpi-card">
-            <div class="kpi-card-top"><span class="kpi-badge kpi-badge-amber">Echelon 3 (Leaves)</span><span>📦</span></div>
-            <div class="kpi-label">Forecasted Active SKUs</div>
-            <div class="kpi-value">{len(top_skus)} Focus SKUs</div>
-            <div style="font-size: 12px; color: var(--text-secondary);">{len(sku_forecasts)} SKU &times; Branch Pairs</div>
+            <div class="kpi-card-top"><span class="kpi-badge {'kpi-badge-green' if abs(gap_pct) <= 5 else 'kpi-badge-amber'}">Coherence gap</span><span>⚖️</span></div>
+            <div class="kpi-label">Bottom-up vs direct region</div>
+            <div class="kpi-value">{gap_pct:+.1f}%</div>
+            <div style="font-size: 12px; color: var(--text-secondary);">Unreconciled forecasts disagree by this much</div>
         </div>
         """, unsafe_allow_html=True)
     with k4:
-        is_coherent = coherency_check['overall_coherent']
+        b_wapes = [r['champion'].get('wape', np.nan) for r in branch_res.values()]
         st.markdown(f"""
         <div class="kpi-card">
-            <div class="kpi-card-top"><span class="kpi-badge {'kpi-badge-green' if is_coherent else 'kpi-badge-rose'}">Mathematical Audit</span><span>🔒</span></div>
-            <div class="kpi-label">Multi-Echelon Coherency</div>
-            <div class="kpi-value" style="color: {'#10B981' if is_coherent else '#F43F5E'} !important;">
-                {'100% Coherent' if is_coherent else 'Coherency Drift'}
-            </div>
-            <div style="font-size: 12px; color: var(--text-secondary);">&Sigma; SKU = Branch &bull; &Sigma; Branch = Region</div>
+            <div class="kpi-card-top"><span class="kpi-badge kpi-badge-amber">Branch accuracy</span><span>📏</span></div>
+            <div class="kpi-label">Median branch backtest WAPE</div>
+            <div class="kpi-value">{np.nanmedian(b_wapes):.1f}%</div>
+            <div style="font-size: 12px; color: var(--text-secondary);">Range {np.nanmin(b_wapes):.1f}% &ndash; {np.nanmax(b_wapes):.1f}%</div>
         </div>
         """, unsafe_allow_html=True)
 
     st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
-
-    # Reconciliation Method Tabs
-    tab_bu, tab_td, tab_shares = st.tabs([
-        "🔼 Bottom-Up Reconciliation (SKU -> Branch -> Region)",
-        "🔽 Top-Down Disaggregation (Region -> Branch -> SKU)",
-        "📊 Historical Volume Shares & Echelon Distribution"
+    tab_bu, tab_td, tab_sku = st.tabs([
+        "🔼 Branch forecasts & bottom-up total",
+        "🔽 Top-down split of the region forecast",
+        "📦 SKU allocation within a branch"
     ])
-
-    future_weeks = [f"W+{i+1}" for i in range(horizon)]
+    colors = ['#00E5FF', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6']
 
     with tab_bu:
-        c1, c2 = st.columns([2, 1.2])
-        with c1:
-            fig_bu = go.Figure()
-            # Branch lines
-            colors = ['#00E5FF', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6']
-            for i, (b_name, b_fc) in enumerate(bu_results['branch_forecasts'].items()):
-                fig_bu.add_trace(go.Scatter(
-                    x=future_weeks, y=b_fc, mode='lines+markers', name=f"Branch: {b_name}",
-                    line=dict(color=colors[i % len(colors)], width=2)
-                ))
-            fig_bu.add_trace(go.Scatter(
-                x=future_weeks, y=bu_results['region_forecast'], mode='lines+markers', name="Region Consolidated Total",
-                line=dict(color='#FFFFFF' if is_dark else '#0F172A', width=3.5, dash='dash')
-            ))
-            fig_bu.update_layout(
-                title="Bottom-Up Reconciled Forward Trajectory by Branch & Region",
-                xaxis_title="Forward Horizon", yaxis_title="Units",
-                height=380, template='plotly_dark' if is_dark else 'plotly_white'
-            )
-            st.plotly_chart(fig_bu, use_container_width=True)
-
-        with c2:
-            st.markdown("""
-            <div class="subpanel-title" style="margin-bottom: 8px;">
-                📐 Branch Coherency Audit Matrix
-            </div>
-            """, unsafe_allow_html=True)
-            branch_details = coherency_check.get('branch_details', coherency_check.get('details', {}))
-            audit_rows = []
-            for b_name in branches:
-                det = branch_details.get(b_name, {})
-                branch_total_val = float(np.sum(bu_results['branch_forecasts'].get(b_name, 0.0)))
-                sku_sum_val = float(det.get('sku_sum_total', branch_total_val))
-                max_disc_val = float(det.get('max_divergence', det.get('max_discrepancy', 0.0)))
-                is_coh_val = bool(det.get('coherent', det.get('is_coherent', True)))
-                audit_rows.append({
-                    'Branch': b_name,
-                    'Branch Total': f"{branch_total_val:,.0f}",
-                    'SKU Sum': f"{sku_sum_val:,.0f}",
-                    'Max Discrepancy': f"{max_disc_val:.4f}",
-                    'Status': '✅ Coherent' if is_coh_val else '❌ Divergent'
-                })
-            st.dataframe(pd.DataFrame(audit_rows), use_container_width=True, hide_index=True)
+        fig_bu = go.Figure()
+        for i, b in enumerate(branches):
+            fig_bu.add_trace(go.Scatter(x=dates, y=branch_res[b]['forecast'], mode='lines+markers',
+                                        name=f"{b} ({branch_res[b]['champion'].get('model_name')})",
+                                        line=dict(color=colors[i % len(colors)], width=2)))
+        fig_bu.add_trace(go.Scatter(x=dates, y=bu, mode='lines', name='Bottom-up total',
+                                    line=dict(color='#FFFFFF' if is_dark else '#0F172A', width=3.5, dash='dash')))
+        fig_bu.add_trace(go.Scatter(x=dates, y=region_fc, mode='lines', name='Direct region forecast',
+                                    line=dict(color='#F43F5E', width=3)))
+        fig_bu.update_layout(title="Branch forecasts, their sum and the direct region forecast", yaxis_title="Units / week",
+                             height=400, template=template)
+        st.plotly_chart(fig_bu, use_container_width=True)
+        st.dataframe(pd.DataFrame([{
+            'Branch': b,
+            'Champion': r['champion'].get('model_name'),
+            'Backtest WAPE %': round(r['champion'].get('wape', np.nan), 1),
+            '12-week forecast': round(float(np.sum(r['forecast']))),
+            'Top-down (region x share)': round(float(np.sum(data['top_down'][b]))),
+            'Last-52-week share %': round(data['shares'].get(b, 0.0) * 100, 1),
+        } for b, r in branch_res.items()]), use_container_width=True, hide_index=True)
 
     with tab_td:
-        st.markdown("""
-        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
-            Top-Down reconciliation applies historical proportion matrices to project regional aggregate cooling forecasts down to individual branch nodes and SKU leaves while preserving the top-line constraint.
-        </p>
-        """, unsafe_allow_html=True)
-        td_summary = []
-        for b_name, b_arr in td_results['branch_forecasts'].items():
-            b_share = proportions['branch_shares'].get(b_name, 0.0) * 100
-            td_summary.append({
-                'Branch': b_name,
-                'Historical Share': f"{b_share:.1f}%",
-                'Top-Down Forecast (12W)': f"{np.sum(b_arr):,.0f} units",
-                'Weekly Average': f"{np.mean(b_arr):,.1f} units",
-                'Coherency': 'Coherent (Restricted by Region Apex)'
-            })
-        st.dataframe(pd.DataFrame(td_summary), use_container_width=True, hide_index=True)
+        st.caption("Top-down keeps the region total fixed and splits it by each branch's share of the last 52 weeks. "
+                   "It is coherent by construction but ignores branch-specific seasonality (e.g. Bangalore peaks in March).")
+        fig_td = go.Figure()
+        for i, b in enumerate(branches):
+            fig_td.add_trace(go.Bar(x=dates, y=data['top_down'][b], name=b, marker_color=colors[i % len(colors)]))
+        fig_td.update_layout(barmode='stack', title="Direct region forecast split by branch share", height=380, template=template)
+        st.plotly_chart(fig_td, use_container_width=True)
 
-    with tab_shares:
-        s1, s2 = st.columns(2)
-        with s1:
-            b_share_df = pd.DataFrame([
-                {'Branch': b, 'Share %': s * 100}
-                for b, s in proportions['branch_shares'].items()
-            ])
-            fig_shares = px.pie(
-                b_share_df, names='Branch', values='Share %',
-                title="Historical Regional Demand Share by Branch",
-                color_discrete_sequence=['#00E5FF', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6'],
-                hole=0.45
-            )
-            fig_shares.update_layout(height=340, template='plotly_dark' if is_dark else 'plotly_white')
-            st.plotly_chart(fig_shares, use_container_width=True)
-        with s2:
-            st.markdown("""
-            <div class="subpanel-title" style="margin-bottom: 8px;">
-                🌳 Regional Echelon Decomposition
-            </div>
-            """, unsafe_allow_html=True)
-            echelon_data = []
-            for b_code, b_info in tree['branches'].items():
-                echelon_data.append({
-                    'Branch': b_code,
-                    'Echelon Level': b_info['level'],
-                    'Assigned SKUs': b_info['sku_count'],
-                    'Historical Share': f"{proportions['branch_shares'].get(b_code, 0.0)*100:.1f}%"
-                })
-            st.dataframe(pd.DataFrame(echelon_data), use_container_width=True, hide_index=True)
-
+    with tab_sku:
+        sel_b = st.selectbox("Branch:", branches, key="hier_branch")
+        sh = data['sku_shares'].get(sel_b, pd.Series(dtype=float)).head(10)
+        b_total = float(np.sum(branch_res[sel_b]['forecast']))
+        st.caption("Allocation of the branch's 12-week forecast by each SKU's share of the last 13 weeks "
+                   "(proportional disaggregation, not a separate SKU forecast).")
+        st.dataframe(pd.DataFrame({'SKU': sh.index, 'Share of last 13 weeks %': (sh.values * 100).round(1),
+                                   'Allocated 12-week units': (sh.values * b_total).round(0)}),
+                     use_container_width=True, hide_index=True)
