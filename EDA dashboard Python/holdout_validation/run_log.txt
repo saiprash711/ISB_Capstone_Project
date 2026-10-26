@@ -5,3 +5,4 @@
 Saved holdout_validation\forecasts_static.parquet (10,663 rows) and holdout_validation\models_static.parquet (157,508 rows)
 [rolling] 3227 fits remaining on 11 workers
   100/3227  172s
+  200/3227  344s
