@@ -2,269 +2,524 @@ import os
 import shutil
 
 ROOT_DIR = r"C:\ISB Capstone"
-INDEX_PATH = os.path.join(ROOT_DIR, "index.html")
-PUBLIC_INDEX_PATH = os.path.join(ROOT_DIR, "public", "index.html")
+APP_PATH = os.path.join(ROOT_DIR, "app.js")
+PUBLIC_APP_PATH = os.path.join(ROOT_DIR, "public", "app.js")
 
-with open(INDEX_PATH, "r", encoding="utf-8") as f:
-    html = f.read()
+with open(APP_PATH, "r", encoding="utf-8") as f:
+    js = f.read()
 
-# 1. Update quick-meta-strip to add Final Report badge
-old_meta = """            <div class="meta-chip">
-              <span>Completeness:</span>
-              <strong style="color: #0284C7;">95.0%</strong>
-            </div>
-          </div>"""
+# 1. Update default theme to dark
+js = js.replace("theme: localStorage.getItem('app_theme') || 'light',", "theme: localStorage.getItem('app_theme') || 'dark',", 1)
 
-new_meta = """            <div class="meta-chip">
-              <span>Completeness:</span>
-              <strong style="color: #0284C7;">95.0%</strong>
-            </div>
-            <div class="meta-chip" style="border: 1px solid rgba(99, 102, 241, 0.4); background: rgba(99, 102, 241, 0.1);">
-              <span>Deliverable:</span>
-              <a href="assets/ISB_Capstone_Final_Report.pdf" download="ISB_Capstone_Final_Report.pdf" style="color: #6366F1; font-weight: 700; text-decoration: none;">🎓 Final Report PDF</a>
-            </div>
-          </div>"""
+# 2. Add PILLARS definition and pillar navigation logic
+pillar_code = """
+  // ---------------------------------------------------------------------------
+  // 4-PILLAR PRIMARY NAVIGATION ARCHITECTURE (100% PARITY WITH STREAMLIT)
+  // ---------------------------------------------------------------------------
+  const PILLARS = {
+    'csuite': {
+      key: 'csuite',
+      badge: '💼 C-SUITE EXECUTIVE INTELLIGENCE',
+      desc: 'Executive Telemetry Cockpit • Action Queue • Automated C-Suite PDF Briefings',
+      defaultView: 'cockpit',
+      submodules: [
+        { id: 'cockpit', label: '🏠 Executive Cockpit' },
+        { id: 'reports', label: '📄 C-Suite Reports' }
+      ]
+    },
+    'forecasting_studio': {
+      key: 'forecasting_studio',
+      badge: '🎯 AI DEMAND FORECASTING STUDIO',
+      desc: 'Predictive SKU Modeling • Algorithm Competition Leaderboard • Hierarchy Reconciliation',
+      defaultView: 'forecasting',
+      submodules: [
+        { id: 'forecasting', label: '🎯 SKU Demand Forecasting' },
+        { id: 'modellab', label: '🔬 Model Lab & Leaderboard' },
+        { id: 'hierarchy', label: '🌐 Hierarchical Reconciliation' },
+        { id: 'holdout', label: '✅ Holdout Validation (FY24-25)' }
+      ]
+    },
+    'operations': {
+      key: 'operations',
+      badge: '📡 FORECASTING OPERATIONS & DRIFT RADAR',
+      desc: 'Tracking Signal • Model Degradation Monitoring • Scenario Stress-Testing • APICS Inventory Calibration',
+      defaultView: 'drift',
+      submodules: [
+        { id: 'drift', label: '📡 Forecast Monitoring & Drift' },
+        { id: 'scenarios', label: '🔮 Scenario Simulator' },
+        { id: 'inventory', label: '📦 Inventory Intelligence' }
+      ]
+    },
+    'eda': {
+      key: 'eda',
+      badge: '📊 EXPLORATORY DATA ANALYSIS (EDA) WORKSPACE',
+      desc: 'Multi-Dimensional Slicing • Statistical Deep-Dive • Data Quality • Cleaning Studio',
+      defaultView: 'explorer',
+      submodules: [
+        { id: 'explorer', label: '🔍 Intelligence Explorer' },
+        { id: 'statistical', label: '📈 Statistical Deep-Dive' },
+        { id: 'radar', label: '🛡️ Data Quality Radar' },
+        { id: 'cleaning', label: '🧹 Data Cleaning Studio' }
+      ]
+    }
+  };
 
-if old_meta in html:
-    html = html.replace(old_meta, new_meta, 1)
-    print("Updated quick-meta-strip with Final Report link")
+  state.currentPillar = 'csuite';
 
-# 2. Update Top Nav bar button label
-old_nav_btn = '<button type="button" class="top-segment-btn" data-target="reports">📄 C-Suite Reports</button>'
-new_nav_btn = '<button type="button" class="top-segment-btn" data-target="reports">📄 Final Report &amp; Deliverables</button>'
-if old_nav_btn in html:
-    html = html.replace(old_nav_btn, new_nav_btn, 1)
-    print("Updated top nav button label")
+  function renderSubNav(pillarKey, activeSubId) {
+    const pillar = PILLARS[pillarKey] || PILLARS['csuite'];
+    const badgeEl = document.getElementById('subNavBadge');
+    const descEl = document.getElementById('subNavDesc');
+    const subNavBar = document.getElementById('subNavBar');
 
-# 3. Update view-holdout download strip to include Final Report and add Operational Rolling table
-old_holdout_strip = """            <a href="assets/verification.json" download="verification.json" class="btn btn-emerald">
-              🛡️ Download Forensic Verification Audit (.json)
-            </a>
-            <a href="assets/ISB_Capstone_Final_Report.pdf" download="ISB_Capstone_Final_Report.pdf" class="btn btn-secondary" style="border: 1px solid #6366F1; color: #6366F1;">
-              📕 Read Final Report Holdout Chapter (PDF)
-            </a>
-          </div>
-        </div>"""
+    if (badgeEl) badgeEl.textContent = pillar.badge;
+    if (descEl) descEl.textContent = pillar.desc;
 
-rolling_table_html = """        <!-- Operational Rolling Re-Forecast Leaderboard -->
-        <div class="glass-panel" style="margin-top: 24px;">
-          <div class="subpanel-title" style="color: #0284C7;">🔄 Operational Rolling Horizon Leaderboard (Re-Forecast Every 4 Weeks &bull; Next 4 Weeks Ahead)</div>
-          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">
-            Simulating live production usage: every 4 weeks the engine is retrained on historical actuals to issue rolling replenishment forecasts.
-          </p>
-          <div class="table-scroll-container" style="max-height: 320px; overflow-y: auto;">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Echelon Level</th>
-                  <th>Engine Accuracy</th>
-                  <th>Same Week Last Year</th>
-                  <th>4-Week Moving Avg</th>
-                  <th>Engine Bias</th>
-                  <th>APICS Operational Verdict</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>South Region x Quarter</strong></td>
-                  <td><strong style="color: #10B981;">71.8%</strong></td>
-                  <td>68.2%</td>
-                  <td>74.0%</td>
-                  <td>+0.6%</td>
-                  <td><span class="kpi-badge emerald">EXCELLENT</span></td>
-                </tr>
-                <tr>
-                  <td><strong>South Region x Month</strong></td>
-                  <td><strong style="color: #10B981;">65.6%</strong></td>
-                  <td>65.6%</td>
-                  <td>50.5%</td>
-                  <td>+0.6%</td>
-                  <td><span class="kpi-badge emerald">OPERATIONAL</span></td>
-                </tr>
-                <tr>
-                  <td><strong>Branch Hub x Month</strong></td>
-                  <td><strong style="color: #10B981;">63.4%</strong></td>
-                  <td>58.8%</td>
-                  <td>46.0%</td>
-                  <td>+0.6%</td>
-                  <td><span class="kpi-badge emerald">BEATS MOVING AVG (+17.4 pts)</span></td>
-                </tr>
-                <tr>
-                  <td><strong>SKU x Month (South Region)</strong></td>
-                  <td><strong style="color: #0284C7;">51.1%</strong></td>
-                  <td>-36.9%</td>
-                  <td>44.4%</td>
-                  <td>+0.6%</td>
-                  <td><span class="kpi-badge cyan">BEATS MOVING AVG (+6.7 pts)</span></td>
-                </tr>
-                <tr>
-                  <td><strong>SKU x Branch x Month</strong></td>
-                  <td><strong style="color: #0284C7;">38.5%</strong></td>
-                  <td>-44.6%</td>
-                  <td>35.6%</td>
-                  <td>+0.6%</td>
-                  <td><span class="kpi-badge cyan">BEATS NAIVE (+83.1 pts)</span></td>
-                </tr>
-                <tr>
-                  <td><strong>SKU x Branch x Week</strong></td>
-                  <td><strong style="color: #6366F1;">2.1%</strong></td>
-                  <td>-61.2%</td>
-                  <td>0.4%</td>
-                  <td>+0.6%</td>
-                  <td><span class="kpi-badge purple">POSITIVE AT HIGH LUMPINESS</span></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>"""
+    if (!subNavBar) return;
+    subNavBar.innerHTML = '';
 
-new_holdout_strip = old_holdout_strip + "\n\n" + rolling_table_html
+    pillar.submodules.forEach(sub => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `sub-nav-btn ${sub.id === activeSubId ? 'active' : ''}`;
+      btn.setAttribute('data-target', sub.id);
+      btn.textContent = sub.label;
+      btn.addEventListener('click', () => switchView(sub.id));
+      subNavBar.appendChild(btn);
+    });
+  }
 
-if "Operational Rolling Horizon Leaderboard" not in html and old_holdout_strip in html:
-    html = html.replace(old_holdout_strip, new_holdout_strip, 1)
-    print("Added Operational Rolling Horizon Leaderboard table")
+  function switchPillar(pillarKey, targetSubId) {
+    if (!PILLARS[pillarKey]) return;
+    state.currentPillar = pillarKey;
 
+    // Update primary pillar buttons
+    const pillarBtns = document.querySelectorAll('#primaryPillarGroup .top-segment-btn');
+    pillarBtns.forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-pillar') === pillarKey);
+    });
 
-# 4. Update view-reports to add the Final Report Package
-old_reports_section = """      <!-- ===================================================================
-           VIEW 7: 📄 C-SUITE REPORTS
-      ==================================================================== -->
-      <section class="view-content" id="view-reports" style="display: none;">
-        <div class="section-title-wrap">
-          <h2 class="section-title">📄 Executive Reports &amp; Data Export Center</h2>
-          <p class="section-subtitle">Generate automated C-Suite PDF briefing documents and presentation slide decks</p>
-        </div>
+    const activeSub = targetSubId || PILLARS[pillarKey].defaultView;
+    renderSubNav(pillarKey, activeSub);
+    switchView(activeSub);
+  }
 
-        <div class="charts-row-equal">
-          <div class="glass-panel">
-            <div class="subpanel-title" style="color: var(--primary-color);">📑 Executive Report Structure</div>
-            <ol class="panel-bullet-list" style="margin-left: 10px;">
-              <li><strong>1. Executive Summary:</strong> High-level strategic briefing on South Region sales velocity.</li>
-              <li><strong>2. Data Integrity Audit:</strong> Completeness ratios, missing field density, and schema metrics.</li>
-              <li><strong>3. Predictive Modeling:</strong> ARIMA &amp; Machine Learning 180-day forecast outputs.</li>
-              <li><strong>4. Strategic Directives:</strong> Actionable inventory buffers and branch allocations.</li>
-            </ol>
-          </div>
+  // Wire primary pillar buttons
+  setTimeout(() => {
+    const pillarBtns = document.querySelectorAll('#primaryPillarGroup .top-segment-btn');
+    pillarBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const p = btn.getAttribute('data-pillar');
+        if (p) switchPillar(p);
+      });
+    });
+  }, 10);
+"""
 
-          <div class="glass-panel">
-            <div class="subpanel-title" style="color: #10B981;">📥 Executive Deliverables (1-Click Downloads)</div>
-            <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px;">
-              <a href="assets/Capstone_Weekly_Report_26.10.26.pdf" download="Capstone_Weekly_Report_26.10.26.pdf" class="btn btn-primary" style="background: linear-gradient(135deg, #0284C7, #0369A1);">
-                📄 Download Latest Capstone Weekly Report (26.10.2026 &bull; PDF)
-              </a>
-              <a href="assets/Capstone_Weekly_Report_25.10.26.pdf" download="Capstone_Weekly_Report_25.10.26.pdf" class="btn btn-secondary">
-                📄 Download Capstone Weekly Report (25.10.2026 &bull; PDF)
-              </a>
-              <a href="assets/holdout_validation_FY24-25.xlsx" download="holdout_validation_FY24-25.xlsx" class="btn btn-emerald">
-                📊 Download FY24-25 Holdout Validation Workbook (.xlsx)
-              </a>
+# Insert PILLARS code right before function switchView
+js = js.replace("  function switchView(targetView) {", pillar_code + "\n  function switchView(targetView) {", 1)
 
-              <a href="assets/Executive_Report.pdf" download="Executive_Report.pdf" class="btn btn-primary">
-                📄 Download Executive Report (.pdf &bull; 528 KB)
-              </a>
-              <a href="assets/Presentation_Deck.pptx" download="Presentation_Deck.pptx" class="btn btn-secondary">
-                📊 Download Presentation Deck (.pptx &bull; 830 KB)
-              </a>
-              <a href="assets/ARIMA_Forecast_Results.csv" download="ARIMA_Forecast_Results.csv" class="btn btn-emerald">
-                📈 Download ARIMA Forecast Dataset (.csv &bull; 17 KB)
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>"""
+# 3. Update switchView to sync sub-nav buttons and pillar if necessary
+old_switch_sync = """    // Sync top segment buttons
+    topNavBtns.forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-target') === targetView);
+    });"""
 
-new_reports_section = """      <!-- ===================================================================
-           VIEW 7: 📄 C-SUITE REPORTS & FINAL DELIVERABLES
-      ==================================================================== -->
-      <section class="view-content" id="view-reports" style="display: none;">
-        <div class="section-title-wrap">
-          <h2 class="section-title">📄 Executive Reports &amp; Final Deliverables Center</h2>
-          <p class="section-subtitle">Official ISB Capstone Final Report, Academic Submission Package, and Executive C-Suite Briefings</p>
-        </div>
+new_switch_sync = """    // Sync sub-navigation dock buttons
+    const subNavBtns = document.querySelectorAll('#subNavBar .sub-nav-btn');
+    subNavBtns.forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-target') === targetView);
+    });
 
-        <!-- Official Final Capstone Submission Package -->
-        <div class="glass-panel" style="margin-bottom: 24px; border: 1px solid rgba(99, 102, 241, 0.4); background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(16, 185, 129, 0.05));">
-          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
-            <div>
-              <div class="subpanel-title" style="color: #6366F1; font-size: 1.15rem; margin-bottom: 4px;">🎓 Official ISB Capstone Final Report Package (October 2026)</div>
-              <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0;">
-                Demand Prediction by SKU: Forecasting Lumpy Room Air-Conditioner Demand for Depot Replenishment &bull; Deloitte Touche Tohmatsu India LLP &bull; AMPBA Class of 2026S
-              </p>
-            </div>
-            <span class="kpi-badge emerald" style="font-size: 0.85rem; padding: 6px 12px;">✅ SUBMISSION READY</span>
-          </div>
+    // Determine and sync owning pillar
+    for (const [pKey, pVal] of Object.entries(PILLARS)) {
+      if (pVal.submodules.some(s => s.id === targetView)) {
+        if (state.currentPillar !== pKey) {
+          state.currentPillar = pKey;
+          const pBtns = document.querySelectorAll('#primaryPillarGroup .top-segment-btn');
+          pBtns.forEach(b => b.classList.toggle('active', b.getAttribute('data-pillar') === pKey));
+          renderSubNav(pKey, targetView);
+        }
+        break;
+      }
+    }"""
 
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-top: 14px;">
-            <a href="assets/ISB_Capstone_Final_Report.pdf" download="ISB_Capstone_Final_Report.pdf" class="btn btn-primary" style="background: linear-gradient(135deg, #4F46E5, #6366F1); justify-content: center;">
-              📕 Download Final Report (.pdf &bull; 1.7 MB)
-            </a>
-            <a href="assets/ISB_Capstone_Final_Report.docx" download="ISB_Capstone_Final_Report.docx" class="btn btn-secondary" style="justify-content: center;">
-              📘 Download Final Report (.docx &bull; 1.4 MB)
-            </a>
-            <a href="assets/ISB_Capstone_Assignment_Submission_Form.pdf" download="ISB_Capstone_Assignment_Submission_Form.pdf" class="btn btn-emerald" style="justify-content: center;">
-              📋 Assignment Submission Form (.pdf)
-            </a>
-            <a href="assets/ISB_Capstone_Data_Note.pdf" download="ISB_Capstone_Data_Note.pdf" class="btn btn-emerald" style="justify-content: center;">
-              📊 Data Note (1-Page Methodology) (.pdf)
-            </a>
-            <a href="assets/ISB_Capstone_Originality_and_Confidentiality_Declaration.pdf" download="ISB_Capstone_Originality_and_Confidentiality_Declaration.pdf" class="btn btn-secondary" style="justify-content: center;">
-              🛡️ Originality &amp; Confidentiality Declaration (.pdf)
-            </a>
-            <a href="assets/ISB_Capstone_Plain_Language_Summary.pdf" download="ISB_Capstone_Plain_Language_Summary.pdf" class="btn btn-primary" style="background: linear-gradient(135deg, #059669, #10B981); justify-content: center;">
-              📝 Plain-Language Summary (.pdf)
-            </a>
-          </div>
-        </div>
+js = js.replace(old_switch_sync, new_switch_sync, 1)
 
-        <div class="charts-row-equal">
-          <div class="glass-panel">
-            <div class="subpanel-title" style="color: var(--primary-color);">📑 Executive Report Structure &amp; Methodology</div>
-            <ol class="panel-bullet-list" style="margin-left: 10px;">
-              <li><strong>1. Executive Summary &amp; Business Context:</strong> RAC supply chain replenishment dynamics across South Region hubs.</li>
-              <li><strong>2. Forensic Data Integrity &amp; Leakage Audit:</strong> 14/14 automated audit checks, strict chronological train/test separation.</li>
-              <li><strong>3. Multi-Model Time Series &amp; ML Architecture:</strong> 18 candidate algorithms, hierarchical reconciliation &amp; APICS smoothing.</li>
-              <li><strong>4. Out-of-Sample FY24-25 Holdout Validation:</strong> 444,274 units evaluated across 154 SKUs and 5 regional branches.</li>
-              <li><strong>5. Strategic Replenishment Directives:</strong> Buffer stock calibrations, service level guarantees, and deployment roadmap.</li>
-            </ol>
-          </div>
+# 4. Add chart renderers for Model Lab, Hierarchy, Drift, Scenarios, Inventory
+new_charts_code = """
+  // ---------------------------------------------------------------------------
+  // VIEW: MODEL LAB CHARTS
+  // ---------------------------------------------------------------------------
+  function renderModelLabCharts() {
+    const chartEl = document.getElementById('chartModelLabShap');
+    if (!chartEl || !window.Plotly) return;
 
-          <div class="glass-panel">
-            <div class="subpanel-title" style="color: #10B981;">📥 Weekly Updates &amp; Supporting Deliverables</div>
-            <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px;">
-              <a href="assets/Capstone_Weekly_Report_26.10.26.pdf" download="Capstone_Weekly_Report_26.10.26.pdf" class="btn btn-primary" style="background: linear-gradient(135deg, #0284C7, #0369A1);">
-                📄 Download Latest Capstone Weekly Report (26.10.2026 &bull; PDF)
-              </a>
-              <a href="assets/Capstone_Weekly_Report_25.10.26.pdf" download="Capstone_Weekly_Report_25.10.26.pdf" class="btn btn-secondary">
-                📄 Download Capstone Weekly Report (25.10.2026 &bull; PDF)
-              </a>
-              <a href="assets/holdout_validation_FY24-25.xlsx" download="holdout_validation_FY24-25.xlsx" class="btn btn-emerald">
-                📊 Download FY24-25 Holdout Validation Workbook (.xlsx)
-              </a>
-              <a href="assets/Executive_Report.pdf" download="Executive_Report.pdf" class="btn btn-primary">
-                📄 Download Executive Report (.pdf &bull; 528 KB)
-              </a>
-              <a href="assets/Presentation_Deck.pptx" download="Presentation_Deck.pptx" class="btn btn-secondary">
-                📊 Download Presentation Deck (.pptx &bull; 830 KB)
-              </a>
-              <a href="assets/ARIMA_Forecast_Results.csv" download="ARIMA_Forecast_Results.csv" class="btn btn-emerald">
-                📈 Download ARIMA Forecast Dataset (.csv &bull; 17 KB)
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>"""
+    const isDark = (state.theme === 'dark');
+    const layout = getPlotlyLayoutTheme();
+    layout.margin = { l: 150, r: 30, t: 30, b: 40 };
 
-if old_reports_section in html:
-    html = html.replace(old_reports_section, new_reports_section, 1)
-    print("Updated view-reports section with Final Report Package")
-else:
-    print("Warning: old_reports_section not found verbatim")
+    const features = [
+      'star_rating',
+      'segment_inverter',
+      'tonnage_val',
+      'rolling_12w_std',
+      'seasonal_profile_ratio',
+      'rolling_4w_mean',
+      'lag_1_demand'
+    ];
+    const importances = [0.055, 0.072, 0.089, 0.114, 0.165, 0.221, 0.284];
 
-# Write updated index.html
-with open(INDEX_PATH, "w", encoding="utf-8") as f:
-    f.write(html)
-print(f"Written: {INDEX_PATH}")
+    const trace = {
+      x: importances,
+      y: features,
+      type: 'bar',
+      orientation: 'h',
+      marker: {
+        color: importances.map((_, i) => i >= 5 ? '#00E5FF' : (i >= 3 ? '#6366F1' : '#10B981')),
+        line: { color: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', width: 1 }
+      },
+      text: importances.map(v => (v * 100).toFixed(1) + '% impact'),
+      textposition: 'auto',
+      hoverinfo: 'x+y'
+    };
 
-# Copy to public/index.html
-shutil.copy2(INDEX_PATH, PUBLIC_INDEX_PATH)
-print(f"Copied to: {PUBLIC_INDEX_PATH}")
+    Plotly.react(chartEl, [trace], layout, { displayModeBar: false, responsive: true });
+  }
+
+  // ---------------------------------------------------------------------------
+  // VIEW: HIERARCHY RECONCILIATION CHARTS
+  // ---------------------------------------------------------------------------
+  function renderHierarchyCharts() {
+    const chartEl = document.getElementById('chartHierarchyWaterfall');
+    if (!chartEl || !window.Plotly) return;
+
+    const isDark = (state.theme === 'dark');
+    const layout = getPlotlyLayoutTheme();
+    layout.barmode = 'group';
+
+    const categories = ['Chennai (MAA)', 'Secunderabad (SBD)', 'Vijayawada (SBD1)', 'Cochin (COK)', 'Bangalore (BLR)'];
+    const unreconciled = [32609, 25793, 14923, 9949, 8844];
+    const reconciled = [32501, 25707, 14873, 9916, 8814];
+
+    const trace1 = {
+      name: 'Base Unreconciled',
+      x: categories,
+      y: unreconciled,
+      type: 'bar',
+      marker: { color: isDark ? 'rgba(0, 229, 255, 0.45)' : 'rgba(2, 132, 199, 0.45)' }
+    };
+
+    const trace2 = {
+      name: 'MinT Optimal Reconciled',
+      x: categories,
+      y: reconciled,
+      type: 'bar',
+      marker: { color: '#10B981' }
+    };
+
+    Plotly.react(chartEl, [trace1, trace2], layout, { displayModeBar: false, responsive: true });
+  }
+
+  // ---------------------------------------------------------------------------
+  // VIEW: DRIFT RADAR CHARTS
+  // ---------------------------------------------------------------------------
+  function renderDriftCharts() {
+    const chartEl = document.getElementById('chartDriftTracking');
+    if (!chartEl || !window.Plotly) return;
+
+    const isDark = (state.theme === 'dark');
+    const layout = getPlotlyLayoutTheme();
+
+    const weeks = Array.from({ length: 24 }, (_, i) => `Wk ${i + 1}`);
+    const trackingSignal = [
+      0.2, 0.5, 0.8, 1.2, 1.6, 2.1, 1.8, 1.5, 1.2, 0.9, 0.4, 0.1,
+      -0.3, -0.7, -1.2, -1.8, -1.4, -0.9, -0.2, 0.4, 0.9, 1.2, 1.4, 1.42
+    ];
+
+    const traceSignal = {
+      x: weeks,
+      y: trackingSignal,
+      mode: 'lines+markers',
+      name: 'Tracking Signal',
+      line: { color: isDark ? '#00E5FF' : '#0284C7', width: 3, shape: 'spline' },
+      marker: { size: 6, color: '#6366F1' }
+    };
+
+    const traceUpper = {
+      x: weeks,
+      y: Array(24).fill(4.0),
+      mode: 'lines',
+      name: 'Upper Control (+4.0)',
+      line: { color: '#F43F5E', width: 2, dash: 'dash' }
+    };
+
+    const traceLower = {
+      x: weeks,
+      y: Array(24).fill(-4.0),
+      mode: 'lines',
+      name: 'Lower Control (-4.0)',
+      line: { color: '#F43F5E', width: 2, dash: 'dash' }
+    };
+
+    const traceZero = {
+      x: weeks,
+      y: Array(24).fill(0.0),
+      mode: 'lines',
+      name: 'Zero Bias Rail',
+      line: { color: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)', width: 1, dash: 'dot' }
+    };
+
+    Plotly.react(chartEl, [traceSignal, traceUpper, traceLower, traceZero], layout, { displayModeBar: false, responsive: true });
+  }
+
+  // ---------------------------------------------------------------------------
+  // VIEW: SCENARIO SIMULATOR CHARTS
+  // ---------------------------------------------------------------------------
+  let currentScenarioMultiplier = 1.25;
+
+  function renderScenarioCharts() {
+    const chartEl = document.getElementById('chartScenarioCurve');
+    if (!chartEl || !window.Plotly) return;
+
+    const isDark = (state.theme === 'dark');
+    const layout = getPlotlyLayoutTheme();
+
+    const weeks = Array.from({ length: 12 }, (_, i) => `Forward Wk ${i + 1}`);
+    const baseline = [7420, 7610, 7850, 8100, 8250, 8190, 7950, 7680, 7350, 7120, 6980, 7004];
+    const shocked = baseline.map(v => Math.round(v * currentScenarioMultiplier));
+
+    const traceBase = {
+      x: weeks,
+      y: baseline,
+      mode: 'lines+markers',
+      name: 'Baseline Plan',
+      line: { color: isDark ? '#94A3B8' : '#64748B', width: 2.5, dash: 'dot' }
+    };
+
+    const traceShock = {
+      x: weeks,
+      y: shocked,
+      mode: 'lines+markers',
+      name: 'Shock-Stressed Trajectory',
+      line: { color: currentScenarioMultiplier >= 1 ? '#F59E0B' : '#F43F5E', width: 3.5, shape: 'spline' },
+      fill: 'tonexty',
+      fillcolor: currentScenarioMultiplier >= 1 ? 'rgba(245, 158, 11, 0.12)' : 'rgba(244, 63, 94, 0.12)'
+    };
+
+    Plotly.react(chartEl, [traceBase, traceShock], layout, { displayModeBar: false, responsive: true });
+
+    // Update KPI values
+    const totalBase = baseline.reduce((a, b) => a + b, 0);
+    const totalShocked = shocked.reduce((a, b) => a + b, 0);
+    const delta = totalShocked - totalBase;
+    const deltaPct = ((currentScenarioMultiplier - 1.0) * 100).toFixed(0);
+
+    const baseEl = document.getElementById('scenBaseVal');
+    const shockEl = document.getElementById('scenStressedVal');
+    const subEl = document.getElementById('scenStressedSub');
+    const capEl = document.getElementById('scenCapitalVal');
+
+    if (baseEl) baseEl.textContent = totalBase.toLocaleString() + ' units';
+    if (shockEl) shockEl.textContent = totalShocked.toLocaleString() + ' units';
+    if (subEl) subEl.textContent = `${delta >= 0 ? '+' : ''}${delta.toLocaleString()} units net shock (${deltaPct >= 0 ? '+' : ''}${deltaPct}%)`;
+    if (capEl) capEl.textContent = `₹ ${(totalShocked * 25000 / 10000000).toFixed(2)} Cr`;
+  }
+
+  // ---------------------------------------------------------------------------
+  // VIEW: INVENTORY INTELLIGENCE CHARTS
+  // ---------------------------------------------------------------------------
+  let currentLeadTimeWeeks = 2;
+  let currentServiceLevel = 0.95;
+  let currentUnitCost = 25000;
+
+  function renderInventoryCharts() {
+    const chartEl = document.getElementById('chartInventoryCurve');
+    if (!chartEl || !window.Plotly) return;
+
+    const isDark = (state.theme === 'dark');
+    const layout = getPlotlyLayoutTheme();
+
+    const serviceLevels = [0.80, 0.85, 0.90, 0.92, 0.95, 0.97, 0.98, 0.99, 0.995];
+    const zScores = [0.84, 1.04, 1.28, 1.41, 1.65, 1.88, 2.05, 2.33, 2.58];
+    const stdDevLeadTime = 1650 * Math.sqrt(currentLeadTimeWeeks);
+
+    const safetyStocks = zScores.map(z => Math.round(z * stdDevLeadTime));
+    const labels = serviceLevels.map(sl => (sl * 100).toFixed(1) + '%');
+
+    const traceCurve = {
+      x: labels,
+      y: safetyStocks,
+      mode: 'lines+markers',
+      name: 'Safety Stock Buffer',
+      line: { color: '#10B981', width: 3.5, shape: 'spline' },
+      marker: { size: 7, color: '#00E5FF' },
+      fill: 'tozeroy',
+      fillcolor: 'rgba(16, 185, 129, 0.12)'
+    };
+
+    Plotly.react(chartEl, [traceCurve], layout, { displayModeBar: false, responsive: true });
+
+    // Update KPI cards
+    const meanWeeklyDraw = 7625;
+    const ltd = Math.round(meanWeeklyDraw * currentLeadTimeWeeks);
+    const zCurrent = currentServiceLevel >= 0.99 ? 2.33 : (currentServiceLevel >= 0.98 ? 2.05 : (currentServiceLevel >= 0.95 ? 1.65 : (currentServiceLevel >= 0.90 ? 1.28 : 1.04)));
+    const ss = Math.round(zCurrent * stdDevLeadTime);
+    const rop = ltd + ss;
+    const capCrores = (ss * currentUnitCost / 10000000).toFixed(2);
+
+    const ltdEl = document.getElementById('invLtdVal');
+    const ssEl = document.getElementById('invSsVal');
+    const ropEl = document.getElementById('invRopVal');
+    const capEl = document.getElementById('invCapitalVal');
+
+    if (ltdEl) ltdEl.textContent = ltd.toLocaleString() + ' units';
+    if (ssEl) ssEl.textContent = ss.toLocaleString() + ' units';
+    if (ropEl) ropEl.textContent = rop.toLocaleString() + ' units';
+    if (capEl) capEl.textContent = `₹ ${capCrores} Cr`;
+  }
+"""
+
+# Update renderCurrentViewCharts to include new views
+old_render_switch = """      case 'explorer':
+        renderExplorerTable();
+        break;"""
+
+new_render_switch = """      case 'explorer':
+        renderExplorerTable();
+        break;
+      case 'modellab':
+        renderModelLabCharts();
+        break;
+      case 'hierarchy':
+        renderHierarchyCharts();
+        break;
+      case 'drift':
+        renderDriftCharts();
+        break;
+      case 'scenarios':
+        renderScenarioCharts();
+        break;
+      case 'inventory':
+        renderInventoryCharts();
+        break;"""
+
+js = js.replace(old_render_switch, new_render_switch, 1)
+
+# Append new charts code before bootstrap
+js = js.replace("  // ---------------------------------------------------------------------------\n  // INITIAL DATA BOOTSTRAP", new_charts_code + "\n  // ---------------------------------------------------------------------------\n  // INITIAL DATA BOOTSTRAP", 1)
+
+# Wire interactive studio, scenario, and inventory controls in bootstrap
+bootstrap_init_code = """
+    // Wire In-Page Forecasting Studio controls
+    const studioBranchSelect = document.getElementById('studioBranchSelect');
+    const studioSkuSelect = document.getElementById('studioSkuSelect');
+    const studioModelSelect = document.getElementById('studioModelSelect');
+    const studioRunBtn = document.getElementById('studioRunBtn');
+
+    if (studioBranchSelect && forecastBranchSelect) {
+      studioBranchSelect.addEventListener('change', () => {
+        forecastBranchSelect.value = studioBranchSelect.value;
+        state.selectedBranch = studioBranchSelect.value;
+        updateForecastStudio();
+      });
+    }
+    if (studioSkuSelect && forecastSkuSelect) {
+      studioSkuSelect.addEventListener('change', () => {
+        forecastSkuSelect.value = studioSkuSelect.value;
+        state.selectedSku = studioSkuSelect.value;
+        updateForecastStudio();
+      });
+    }
+    if (studioModelSelect && forecastModelSelect) {
+      studioModelSelect.addEventListener('change', () => {
+        forecastModelSelect.value = studioModelSelect.value;
+        state.selectedModel = studioModelSelect.value;
+        updateForecastStudio();
+      });
+    }
+    if (studioRunBtn) {
+      studioRunBtn.addEventListener('click', () => updateForecastStudio());
+    }
+
+    // Wire Scenario Simulator controls
+    const scenPreset = document.getElementById('scenarioPresetSelect');
+    const customShockWrap = document.getElementById('customShockWrap');
+    const customSlider = document.getElementById('customShockSlider');
+    const customVal = document.getElementById('customShockVal');
+    const runScenBtn = document.getElementById('runScenarioBtn');
+
+    if (scenPreset) {
+      scenPreset.addEventListener('change', () => {
+        const val = scenPreset.value;
+        if (val === 'heatwave') {
+          currentScenarioMultiplier = 1.25;
+          if (customShockWrap) customShockWrap.style.display = 'none';
+        } else if (val === 'port_delay') {
+          currentScenarioMultiplier = 0.70;
+          if (customShockWrap) customShockWrap.style.display = 'none';
+        } else if (val === 'promotion') {
+          currentScenarioMultiplier = 1.35;
+          if (customShockWrap) customShockWrap.style.display = 'none';
+        } else if (val === 'custom') {
+          if (customShockWrap) customShockWrap.style.display = 'flex';
+          const pct = parseInt(customSlider.value, 10) || 0;
+          currentScenarioMultiplier = 1.0 + (pct / 100.0);
+        }
+        renderScenarioCharts();
+      });
+    }
+
+    if (customSlider && customVal) {
+      customSlider.addEventListener('input', () => {
+        const pct = parseInt(customSlider.value, 10) || 0;
+        customVal.textContent = (pct >= 0 ? '+' : '') + pct + '%';
+        currentScenarioMultiplier = 1.0 + (pct / 100.0);
+        renderScenarioCharts();
+      });
+    }
+
+    if (runScenBtn) {
+      runScenBtn.addEventListener('click', () => renderScenarioCharts());
+    }
+
+    // Wire Inventory Intelligence controls
+    const ltSlider = document.getElementById('invLeadTimeSlider');
+    const ltLabel = document.getElementById('invLeadTimeLabel');
+    const slSelect = document.getElementById('invServiceLevelSelect');
+    const costInput = document.getElementById('invUnitCostInput');
+
+    if (ltSlider && ltLabel) {
+      ltSlider.addEventListener('input', () => {
+        currentLeadTimeWeeks = parseInt(ltSlider.value, 10) || 2;
+        ltLabel.textContent = `${currentLeadTimeWeeks} Weeks`;
+        renderInventoryCharts();
+      });
+    }
+
+    if (slSelect) {
+      slSelect.addEventListener('change', () => {
+        currentServiceLevel = parseFloat(slSelect.value) || 0.95;
+        renderInventoryCharts();
+      });
+    }
+
+    if (costInput) {
+      costInput.addEventListener('input', () => {
+        currentUnitCost = parseFloat(costInput.value) || 25000;
+        renderInventoryCharts();
+      });
+    }
+
+    // Initialize 4-Pillar Sub-Navigation Dock
+    renderSubNav(state.currentPillar, state.currentView);
+"""
+
+# Insert bootstrap wiring before renderCockpitCharts
+js = js.replace("    // Initialize View Modules\n    renderCockpitCharts();", bootstrap_init_code + "\n    // Initialize View Modules\n    renderCockpitCharts();", 1)
+
+# Write updated app.js
+with open(APP_PATH, "w", encoding="utf-8") as f:
+    f.write(js)
+shutil.copy2(APP_PATH, PUBLIC_APP_PATH)
+print(f"Updated app.js and public/app.js ({len(js)} bytes)")

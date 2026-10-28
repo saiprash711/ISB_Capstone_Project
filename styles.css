@@ -1385,3 +1385,180 @@ button {
   box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25) !important;
 }
 
+
+/* =========================================================================
+   FULL-WIDTH ENTERPRISE LAYOUT & HIDE SIDEBAR (PARITY WITH LOCALHOST)
+   ========================================================================= */
+.dashboard-shell {
+  display: block !important;
+  max-width: 1600px !important;
+  margin: 0 auto !important;
+  padding: 0 20px 40px !important;
+}
+
+.filter-sidebar {
+  display: none !important;
+}
+
+.main-canvas {
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 0 !important;
+}
+
+/* =========================================================================
+   SUB-NAVIGATION CONTEXT STRIP & DOCK STYLING (MATCHING LOCAL STREAMLIT)
+   ========================================================================= */
+.sub-nav-context-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  margin-bottom: 14px;
+  padding: 12px 20px;
+  background: linear-gradient(90deg, rgba(0, 240, 255, 0.08) 0%, rgba(99, 102, 241, 0.05) 55%, transparent 100%);
+  border-left: 3.5px solid var(--primary-color);
+  border-radius: 12px;
+  border-top: 1px solid var(--border-glass);
+  border-right: 1px solid var(--border-glass);
+  border-bottom: 1px solid var(--border-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+[data-theme="light"] .sub-nav-context-strip {
+  background: linear-gradient(90deg, rgba(2, 132, 199, 0.08) 0%, rgba(99, 102, 241, 0.05) 55%, transparent 100%);
+}
+
+.sub-nav-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sub-nav-beacon {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+  box-shadow: 0 0 12px var(--primary-color);
+  display: inline-block;
+  animation: pulseSubBeacon 2s infinite ease-in-out;
+}
+
+@keyframes pulseSubBeacon {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 16px var(--primary-color); }
+  100% { transform: scale(0.9); opacity: 0.7; }
+}
+
+.sub-nav-badge {
+  font-family: 'Outfit', sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  color: var(--primary-color) !important;
+  text-transform: uppercase;
+}
+
+.sub-nav-desc {
+  font-size: 13px !important;
+  color: var(--text-secondary) !important;
+  font-weight: 500 !important;
+}
+
+.sub-nav-dock {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  padding: 4px 2px;
+  flex-wrap: wrap;
+}
+
+.sub-nav-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  color: var(--text-secondary);
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sub-nav-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.sub-nav-btn.active {
+  background: var(--seg-active-bg);
+  border-color: var(--seg-active-border);
+  color: var(--seg-active-text);
+  box-shadow: 0 4px 14px var(--seg-active-shadow);
+}
+
+.action-item-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-glass);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+}
+.action-item-card:hover {
+  border-color: var(--primary-color);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.inpage-control-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+  margin-bottom: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: 14px;
+  padding: 16px 20px;
+}
+.control-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 170px;
+  flex: 1;
+}
+.control-field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.control-field select,
+.control-field input[type="range"],
+.control-field input[type="number"],
+.control-field input[type="text"] {
+  background: var(--input-bg);
+  border: 1px solid var(--border-glass);
+  color: var(--text-primary);
+  padding: 9px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+.control-field select:focus,
+.control-field input:focus {
+  border-color: var(--primary-color);
+}
