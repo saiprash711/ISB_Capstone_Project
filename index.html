@@ -1400,7 +1400,7 @@ button {
       <div class="sub-nav-dock" id="subNavBar">
         <button type="button" class="sub-segment-btn active" data-view="explorer">🔍 Intelligence Explorer</button>
         <button type="button" class="sub-segment-btn" data-view="statistical">📈 Statistical Deep-Dive</button>
-        <button type="button" class="sub-segment-btn" data-view="quality">🛡️ Data Quality Radar</button>
+        <button type="button" class="sub-segment-btn" data-view="radar">🛡️ Data Quality Radar</button>
         <button type="button" class="sub-segment-btn" data-view="cleaning">🧹 Data Cleaning Studio</button>
       </div>
 
@@ -1563,22 +1563,103 @@ button {
                   <option value="COK">Cochin (COK)</option>
                   <option value="SBD">Secunderabad (SBD)</option>
                   <option value="SBD1">Vijayawada (SBD1)</option>
+                  <option value="CUSTOM">Custom Multi-Branch Selection</option>
                 </select>
               </div>
 
-              <!-- Branch Demand Share Pill -->
-              <div class="demand-share-badge">
-                <div class="label">Branch Demand Share</div>
-                <div class="val" id="branchDemandShare">258,123 units (35.4%)</div>
+              <!-- Multi-Branch Checkboxes (shown when Custom Multi-Branch Selection is picked) -->
+              <div class="form-group" id="groupCustomBranches" style="display: none; background: rgba(0, 229, 255, 0.05); border: 1px dashed rgba(0, 229, 255, 0.25); border-radius: 8px; padding: 10px;">
+                <label style="font-size: 11.5px; margin-bottom: 4px; color: var(--text-secondary);">Select Branches:</label>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label class="branch-checkbox-item">
+                    <input type="checkbox" class="branch-checkbox" value="BLR" checked /> Bangalore (BLR)
+                  </label>
+                  <label class="branch-checkbox-item">
+                    <input type="checkbox" class="branch-checkbox" value="MAA" checked /> Chennai (MAA)
+                  </label>
+                  <label class="branch-checkbox-item">
+                    <input type="checkbox" class="branch-checkbox" value="COK" checked /> Cochin (COK)
+                  </label>
+                  <label class="branch-checkbox-item">
+                    <input type="checkbox" class="branch-checkbox" value="SBD" checked /> Secunderabad (SBD)
+                  </label>
+                  <label class="branch-checkbox-item">
+                    <input type="checkbox" class="branch-checkbox" value="SBD1" checked /> Vijayawada (SBD1)
+                  </label>
+                </div>
               </div>
 
-              <!-- 2. SKU Scope (Segmented Control) -->
+              <!-- 2. Dataset & Cohort Calibration Filters (Streamlit Exact Parity) -->
+              <div style="margin-top: 6px; margin-bottom: 2px; font-size: 13px; font-weight: 700; color: var(--primary-color); display: flex; align-items: center; gap: 6px;">
+                <span>⚙️</span> 2. Dataset &amp; Cohort Calibration Filters
+              </div>
+
               <div class="form-group">
-                <label>2. SKU Scope:</label>
+                <label for="forecastSheetSelect">Select Data Source / Sheet:</label>
+                <select id="forecastSheetSelect" class="custom-select">
+                  <option value="real" selected>📊 SAP billing history (real)</option>
+                  <option value="synthetic">🧪 Synthetic evaluation SKUs (generated)</option>
+                  <option value="both">🔄 Real + synthetic</option>
+                </select>
+              </div>
+
+              <div class="form-row-2col">
+                <div class="form-group">
+                  <label for="forecastSegmentSelect">Category / Segment:</label>
+                  <select id="forecastSegmentSelect" class="custom-select">
+                    <option value="ALL" selected>All Segments</option>
+                    <option value="Inverter">Inverter</option>
+                    <option value="Non Inv">Non Inv</option>
+                    <option value="Non-inverter">Non-inverter</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="forecastTonnageSelect">Tonnage Filter:</label>
+                  <select id="forecastTonnageSelect" class="custom-select">
+                    <option value="ALL" selected>All Tonnages</option>
+                    <option value="0.75">0.75 Ton</option>
+                    <option value="0.8">0.8 Ton</option>
+                    <option value="0.9">0.9 Ton</option>
+                    <option value="1">1 Ton</option>
+                    <option value="1.5">1.5 Ton</option>
+                    <option value="1.8">1.8 Ton</option>
+                    <option value="2">2 Ton</option>
+                    <option value="2.2">2.2 Ton</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="forecastRatingSelect">Star Rating Filter:</label>
+                <select id="forecastRatingSelect" class="custom-select">
+                  <option value="ALL" selected>All Star Ratings</option>
+                  <option value="5 Star">5 Star</option>
+                  <option value="3 Star">3 Star</option>
+                  <option value="2 Star">2 Star</option>
+                  <option value="1 Star">1 Star</option>
+                </select>
+              </div>
+
+              <!-- Filtered Demand Volume Telemetry Card (Matching Streamlit exactly) -->
+              <div class="filtered-demand-volume-card" style="background: rgba(0, 229, 255, 0.08); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 10px; padding: 10px 12px; margin-top: 2px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                  <span style="color: var(--text-secondary); font-size: 11.5px; font-weight: 600;">Filtered Demand Volume</span>
+                  <span style="font-size: 11px; color: var(--text-secondary);" id="forecastTxCount">35,688 transactions</span>
+                </div>
+                <div style="font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 700; color: var(--primary-color);" id="forecastVolumeMetric">
+                  258,123 units <span style="font-size: 12px; color: var(--text-secondary); font-weight: 500;" id="forecastCohortShare">(35.4% of cohort)</span>
+                </div>
+                <div id="forecastFilterChips" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;"></div>
+              </div>
+
+              <!-- 3. SKU Selection -->
+              <div class="form-group" style="margin-top: 4px;">
+                <label>3. SKU Scope:</label>
                 <div class="segmented-radio-group" id="skuScopeGroup">
                   <button type="button" class="segmented-radio-btn active" data-scope="branch">Top 10 in Filtered Branch</button>
                   <button type="button" class="segmented-radio-btn" data-scope="overall">Top 10 Overall</button>
-                  <button type="button" class="segmented-radio-btn" data-scope="all">All SKUs</button>
+                  <button type="button" class="segmented-radio-btn" data-scope="all">All Matching SKUs</button>
                 </div>
               </div>
 
@@ -1590,22 +1671,52 @@ button {
                 </select>
               </div>
 
-              <!-- 3. Algorithm Engine Family -->
-              <div class="form-group">
-                <label>3. Algorithm Engine:</label>
-                <div class="segmented-radio-group" id="modelFamilyGroup">
-                  <button type="button" class="segmented-radio-btn active" data-family="statistical">📊 Statistical Models</button>
-                  <button type="button" class="segmented-radio-btn" data-family="ml">🧠 Machine Learning Models</button>
+              <!-- Selected SKU Cohort Metadata Chip -->
+              <div id="skuCohortMetadataChip" style="background: rgba(0, 229, 255, 0.08); border: 1px solid rgba(0, 229, 255, 0.25); border-radius: 8px; padding: 6px 10px; font-size: 11px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+                <span id="metaSheetTag" style="font-weight: 700; color: var(--primary-color);">📊 SAP billing history SKU</span>
+                <span style="color: var(--text-secondary);">&bull;</span>
+                <span>⚖️ <strong id="metaTonnage">1.5 Ton</strong></span>
+                <span style="color: var(--text-secondary);">&bull;</span>
+                <span>⭐ <strong id="metaStar">3 Star</strong></span>
+                <span style="color: var(--text-secondary);">&bull;</span>
+                <span>📦 <strong id="metaSegment">Inverter</strong></span>
+              </div>
+
+              <!-- Real-time SKU Demand Profiling Card -->
+              <div id="skuDemandProfileCard" style="background: rgba(0, 229, 255, 0.06); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 10px; padding: 10px 12px; font-size: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                  <strong style="color: var(--primary-color);" id="profileDemandType">Demand Profile: Smooth</strong>
+                  <span class="kpi-badge cyan" id="profileAdiCv2">ADI: 1.05 &bull; CV²: 0.32</span>
+                </div>
+                <div style="color: var(--text-secondary); line-height: 1.35; font-size: 11.5px;" id="profileDescription">
+                  Smooth demand pattern with consistent weekly order replenishment. (52 weeks, 0% with no billing)
                 </div>
               </div>
 
+              <!-- 4. Algorithm Engine Family -->
+              <div class="form-group" style="margin-top: 4px;">
+                <label>4. Algorithm Engine:</label>
+                <div class="segmented-radio-group" id="modelFamilyGroup">
+                  <button type="button" class="segmented-radio-btn active" data-family="automl">🤖 Champion (AutoML)</button>
+                  <button type="button" class="segmented-radio-btn" data-family="statistical">📊 Statistical Models</button>
+                  <button type="button" class="segmented-radio-btn" data-family="ml">🧠 Machine Learning</button>
+                </div>
+              </div>
+
+              <!-- AutoML Champion Info Banner -->
+              <div id="groupAutoMlInfo" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 8px 10px; font-size: 11.5px; color: var(--text-secondary); line-height: 1.4;">
+                <strong style="color: #10B981;">⚡ Automatic Champion Selection:</strong> Every applicable algorithm is backtested out-of-sample (rolling 12-week folds); the lowest-RMSE model is automatically deployed.
+              </div>
+
               <!-- Statistical Algorithm Selector -->
-              <div class="form-group" id="groupStatisticalAlgorithm">
+              <div class="form-group" id="groupStatisticalAlgorithm" style="display: none;">
                 <label for="selectStatisticalAlgorithm">Select Statistical Algorithm:</label>
                 <select id="selectStatisticalAlgorithm" class="custom-select">
                   <option value="Exponential Smoothing" selected>Exponential Smoothing</option>
                   <option value="SARIMA">SARIMA</option>
                   <option value="ARIMA">ARIMA</option>
+                  <option value="Croston Method">Croston Method</option>
+                  <option value="Seasonal Naive">Seasonal Naive</option>
                 </select>
               </div>
 
@@ -1615,25 +1726,27 @@ button {
                 <select id="selectMlAlgorithm" class="custom-select">
                   <option value="Random Forest" selected>Random Forest</option>
                   <option value="Gradient Boosting">Gradient Boosting</option>
+                  <option value="LightGBM">LightGBM</option>
+                  <option value="XGBoost">XGBoost</option>
                 </select>
               </div>
 
-              <!-- 4. Parameters: Horizon Slider -->
+              <!-- 5. Parameters: Horizon Slider -->
               <div class="form-group">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                   <label for="sliderHorizon">Forecast Horizon (Weeks):</label>
-                  <span class="slider-badge" id="sliderHorizonVal">24</span>
+                  <span class="slider-badge" id="sliderHorizonVal">12</span>
                 </div>
-                <input type="range" id="sliderHorizon" min="4" max="52" value="24" class="custom-range-slider" />
+                <input type="range" id="sliderHorizon" min="4" max="52" value="12" class="custom-range-slider" />
               </div>
 
               <!-- Confidence Interval Slider -->
               <div class="form-group">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <label for="sliderConfidence">Confidence Interval (%):</label>
-                  <span class="slider-badge" id="sliderConfidenceVal">95</span>
+                  <label for="sliderConfidence">Prediction Interval (%):</label>
+                  <span class="slider-badge" id="sliderConfidenceVal">80</span>
                 </div>
-                <input type="range" id="sliderConfidence" min="80" max="99" value="95" class="custom-range-slider" />
+                <input type="range" id="sliderConfidence" min="80" max="95" value="80" step="5" class="custom-range-slider" />
               </div>
 
               <button type="button" class="btn btn-primary" id="runForecastBtn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; font-size: 13.5px; padding: 11px 16px;">
@@ -1644,6 +1757,18 @@ button {
 
           <!-- Visuals & KPIs Column -->
           <div>
+            <!-- Champion selected by out-of-sample tournament banner (Streamlit Parity) -->
+            <div id="championSelectedBanner" style="background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 12px; padding: 12px 18px; margin-bottom: 14px;">
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; color: #10B981; text-transform: uppercase; letter-spacing: 1px;">
+                Champion selected by out-of-sample tournament (4 candidate models ranked)
+              </div>
+              <div style="font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 700; margin-top: 2px;" id="champHeadline">
+                🏆 Random Forest &bull; backtest WAPE 11.8% (accuracy 88.2%)
+              </div>
+              <div style="color: var(--text-secondary); font-size: 12px; margin-top: 2px;" id="champSubtext">
+                Non-linear orthogonal recursive partitioning across multi-resolution lags. Measured on 3 rolling-origin folds of 12 weeks the model had not seen.
+              </div>
+            </div>
             <!-- Regional Demand Breakdown Card (Matching Streamlit Expander) -->
             <div class="sku-regional-card">
               <div class="subpanel-title" style="margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
@@ -2222,6 +2347,34 @@ button {
           <p class="section-subtitle">Rigorous forward out-of-sample evaluation on completely unseen SAP billing (01-Jul-2024 to 30-Jun-2025) across 154 SKUs and 5 Branch Hubs</p>
         </div>
 
+        <!-- Experiment & Model Selector (Matching Streamlit exactly) -->
+        <div class="glass-panel" style="margin-bottom: 20px; padding: 14px 18px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: end;">
+            <div class="form-group" style="margin: 0;">
+              <label>Validation Experiment:</label>
+              <div class="segmented-radio-group" id="holdoutModeGroup">
+                <button type="button" class="segmented-radio-btn active" data-mode="static">📌 Static 52-week holdout</button>
+                <button type="button" class="segmented-radio-btn" data-mode="rolling">🔁 Rolling 4-weekly re-forecast</button>
+              </div>
+            </div>
+            <div class="form-group" style="margin: 0;" id="holdoutSubEngineGroup">
+              <label>Engine Baseline:</label>
+              <div class="segmented-radio-group" id="holdoutEngineGroup">
+                <button type="button" class="segmented-radio-btn active" data-engine="current">Current engine</button>
+                <button type="button" class="segmented-radio-btn" data-engine="baseline">Original engine (before fixes)</button>
+              </div>
+            </div>
+            <div class="form-group" style="margin: 0; display: none;" id="holdoutSubLagGroup">
+              <label>Forecast Lag Horizon:</label>
+              <div class="segmented-radio-group" id="holdoutLagGroup">
+                <button type="button" class="segmented-radio-btn active" data-lag="lag1">lag 1-4 wks</button>
+                <button type="button" class="segmented-radio-btn" data-lag="lag2">lag 5-8 wks</button>
+                <button type="button" class="segmented-radio-btn" data-lag="lag3">lag 9-12 wks</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 4 Luxury KPI Cards -->
         <div class="kpi-grid">
           <!-- Card 1: Forensic Audit & Integrity -->
@@ -2534,9 +2687,15 @@ button {
           </div>
         </div>
 
-        <div class="chart-card" style="margin-bottom: 22px;">
-          <div class="subpanel-title">📊 Missing Value Volume by Column Dimension</div>
-          <div class="chart-wrapper" id="chartMissingBars"></div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); gap: 20px; margin-bottom: 22px;">
+          <div class="chart-card">
+            <div class="subpanel-title">🛡️ 6-Dimension Enterprise Data Quality Radar</div>
+            <div class="chart-wrapper" id="chartQualityRadarPolar" style="min-height: 380px;"></div>
+          </div>
+          <div class="chart-card">
+            <div class="subpanel-title">📊 Missing Value Volume by Column Dimension</div>
+            <div class="chart-wrapper" id="chartMissingBars" style="min-height: 380px;"></div>
+          </div>
         </div>
 
         <!-- Schema Audit Table -->
@@ -3054,6 +3213,36 @@ button {
         <div class="section-title-wrap">
           <h2 class="section-title">🔬 Model Lab &amp; Backtesting Leaderboard</h2>
           <p class="section-subtitle">Walk-forward rolling-origin cross-validation (12-week folds), ranked on RMSE, with APICS stability scoring and zero leakage audit</p>
+        </div>
+
+        <!-- Model Lab Selection Bar (Matching Streamlit exactly) -->
+        <div class="glass-panel" style="margin-bottom: 20px; padding: 14px 18px;">
+          <div style="display: grid; grid-template-columns: 1.5fr 2fr 1.5fr; gap: 16px; align-items: end;">
+            <div class="form-group" style="margin: 0;">
+              <label for="modelLabBranchSelect">Select Regional Branch:</label>
+              <select id="modelLabBranchSelect" class="custom-select">
+                <option value="ALL">All 5 Branches (Consolidated)</option>
+                <option value="BLR">Bangalore (BLR)</option>
+                <option value="MAA" selected>Chennai (MAA)</option>
+                <option value="COK">Cochin (COK)</option>
+                <option value="SBD">Secunderabad (SBD)</option>
+                <option value="SBD1">Vijayawada (SBD1)</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label for="modelLabSkuSelect">Select Target SKU:</label>
+              <select id="modelLabSkuSelect" class="custom-select">
+                <!-- Top SKUs populated dynamically -->
+              </select>
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label for="sliderModelLabFolds">Walk-Forward Folds:</label>
+                <span class="slider-badge" id="sliderModelLabFoldsVal">3</span>
+              </div>
+              <input type="range" id="sliderModelLabFolds" min="2" max="6" value="3" class="custom-range-slider" />
+            </div>
+          </div>
         </div>
 
         <!-- 4 Luxury KPI Cards -->

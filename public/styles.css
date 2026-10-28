@@ -1745,3 +1745,41 @@ button {
   font-weight: 700;
   font-size: 12px;
 }
+
+/* Added for Full Streamlit Parity in AI Demand Forecasting */
+.form-row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+@media (max-width: 600px) {
+  .form-row-2col {
+    grid-template-columns: 1fr;
+  }
+}
+.filter-chip {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-glass);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+}
+[data-theme="light"] .filter-chip {
+  background: rgba(0, 0, 0, 0.05);
+}
+.branch-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.branch-checkbox-item input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--primary-color);
+}
