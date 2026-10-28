@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Global Application State
   const state = {
     theme: localStorage.getItem('app_theme') || 'dark',
-    currentView: 'cockpit',
+    currentView: 'explorer',
     stats: null,
     forecastData: [],
     realForecastData: DEFAULT_REAL_FORECAST_DATA,
@@ -121,14 +121,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 4-PILLAR PRIMARY NAVIGATION ARCHITECTURE (100% PARITY WITH STREAMLIT)
   // ---------------------------------------------------------------------------
   const PILLARS = {
-    'csuite': {
-      key: 'csuite',
-      badge: '💼 C-SUITE EXECUTIVE INTELLIGENCE',
-      desc: 'Executive Telemetry Cockpit • Action Queue • Automated C-Suite PDF Briefings',
-      defaultView: 'cockpit',
+    'eda': {
+      key: 'eda',
+      badge: '📊 EXPLORATORY DATA ANALYSIS (EDA) WORKSPACE',
+      desc: 'Multi-Dimensional Slicing • Statistical Deep-Dive • Data Quality • Cleaning Studio',
+      defaultView: 'explorer',
       submodules: [
-        { id: 'cockpit', label: '🏠 Executive Cockpit' },
-        { id: 'reports', label: '📄 C-Suite Reports' }
+        { id: 'explorer', label: '🔍 Intelligence Explorer' },
+        { id: 'statistical', label: '📈 Statistical Deep-Dive' },
+        { id: 'quality', label: '🛡️ Data Quality Radar' },
+        { id: 'cleaning', label: '🧹 Data Cleaning Studio' }
       ]
     },
     'forecasting_studio': {
@@ -139,8 +141,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       submodules: [
         { id: 'forecasting', label: '🎯 SKU Demand Forecasting' },
         { id: 'modellab', label: '🔬 Model Lab & Leaderboard' },
-        { id: 'hierarchy', label: '🌐 Hierarchical Reconciliation' },
-        { id: 'holdout', label: '✅ Holdout Validation (FY24-25)' }
+        { id: 'hierarchy', label: '🌳 Hierarchical Reconciliation' },
+        { id: 'holdout', label: '🎯 Holdout Validation (FY24-25)' }
       ]
     },
     'operations': {
@@ -150,25 +152,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       defaultView: 'drift',
       submodules: [
         { id: 'drift', label: '📡 Forecast Monitoring & Drift' },
-        { id: 'scenarios', label: '🔮 Scenario Simulator' },
+        { id: 'scenarios', label: '🎲 Scenario Simulator' },
         { id: 'inventory', label: '📦 Inventory Intelligence' }
       ]
     },
-    'eda': {
-      key: 'eda',
-      badge: '📊 EXPLORATORY DATA ANALYSIS (EDA) WORKSPACE',
-      desc: 'Multi-Dimensional Slicing • Statistical Deep-Dive • Data Quality • Cleaning Studio',
-      defaultView: 'explorer',
+    'csuite': {
+      key: 'csuite',
+      badge: '💼 C-SUITE EXECUTIVE INTELLIGENCE',
+      desc: 'Executive Telemetry Cockpit • Action Queue • Automated C-Suite PDF Briefings',
+      defaultView: 'cockpit',
       submodules: [
-        { id: 'explorer', label: '🔍 Intelligence Explorer' },
-        { id: 'statistical', label: '📈 Statistical Deep-Dive' },
-        { id: 'radar', label: '🛡️ Data Quality Radar' },
-        { id: 'cleaning', label: '🧹 Data Cleaning Studio' }
+        { id: 'cockpit', label: '🏠 Executive Cockpit' },
+        { id: 'reports', label: '📄 C-Suite Reports' }
       ]
     }
   };
 
-  state.currentPillar = 'csuite';
+  state.currentPillar = 'eda';
 
   function renderSubNav(pillarKey, activeSubId) {
     const pillar = PILLARS[pillarKey] || PILLARS['csuite'];
@@ -1683,7 +1683,60 @@ document.addEventListener('DOMContentLoaded', async () => {
     Plotly.react(chartEl, [trace], layout, { displayModeBar: false, responsive: true });
   }
 
+  
+  function renderExplorerCharts() {
+    const chartDiv = document.getElementById('explorerProfileChart');
+    if (!chartDiv || typeof Plotly === 'undefined') return;
+
+    const select = document.getElementById('profileColSelect');
+    const colName = select ? select.value : 'Material';
+
+    // Frequency data based on colName
+    let xVals = [], yVals = [];
+    if (colName === 'SALES OFFICE CODE') {
+      xVals = ['MAA', 'BLR', 'COK', 'SBD', 'SBD1'];
+      yVals = [28450, 24120, 14320, 9820, 5324];
+    } else if (colName === 'EXT MAT GROUP') {
+      xVals = ['RA-ODU', 'RA-IDU', 'COMMERCIAL', 'WINDOW', 'OTHER'];
+      yVals = [42100, 26400, 8900, 3100, 1534];
+    } else if (colName === 'MatGroup3') {
+      xVals = ['RA', 'COMM', 'SPARE', 'ACCESSORY'];
+      yVals = [72400, 6200, 2400, 1034];
+    } else {
+      xVals = ['M000018', 'M000024', 'M000001', 'M000052', 'M000009', 'M000078', 'M000012', 'M000089', 'M000033', 'M000095'];
+      yVals = [3240, 2890, 2650, 2410, 2180, 1950, 1820, 1690, 1540, 1420];
+    }
+
+    const isDark = (state.theme === 'dark');
+    const barColor = isDark ? '#00E5FF' : '#0284C7';
+    const textColor = isDark ? '#CBD5E1' : '#334155';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
+
+    const trace = {
+      x: xVals,
+      y: yVals,
+      type: 'bar',
+      marker: {
+        color: barColor,
+        opacity: 0.88,
+        line: { color: barColor, width: 1.5 }
+      }
+    };
+
+    const layout = {
+      paper_bgcolor: 'transparent',
+      plot_bgcolor: 'transparent',
+      font: { family: 'Plus Jakarta Sans', color: textColor, size: 11 },
+      margin: { l: 45, r: 20, t: 20, b: 45 },
+      xaxis: { gridcolor: gridColor, tickangle: -25 },
+      yaxis: { gridcolor: gridColor }
+    };
+
+    Plotly.react('explorerProfileChart', [trace], layout, { responsive: true, displayModeBar: false });
+  }
+
   function renderCurrentViewCharts() {
+    if (state.currentView === 'explorer') { renderExplorerCharts(); return; }
     switch (state.currentView) {
       case 'cockpit':
         renderCockpitCharts();

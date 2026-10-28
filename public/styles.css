@@ -1562,3 +1562,186 @@ button {
 .control-field input:focus {
   border-color: var(--primary-color);
 }
+
+/* =============================================================================
+   STREAMLIT 100% PARITY ADDITIONS: SYNTHETIC TOGGLE, MULTISELECT TAGS & DOCK
+============================================================================= */
+.synthetic-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0 16px 0;
+  padding: 2px 4px;
+}
+
+.st-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.st-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.st-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.18);
+  transition: .3s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.st-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 2px;
+  bottom: 2px;
+  background-color: #FFFFFF;
+  transition: .3s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+}
+
+.st-switch input:checked + .st-slider {
+  background: linear-gradient(135deg, #00F0FF, #3B82F6);
+  border-color: #00F0FF;
+}
+
+.st-switch input:checked + .st-slider:before {
+  transform: translateX(20px);
+}
+
+.synthetic-toggle-text {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  user-select: none;
+}
+
+.synthetic-help-tooltip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 1px solid var(--text-muted);
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: help;
+  font-weight: 700;
+}
+
+/* Streamlit Multiselect Box */
+.explorer-control-panel {
+  margin-top: 16px;
+  margin-bottom: 12px;
+}
+
+.explorer-input-label {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.multiselect-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--input-bg);
+  border: 1px solid var(--border-glass);
+  border-radius: 10px;
+  padding: 6px 12px;
+  min-height: 48px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.multiselect-container:hover,
+.multiselect-container:focus-within {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px var(--primary-color);
+}
+
+.multiselect-tags-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.st-tag {
+  background: #00E5FF;
+  color: #050B14;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.st-tag .tag-del {
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.75;
+  transition: opacity 0.15s ease;
+}
+
+.st-tag .tag-del:hover {
+  opacity: 1;
+}
+
+.multiselect-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.multiselect-clear-btn {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+}
+
+.multiselect-clear-btn:hover {
+  color: var(--text-primary);
+}
+
+.multiselect-chevron {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Branch Badge */
+.badge-branch {
+  display: inline-block;
+  padding: 2px 8px;
+  background: rgba(0, 240, 255, 0.12);
+  color: var(--primary-color);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 12px;
+}
