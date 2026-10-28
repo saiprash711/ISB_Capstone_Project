@@ -199,13 +199,10 @@ class DataCleaner:
         if 'date' in self.df.columns:
             # Try parsing with different formats
             if self.df['date'].dtype == 'object':
-                try:
-                    self.df['date'] = pd.to_datetime(self.df['date'], format='%d/%m/%Y', errors='coerce')
-                except:
-                    try:
-                        self.df['date'] = pd.to_datetime(self.df['date'], errors='coerce')
-                    except:
-                        pass
+                parsed = pd.to_datetime(self.df['date'], format='%d/%m/%Y', errors='coerce')
+                if parsed.isna().mean() > 0.5:
+                    parsed = pd.to_datetime(self.df['date'], errors='coerce')
+                self.df['date'] = parsed
             conversions['date'] = 'datetime'
         
         # Convert year to int

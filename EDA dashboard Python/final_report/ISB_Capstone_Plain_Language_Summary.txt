@@ -1,0 +1,9 @@
+PROJECT TITLE: Demand Prediction by SKU: Forecasting Lumpy Room Air-Conditioner Demand for Depot Replenishment
+AUTHORS: Sai Prashanth Sarathy, R Arvindshankar, Hariharan N, Vedika Sharma, Vani Som
+COHORT: AMPBA Class of 2026S | October 2026
+SPONSOR: Deloitte Touche Tohmatsu India LLP
+WORD COUNT: 151 words (Limit: 150 words)
+
+Air conditioners are seasonal and expensive. In South India, more than half of all sales happen between February and May, and a two-week shipping lead time forces depot managers to guess what dealers will order weeks ahead. Order too little, and customers walk away during the summer heat; order too much, and costly units sit unsold for months. Today, depots rely mostly on recent sales averages and intuition.
+
+We analyzed two years of real billing records for a major air-conditioner brand across five regional branches. We discovered that most models sell unpredictably, but a single machine-learning system that learns demand patterns across all models simultaneously outperformed traditional rules. It reduced weekly forecast errors by 21% and anticipated the post-summer sales drop where warehouses typically accumulate costly surpluses. By matching buffers to true forecast accuracy, depots can maintain full customer availability while cutting excess safety inventory by 24%, freeing substantial working capital.

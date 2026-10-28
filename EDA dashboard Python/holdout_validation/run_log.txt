@@ -6,3 +6,94 @@ Saved holdout_validation\forecasts_static.parquet (10,663 rows) and holdout_vali
 [rolling] 3227 fits remaining on 11 workers
   100/3227  172s
   200/3227  344s
+  300/3227  460s
+  400/3227  585s
+  500/3227  694s
+  600/3227  805s
+  700/3227  920s
+  800/3227  1,036s
+  900/3227  1,137s
+  1000/3227  1,250s
+  1100/3227  1,369s
+  1200/3227  1,470s
+  1300/3227  1,587s
+  1400/3227  1,698s
+  1500/3227  1,801s
+  1600/3227  1,938s
+  1700/3227  2,042s
+  1800/3227  2,183s
+  1900/3227  2,362s
+  2000/3227  2,549s
+  2100/3227  2,736s
+  2200/3227  2,929s
+  2300/3227  3,094s
+  2400/3227  3,315s
+  2500/3227  3,476s
+  2600/3227  3,663s
+  2700/3227  3,948s
+  2800/3227  4,236s
+  2900/3227  4,503s
+  3000/3227  4,729s
+  3100/3227  4,944s
+  3200/3227  5,109s
+  3227/3227  5,140s
+Saved holdout_validation\forecasts_rolling.parquet (35,214 rows) and holdout_validation\models_rolling.parquet (536,104 rows)
+
+=== STATIC 52-WEEK HOLDOUT (train to 30-Jun-2024, forecast Jul-24..Jun-25) ===
+Holdout ODU actual 444,274 | covered by forecast series 338,772 (76.3%)
+                 level         method  actual  forecast  WAPE %  Accuracy %  Bias %
+   SKU x Branch x Week       forecast  338772    477061   134.6       -34.6    40.8
+   SKU x Branch x Week seasonal_naive  338772    465692   176.5       -76.5    37.5
+  SKU x Branch x Month       forecast  338772    477061   105.6        -5.6    40.8
+  SKU x Branch x Month seasonal_naive  338772    465692   155.9       -55.9    37.5
+   SKU x Month (South)       forecast  338772    477061    90.1         9.9    40.8
+   SKU x Month (South) seasonal_naive  338772    465692   146.3       -46.3    37.5
+        Branch x Month       forecast  338772    477061    60.9        39.1    40.8
+        Branch x Month seasonal_naive  338772    465692    54.1        45.9    37.5
+  South Region x Month       forecast  338772    477061    46.8        53.2    40.8
+  South Region x Month seasonal_naive  338772    465692    45.0        55.0    37.5
+South Region x Quarter       forecast  338772    477061    41.6        58.4    40.8
+South Region x Quarter seasonal_naive  338772    465692    42.3        57.7    37.5
+               champion  series  flat_forecasts  holdout_actual
+                  Naive      49              49         13760.0
+         Moving Average      32              32         36289.0
+         Seasonal Index      21               4         85566.0
+                    ETS      19               5         32191.0
+Seasonal Index (smooth)      17               0         45815.0
+                 SARIMA      15               1         12412.0
+   Ensemble (Consensus)      11               0         71710.0
+                  ARIMA       8               1         10997.0
+          Random Forest       7               0          4611.0
+  Exponential Smoothing       7               7          5039.0
+               LightGBM       7               0          6580.0
+                    TSB       5               5            33.0
+      Gradient Boosting       3               0           545.0
+                    SBA       3               3             7.0
+                XGBoost       1               0         13217.0
+P10-P90 coverage (nominal 80%): 91.1%
+
+=== ROLLING RE-FORECAST (retrain every 4 weeks, 12-week horizon) ===
+        lag                  level         method  actual  forecast  WAPE %  Accuracy %  Bias %
+lag 1-4 wks    SKU x Branch x Week       forecast  424745    427115    97.9         2.1     0.6
+lag 1-4 wks    SKU x Branch x Week  moving_avg_4w  424745    435290    99.6         0.4     2.5
+lag 1-4 wks    SKU x Branch x Week seasonal_naive  424745    467176   161.2       -61.2    10.0
+lag 1-4 wks   SKU x Branch x Month       forecast  424745    427115    61.5        38.5     0.6
+lag 1-4 wks   SKU x Branch x Month  moving_avg_4w  424745    435290    64.4        35.6     2.5
+lag 1-4 wks   SKU x Branch x Month seasonal_naive  424745    467176   144.6       -44.6    10.0
+lag 1-4 wks    SKU x Month (South)       forecast  424745    427115    48.9        51.1     0.6
+lag 1-4 wks    SKU x Month (South)  moving_avg_4w  424745    435290    55.6        44.4     2.5
+lag 1-4 wks    SKU x Month (South) seasonal_naive  424745    467176   136.9       -36.9    10.0
+lag 1-4 wks         Branch x Month       forecast  424745    427115    36.6        63.4     0.6
+lag 1-4 wks         Branch x Month  moving_avg_4w  424745    435290    54.0        46.0     2.5
+lag 1-4 wks         Branch x Month seasonal_naive  424745    467176    41.2        58.8    10.0
+lag 1-4 wks   South Region x Month       forecast  424745    427115    34.4        65.6     0.6
+lag 1-4 wks   South Region x Month  moving_avg_4w  424745    435290    49.5        50.5     2.5
+lag 1-4 wks   South Region x Month seasonal_naive  424745    467176    34.4        65.6    10.0
+lag 1-4 wks South Region x Quarter       forecast  424745    427115    28.2        71.8     0.6
+lag 1-4 wks South Region x Quarter  moving_avg_4w  424745    435290    26.0        74.0     2.5
+lag 1-4 wks South Region x Quarter seasonal_naive  424745    467176    31.8        68.2    10.0
+Rolling P10-P90 coverage (lag 1-4): 83.5%
+Saved holdout_validation\validated_metrics.json
+Saved C:\ISB Capstone\EDA dashboard Python\VALIDATION_FY25.md
+
+Saved holdout_validation\holdout_validation_FY24-25.xlsx

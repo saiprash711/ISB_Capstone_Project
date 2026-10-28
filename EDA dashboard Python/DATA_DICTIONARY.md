@@ -12,10 +12,11 @@
 **Transaction-level** - One row per billing line item
 
 ### Size
-- **Rows:** ~82,034
-- **Columns:** 23
-- **Period:** 2022-2023
-- **Memory:** ~10 MB
+- **Rows:** ~104,495 (99,395 real SAP billing lines + 5,100 synthetic evaluation SKUs)
+- **Columns:** 24
+- **Period:** 2021-04-01 to 2024-06-30 (FY21-22, FY22-23, FY23-24, FY24-25 Q1; 170 weeks)
+- **Data Mart Grain:** 36,344 canonical SKU × Branch × Week observations
+- **Memory:** ~18 MB
 
 ### Column Definitions
 

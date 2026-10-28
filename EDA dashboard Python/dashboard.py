@@ -1396,7 +1396,7 @@ def load_data():
     if parquet_path:
         df = pd.read_parquet(parquet_path)
         if 'Billing Date' in df.columns and not pd.api.types.is_datetime64_any_dtype(df['Billing Date']):
-            df['Billing Date'] = pd.to_datetime(df['Billing Date'], dayfirst=True)
+            df['Billing Date'] = pd.to_datetime(df['Billing Date'], format='mixed', errors='coerce')
     else:
         csv_candidates = ['Filtered.csv', 'EDA dashboard Python/Filtered.csv']
         excel_candidates = ['Filtered.xlsx', 'EDA dashboard Python/Filtered.xlsx']
@@ -1405,7 +1405,7 @@ def load_data():
         if csv_path:
             df = pd.read_csv(csv_path, low_memory=False)
             if 'Billing Date' in df.columns:
-                df['Billing Date'] = pd.to_datetime(df['Billing Date'], dayfirst=True)
+                df['Billing Date'] = pd.to_datetime(df['Billing Date'], format='mixed', errors='coerce')
             try:
                 df.to_parquet('Filtered.parquet', index=False)
             except Exception:
@@ -1428,7 +1428,7 @@ def load_data():
                         df['Data_Sheet'] = 'Historical (Sheet1)'
 
                 if 'Billing Date' in df.columns:
-                    df['Billing Date'] = pd.to_datetime(df['Billing Date'], dayfirst=True)
+                    df['Billing Date'] = pd.to_datetime(df['Billing Date'], format='mixed', errors='coerce')
                 try:
                     df.to_parquet('Filtered.parquet', index=False)
                 except Exception:

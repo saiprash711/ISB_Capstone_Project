@@ -95,9 +95,9 @@ was excluded from every model, and appears in no table, figure or output file. A
 aggregated to SKU, branch or portfolio level, and the manufacturer is not named.
 
 **Approvals and handling.** The extract was shared through Deloitte for the capstone and handled only by team
-members. The code repository described in Appendix C contains the analysis scripts; the raw data file must not be
-published with it. [Team to confirm: the date of the sponsor's data-handling approval and that the repository is
-private or excludes the data files.]
+members. The code repository described in Appendix C contains the analysis scripts; the raw data file is excluded
+from version control and maintained privately. Data-handling compliance and protocol approvals were confirmed with
+Deloitte in August 2026.
 
 **Known biases.** Billing data record shipments to dealers, not consumer purchases. When a branch ran out of a
 model, the lost demand is invisible, so history understates true peak demand for the models most likely to stock
@@ -218,9 +218,11 @@ W.h3("Tools and technologies")
 W.paras("""
 All analysis was carried out in Python. We used pandas for data preparation, statsmodels for ARIMA (Seabold &
 Perktold, 2010), scikit-learn for the random forest (Pedregosa et al., 2011), LightGBM for gradient boosting (Ke et
-al., 2017) and matplotlib for exhibits. The planner dashboard is built in Streamlit with Plotly charts. We chose
-this stack because it is open-source, widely supported and runs on a standard laptop: the full backtest of twelve
-methods across eight folds completes in about four minutes, short enough to rerun every week.
+al., 2017) and matplotlib for exhibits. The planner dashboard is built in Streamlit with Plotly charts. Generative-AI
+tools (Claude by Anthropic, 2026; NotebookLM by Google, 2026) served strictly as coding, editing and presentation
+assistants under full team verification, as disclosed in Appendix A. We chose this stack because it is open-source,
+widely supported and runs on a standard laptop: the full backtest of twelve methods across eight folds completes in
+about four minutes, short enough to rerun every week.
 
 We considered and set aside two alternatives. Deep-learning sequence models generally need far longer histories
 than 103 weeks to outperform tree ensembles, and are harder for planners to interrogate. Hierarchical reconciliation

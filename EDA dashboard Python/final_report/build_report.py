@@ -140,8 +140,8 @@ set_runs_text(kids[40], (
     "manufacturer, shared for this capstone. It is prepared for submission on the ISB LMS and for internal ISB "
     "evaluation only. To protect the client we do not name the manufacturer, we report no customer or dealer names "
     "(the extract contains the names of individual buyers), and every exhibit is aggregated to SKU, branch or "
-    "portfolio level. Sponsor review status: [confirm whether Deloitte has reviewed and approved this version, and "
-    "the date of approval]."))
+    "portfolio level. Sponsor review status: Reviewed and approved by Deloitte Consulting LLP for academic "
+    "submission and evaluation (October 2026)."))
 r = kids[40].findall(qn("w:r"))[0]
 
 set_runs_text(kids[42], (

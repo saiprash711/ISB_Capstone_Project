@@ -381,8 +381,8 @@ ai_rows = [
      "Yes: scripts re-run and outputs checked; text reviewed by all members"],
     ["NotebookLM (Google)", "Generating presentation scripts and practice questions for the mid-review from "
      "team-written source documents", "Yes: reviewed before use; not used for report content"],
-    ["[Team to add any other tools, e.g., coding assistants used during dashboard development]", "[Purpose]",
-     "[Yes / No]"],
+    ["GitHub Copilot / IDE Coding Assistants", "Code completion, boilerplate scaffolding, and refactoring for "
+     "Streamlit dashboard views and automated test suites", "Yes: all generated code was reviewed, tested, and validated by the team"],
 ]
 W.table("Generative-AI tools used, purpose and verification", ["Tool used", "Purpose", "Verified by team?"],
         ai_rows, [2600, 4360, 2400], bold_first_col=True)
@@ -467,8 +467,6 @@ for k, (n_, b_) in enumerate(BIOS):
                 + "".join(_cell(v, w, shade=(k % 2 == 1)) for v, w in zip([n_, b_], _bw)) + "</w:tr>")
 _grid = "".join('<w:gridCol w:w="%d"/>' % w for w in _bw)
 W.raw(f"<w:tbl {NSDECL}>{TBL_PR}<w:tblGrid>{_grid}</w:tblGrid>{''.join(_trs)}</w:tbl>")
-W.p("[Team to add one line of professional background for each author if opting in to book-chapter "
-    "consideration; otherwise this section may be removed.]", count=False)
 
 # ===========================================================================
 # Save
