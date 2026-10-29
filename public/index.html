@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%200%20100%20100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=4.0">
+  <link rel="stylesheet" href="styles.css?v=4.5&t=202610291345">
 
   <!-- INLINE STYLESHEET (Guarantees zero-latency, 100% styled rendering on Vercel without 404 dependencies) -->
   <style id="app-styles">
@@ -1302,6 +1302,31 @@ button {
 
   <!-- Plotly.js Analytics Engine -->
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <!-- Fail-Safe View Alias & Global Redirect: Link 'quality' seamlessly to 'radar' -->
+  <script>
+    (function() {
+      var origGetElementById = document.getElementById.bind(document);
+      document.getElementById = function(id) {
+        if (id === 'view-quality') return origGetElementById('view-radar') || origGetElementById(id);
+        return origGetElementById(id);
+      };
+      
+      document.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-target="radar"], [data-target="quality"], [data-view="radar"], [data-view="quality"]');
+        if (btn) {
+          if (typeof window.switchView === 'function') {
+            window.switchView('radar');
+          } else {
+            document.querySelectorAll('.view-content').forEach(function(s) { s.style.display = 'none'; });
+            var r = origGetElementById('view-radar');
+            if (r) r.style.display = 'block';
+            document.querySelectorAll('#subNavBar button').forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+          }
+        }
+      }, true);
+    })();
+  </script>
 </head>
 <body>
 
@@ -1398,10 +1423,10 @@ button {
 
       <!-- Dynamic Sub-Navigation Dock (Sub-module Selector) -->
       <div class="sub-nav-dock" id="subNavBar">
-        <button type="button" class="sub-segment-btn active" data-view="explorer">🔍 Intelligence Explorer</button>
-        <button type="button" class="sub-segment-btn" data-view="statistical">📈 Statistical Deep-Dive</button>
-        <button type="button" class="sub-segment-btn" data-view="radar">🛡️ Data Quality Radar</button>
-        <button type="button" class="sub-segment-btn" data-view="cleaning">🧹 Data Cleaning Studio</button>
+        <button type="button" class="sub-nav-btn active" data-target="explorer" data-view="explorer">🔍 Intelligence Explorer</button>
+        <button type="button" class="sub-nav-btn" data-target="statistical" data-view="statistical">📈 Statistical Deep-Dive</button>
+        <button type="button" class="sub-nav-btn" data-target="radar" data-view="radar">🛡️ Data Quality Radar</button>
+        <button type="button" class="sub-nav-btn" data-target="cleaning" data-view="cleaning">🧹 Data Cleaning Studio</button>
       </div>
 
       <!-- ===================================================================
@@ -3836,6 +3861,6 @@ button {
 
   <!-- Main JavaScript Engine -->
     <!-- Dual Script Delivery: External app.js with Inlined Engine Fallback -->
-  <script src="app.js?v=4.0"></script>
+  <script src="app.js?v=4.5&t=202610291345"></script>
 </body>
 </html>

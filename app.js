@@ -209,10 +209,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     subNavBar.innerHTML = '';
 
     pillar.submodules.forEach(sub => {
+      const isMatch = (sub.id === activeSubId) || (activeSubId === 'quality' && sub.id === 'radar') || (activeSubId === 'radar' && sub.id === 'quality');
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = `sub-nav-btn ${sub.id === activeSubId ? 'active' : ''}`;
+      btn.className = `sub-nav-btn ${isMatch ? 'active' : ''}`;
       btn.setAttribute('data-target', sub.id);
+      btn.setAttribute('data-view', sub.id);
       btn.textContent = sub.label;
       btn.addEventListener('click', () => switchView(sub.id));
       subNavBar.appendChild(btn);
@@ -245,25 +247,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }, 10);
 
+  window.switchView = switchView;
   function switchView(targetView) {
     if (targetView === 'quality') targetView = 'radar';
     state.currentView = targetView;
 
     // Toggle view sections
     viewSections.forEach(section => {
-      const isTarget = (section.id === `view-${targetView}`);
+      const isTarget = (section.id === `view-${targetView}`) ||
+                       (targetView === 'radar' && (section.id === 'view-radar' || section.id === 'view-quality')) ||
+                       (targetView === 'quality' && (section.id === 'view-radar' || section.id === 'view-quality'));
       section.style.display = isTarget ? 'block' : 'none';
     });
 
     // Sync sidebar buttons
     sidebarNavBtns.forEach(btn => {
-      btn.classList.toggle('active', btn.getAttribute('data-target') === targetView);
+      const tgt = btn.getAttribute('data-target') || btn.getAttribute('data-view');
+      const isMatch = (tgt === targetView) || (targetView === 'radar' && tgt === 'quality') || (targetView === 'quality' && tgt === 'radar');
+      btn.classList.toggle('active', isMatch);
     });
 
     // Sync sub-navigation dock buttons
-    const subNavBtns = document.querySelectorAll('#subNavBar .sub-nav-btn');
+    const subNavBtns = document.querySelectorAll('#subNavBar .sub-nav-btn, #subNavBar button');
     subNavBtns.forEach(btn => {
-      btn.classList.toggle('active', btn.getAttribute('data-target') === targetView);
+      const tgt = btn.getAttribute('data-target') || btn.getAttribute('data-view');
+      const isMatch = (tgt === targetView) || (targetView === 'radar' && tgt === 'quality') || (targetView === 'quality' && tgt === 'radar');
+      btn.classList.toggle('active', isMatch);
     });
 
     // Determine and sync owning pillar
