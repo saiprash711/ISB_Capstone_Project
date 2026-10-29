@@ -1662,73 +1662,75 @@ document.addEventListener('DOMContentLoaded', async () => {
     const baseLayout = getPlotlyLayoutTheme();
 
     // 1. Enterprise Multi-Dimensional Quality Radar (Polar / Spider Chart)
-    const radarContainer = document.getElementById('chartQualityRadarPolar');
-    if (radarContainer && window.Plotly) {
-      const dimensions = [
-        'Completeness',
-        'Schema Validity',
-        'Uniqueness',
-        'Temporal Horizon',
-        'Referential Integrity',
-        'Value Consistency',
-        'Completeness'
-      ];
-      const scores = [95.0, 100.0, 94.6, 100.0, 99.1, 98.4, 95.0];
-      const benchmarks = [90.0, 90.0, 90.0, 90.0, 90.0, 90.0, 90.0];
+    const dimensions = [
+      'Completeness',
+      'Schema Validity',
+      'Uniqueness',
+      'Temporal Horizon',
+      'Referential Integrity',
+      'Value Consistency',
+      'Completeness'
+    ];
+    const scores = [95.0, 100.0, 94.6, 100.0, 99.1, 98.4, 95.0];
+    const benchmarks = [90.0, 90.0, 90.0, 90.0, 90.0, 90.0, 90.0];
 
-      const radarTrace = {
-        type: 'scatterpolar',
-        r: scores,
-        theta: dimensions,
-        fill: 'toself',
-        name: 'Fleet Audit Score',
-        fillcolor: isDark ? 'rgba(0, 229, 255, 0.22)' : 'rgba(2, 132, 199, 0.2)',
-        line: { color: isDark ? '#00E5FF' : '#0284C7', width: 2.5 },
-        marker: { size: 6, color: isDark ? '#00E5FF' : '#0284C7' },
-        hovertemplate: '<b>%{theta}</b>: %{r:.1f}%<extra></extra>'
-      };
+    const radarTrace = {
+      type: 'scatterpolar',
+      r: scores,
+      theta: dimensions,
+      fill: 'toself',
+      name: 'Fleet Audit Score',
+      fillcolor: isDark ? 'rgba(0, 229, 255, 0.22)' : 'rgba(2, 132, 199, 0.2)',
+      line: { color: isDark ? '#00E5FF' : '#0284C7', width: 2.5 },
+      marker: { size: 6, color: isDark ? '#00E5FF' : '#0284C7' },
+      hovertemplate: '<b>%{theta}</b>: %{r:.1f}%<extra></extra>'
+    };
 
-      const benchmarkTrace = {
-        type: 'scatterpolar',
-        r: benchmarks,
-        theta: dimensions,
-        name: 'Enterprise Target (90%)',
-        line: { color: isDark ? 'rgba(245, 158, 11, 0.65)' : 'rgba(217, 119, 6, 0.75)', width: 1.5, dash: 'dash' },
-        marker: { size: 4, color: isDark ? '#F59E0B' : '#D97706' },
-        hovertemplate: '<b>Target %{theta}</b>: %{r:.1f}%<extra></extra>'
-      };
+    const benchmarkTrace = {
+      type: 'scatterpolar',
+      r: benchmarks,
+      theta: dimensions,
+      name: 'Enterprise Target (90%)',
+      line: { color: isDark ? 'rgba(245, 158, 11, 0.65)' : 'rgba(217, 119, 6, 0.75)', width: 1.5, dash: 'dash' },
+      marker: { size: 4, color: isDark ? '#F59E0B' : '#D97706' },
+      hovertemplate: '<b>Target %{theta}</b>: %{r:.1f}%<extra></extra>'
+    };
 
-      const polarLayout = {
-        ...baseLayout,
-        height: 380,
-        margin: { l: 45, r: 45, t: 30, b: 35 },
-        polar: {
-          bgcolor: 'rgba(0,0,0,0)',
-          radialaxis: {
-            visible: true,
-            range: [80, 100],
-            tickfont: { size: 10, color: isDark ? '#94A3B8' : '#64748B' },
-            gridcolor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-            linecolor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)'
-          },
-          angularaxis: {
-            tickfont: { size: 11, color: isDark ? '#CBD5E1' : '#334155' },
-            gridcolor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-            linecolor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)'
-          }
+    const polarLayout = {
+      ...baseLayout,
+      height: 380,
+      margin: { l: 45, r: 45, t: 30, b: 35 },
+      polar: {
+        bgcolor: 'rgba(0,0,0,0)',
+        radialaxis: {
+          visible: true,
+          range: [80, 100],
+          tickfont: { size: 10, color: isDark ? '#94A3B8' : '#64748B' },
+          gridcolor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+          linecolor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)'
         },
-        showlegend: true,
-        legend: {
-          orientation: 'h',
-          x: 0.5,
-          xanchor: 'center',
-          y: -0.15,
-          font: { color: isDark ? '#CBD5E1' : '#334155', size: 11 }
+        angularaxis: {
+          tickfont: { size: 11, color: isDark ? '#CBD5E1' : '#334155' },
+          gridcolor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+          linecolor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)'
         }
-      };
+      },
+      showlegend: true,
+      legend: {
+        orientation: 'h',
+        x: 0.5,
+        xanchor: 'center',
+        y: -0.15,
+        font: { color: isDark ? '#CBD5E1' : '#334155', size: 11 }
+      }
+    };
 
-      Plotly.react(radarContainer, [radarTrace, benchmarkTrace], polarLayout, { responsive: true, displayModeBar: false });
-    }
+    ['chartQualityRadarPolar', 'chartQualityRadarPolar2'].forEach(cId => {
+      const radarContainer = document.getElementById(cId);
+      if (radarContainer && window.Plotly) {
+        Plotly.react(radarContainer, [radarTrace, benchmarkTrace], polarLayout, { responsive: true, displayModeBar: false });
+      }
+    });
 
     // 2. Missing Value Bar Chart
     const missingData = state.stats.missing_by_col;
@@ -1736,58 +1738,62 @@ document.addEventListener('DOMContentLoaded', async () => {
       .filter(col => missingData[col] > 0)
       .sort((a, b) => missingData[b] - missingData[a]);
 
-    const barContainer = document.getElementById('chartMissingBars');
-    if (barContainer && window.Plotly) {
-      const trace = {
-        type: 'bar',
-        x: sortedCols,
-        y: sortedCols.map(c => missingData[c]),
-        marker: {
-          color: sortedCols.map(c => missingData[c]),
-          colorscale: isDark
-            ? [[0, '#D97706'], [1, '#E11D48']]
-            : [[0, '#F59E0B'], [1, '#E11D48']]
-        },
-        text: sortedCols.map(c => missingData[c].toLocaleString()),
-        textposition: 'auto',
-        hovertemplate: '<b>%{x}</b><br>Null Count: %{y:,} cells<extra></extra>'
-      };
+    const trace = {
+      type: 'bar',
+      x: sortedCols,
+      y: sortedCols.map(c => missingData[c]),
+      marker: {
+        color: sortedCols.map(c => missingData[c]),
+        colorscale: isDark
+          ? [[0, '#D97706'], [1, '#E11D48']]
+          : [[0, '#F59E0B'], [1, '#E11D48']]
+      },
+      text: sortedCols.map(c => missingData[c].toLocaleString()),
+      textposition: 'auto',
+      hovertemplate: '<b>%{x}</b><br>Null Count: %{y:,} cells<extra></extra>'
+    };
 
-      const layout = {
-        ...baseLayout,
-        height: 380,
-        margin: { l: 50, r: 25, t: 30, b: 60 },
-        xaxis: { ...baseLayout.xaxis, tickangle: -25 },
-        yaxis: { ...baseLayout.yaxis, title: { text: 'Missing Cell Count' } }
-      };
+    const layout = {
+      ...baseLayout,
+      height: 380,
+      margin: { l: 50, r: 25, t: 30, b: 60 },
+      xaxis: { ...baseLayout.xaxis, tickangle: -25 },
+      yaxis: { ...baseLayout.yaxis, title: { text: 'Missing Cell Count' } }
+    };
 
-      Plotly.react(barContainer, [trace], layout, { responsive: true, displayModeBar: false });
-    }
+    ['chartMissingBars', 'chartMissingBars2'].forEach(bId => {
+      const barContainer = document.getElementById(bId);
+      if (barContainer && window.Plotly) {
+        Plotly.react(barContainer, [trace], layout, { responsive: true, displayModeBar: false });
+      }
+    });
 
     // 3. Schema Audit Table
-    const schemaTableBody = document.getElementById('qualitySchemaTableBody');
-    if (schemaTableBody) {
-      const total = state.stats.total_records || 82034;
-      const allCols = Object.keys(missingData);
-      schemaTableBody.innerHTML = allCols.map(col => {
-        const miss = missingData[col];
-        const pct = ((miss / total) * 100).toFixed(2);
-        const isClean = (miss === 0);
-        return `
-          <tr>
-            <td><strong>${col}</strong></td>
-            <td>${total.toLocaleString()}</td>
-            <td>${miss.toLocaleString()}</td>
-            <td>${pct}%</td>
-            <td>
-              <span class="kpi-badge ${isClean ? 'emerald' : 'amber'}">
-                ${isClean ? '100% COMPLETE' : 'IMPUTED / AUDITED'}
-              </span>
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
+    const total = state.stats.total_records || 82034;
+    const allCols = Object.keys(missingData);
+    const tableRowsHtml = allCols.map(col => {
+      const miss = missingData[col];
+      const pct = ((miss / total) * 100).toFixed(2);
+      const isClean = (miss === 0);
+      return `
+        <tr>
+          <td><strong>${col}</strong></td>
+          <td>${total.toLocaleString()}</td>
+          <td>${miss.toLocaleString()}</td>
+          <td>${pct}%</td>
+          <td>
+            <span class="kpi-badge ${isClean ? 'emerald' : 'amber'}">
+              ${isClean ? '100% COMPLETE' : 'IMPUTED / AUDITED'}
+            </span>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    ['qualitySchemaTableBody', 'qualitySchemaTableBody2'].forEach(tId => {
+      const el = document.getElementById(tId);
+      if (el) el.innerHTML = tableRowsHtml;
+    });
   }
 
   // ---------------------------------------------------------------------------
