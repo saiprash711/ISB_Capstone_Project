@@ -105,7 +105,7 @@ SKU_DEFINITIONS = [
     {
         'Material': 'EVAL-15-NON-3S',
         'Description': '1.5T 3-Star Non-Inverter Fixed Speed Commercial Standard',
-        'Segment': 'Non Inv',
+        'Segment': 'Non-inverter',
         'Tonnage': 1.5,
         'Star Rating': 'N3S',
         'Star Rating.1': '3 Star',
@@ -116,7 +116,7 @@ SKU_DEFINITIONS = [
     {
         'Material': 'EVAL-10-NON-3S',
         'Description': '1.0T 3-Star Non-Inverter Fixed Speed Entry Unit',
-        'Segment': 'Non Inv',
+        'Segment': 'Non-inverter',
         'Tonnage': 1.0,
         'Star Rating': 'N3S',
         'Star Rating.1': '3 Star',

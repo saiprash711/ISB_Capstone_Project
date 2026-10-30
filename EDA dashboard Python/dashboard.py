@@ -1445,6 +1445,18 @@ def load_data():
     if 'Star Rating.1' in df.columns:
         df['Star Rating.1'] = df['Star Rating.1'].replace({'3 star': '3 Star'})
 
+    if 'Segment' in df.columns:
+        df['Segment'] = df['Segment'].replace({
+            'Non Inv': 'Non-inverter',
+            'Non Inv.': 'Non-inverter',
+            'Non-Inv': 'Non-inverter',
+            'Non-Inverter': 'Non-inverter',
+            'Non Inverter': 'Non-inverter',
+            'non-inverter': 'Non-inverter',
+            'Inv': 'Inverter',
+            'inverter': 'Inverter'
+        })
+
     demand_columns = [column for column in ['Billing Quantity ODU', 'Billing Quantity IDU'] if column in df.columns]
     if demand_columns:
         df = df[~df[demand_columns].lt(0).any(axis=1)].copy()

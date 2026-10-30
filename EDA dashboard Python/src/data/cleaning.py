@@ -163,7 +163,16 @@ class DataCleaner:
         
         # Segment standardization
         if 'segment' in self.df.columns:
-            self.df['segment'] = self.df['segment'].str.strip().str.title()
+            self.df['segment'] = self.df['segment'].str.strip().replace({
+                'Non Inv': 'Non-inverter',
+                'Non Inv.': 'Non-inverter',
+                'Non-Inv': 'Non-inverter',
+                'Non-Inverter': 'Non-inverter',
+                'Non Inverter': 'Non-inverter',
+                'non-inverter': 'Non-inverter',
+                'Inv': 'Inverter',
+                'inverter': 'Inverter'
+            })
         
         # Star rating standardization
         if 'star_rating' in self.df.columns:
