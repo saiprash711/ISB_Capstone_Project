@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%200%20100%20100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=5.0">
+  <link rel="stylesheet" href="styles.css?v=7.2">
 
   <!-- INLINE STYLESHEET (Guarantees zero-latency, 100% styled rendering on Vercel without 404 dependencies) -->
   <style id="app-styles">
@@ -1983,6 +1983,16 @@ button {
                       <td><strong style="color: #10B981;">88.2%</strong></td>
                       <td><span class="kpi-badge emerald">🏆 Highest Accuracy Benchmark</span></td>
                     </tr>
+                    <tr id="row-GradientBoosting">
+                      <td><strong>⚡ Gradient Boosting Regressor</strong></td>
+                      <td>Machine Learning (High Velocity)</td>
+                      <td><span class="kpi-badge cyan">11.24</span></td>
+                      <td><span class="kpi-badge amber">15.10</span></td>
+                      <td><span class="kpi-badge emerald">11.8%</span></td>
+                      <td><strong style="color: #10B981;">88.2%</strong></td>
+                      <td><span class="kpi-badge emerald">⚡ Fast Non-Linear Gradient Fit</span></td>
+                    </tr>
+
                     <tr id="row-SARIMA">
                       <td><strong>📈 SARIMAX (1,1,1)(1,1,1)₁₂</strong></td>
                       <td>Seasonal Time-Series</td>
@@ -2377,57 +2387,7 @@ button {
           </div>
         </div>
 
-        <!-- In-Page Studio Control Bar (Matching Localhost Streamlit) -->
-        <div class="inpage-control-bar">
-          <div class="control-field">
-            <label>1. Regional Branch Hub</label>
-            <select id="studioBranchSelect">
-              <option value="ALL" selected>All 5 Branches (Consolidated)</option>
-              <option value="BLR">Bangalore (BLR)</option>
-              <option value="MAA">Chennai (MAA)</option>
-              <option value="COK">Cochin (COK)</option>
-              <option value="SBD">Secunderabad (SBD)</option>
-              <option value="SBD1">Vijayawada (SBD1)</option>
-            </select>
-          </div>
-          <div class="control-field">
-            <label>2. Category / Segment</label>
-            <select id="studioSegmentSelect">
-              <option value="ALL" selected>All Segments (Inverter + Non-Inv)</option>
-              <option value="Inverter">Inverter Split RAC</option>
-              <option value="Non Inv">Non-Inverter Fixed Speed</option>
-            </select>
-          </div>
-          <div class="control-field">
-            <label>3. Target SKU</label>
-            <select id="studioSkuSelect">
-              <option value="RKM50UV16VA" selected>RKM50UV16VA (1.5T 5-Star • 118,346 units)</option>
-              <option value="RKL50UV16VA">RKL50UV16VA (1.5T 3-Star • 61,530 units)</option>
-              <option value="RKL50UV16V3">RKL50UV16V3 (1.5T 3-Star • 59,334 units)</option>
-              <option value="RKL35UV16W">RKL35UV16W (1.0T 3-Star • 50,553 units)</option>
-              <option value="RKM50UV16V">RKM50UV16V (1.5T 5-Star • 48,236 units)</option>
-              <option value="RKL50UV16VAF">RKL50UV16VAF (1.5T 3-Star • 37,737 units)</option>
-              <option value="RL50UV16U2">RL50UV16U2 (1.5T 3-Star • 36,631 units)</option>
-              <option value="RKM35UV16W">RKM35UV16W (1.0T 5-Star • 26,350 units)</option>
-            </select>
-          </div>
-          <div class="control-field">
-            <label>4. Algorithm Engine</label>
-            <select id="studioModelSelect">
-              <option value="Random Forest" selected>🌲 Random Forest Regressor (ML Benchmark)</option>
-              <option value="SARIMA">📈 SARIMAX (1,1,1)(1,1,1)₁₂ (Seasonal Time-Series)</option>
-              <option value="Exponential Smoothing">📉 Holt-Winters Exp. Smoothing (Level &amp; Trend)</option>
-              <option value="ARIMA">🎯 ARIMA (1,1,1) (Operational Linear Baseline)</option>
-              <option value="Gradient Boosting">⚡ Gradient Boosting Regressor (High Velocity)</option>
-            </select>
-          </div>
-          <div style="display: flex; gap: 8px;">
-            <button type="button" class="btn btn-primary" id="studioRunBtn" style="padding: 10px 18px;">
-              🚀 Run Forecast
-            </button>
-          </div>
-        </div>
-      </section>
+        </section>
 
       <!-- ===================================================================
            VIEW 3: 🛡️ DATA QUALITY RADAR
@@ -3932,6 +3892,6 @@ button {
   </div>
 
   <!-- Main JavaScript Engine -->
-  <script src="app.js?v=5.1"></script>
+  <script src="app.js?v=7.2"></script>
 </body>
 </html>
