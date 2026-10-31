@@ -820,11 +820,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (sliderHorizon && sliderHorizonVal) {
       sliderHorizon.value = state.selectedHorizon;
       sliderHorizonVal.textContent = state.selectedHorizon;
-      sliderHorizon.addEventListener('input', () => {
+      ['input', 'change'].forEach(evt => sliderHorizon.addEventListener(evt, () => {
         sliderHorizonVal.textContent = sliderHorizon.value;
         state.selectedHorizon = parseInt(sliderHorizon.value, 10) || 12;
         updateForecastStudio();
-      });
+      }));
     }
 
     const sliderConfidence = document.getElementById('sliderConfidence');
@@ -832,11 +832,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (sliderConfidence && sliderConfidenceVal) {
       sliderConfidence.value = Math.round(state.selectedConfidence * 100);
       sliderConfidenceVal.textContent = sliderConfidence.value;
-      sliderConfidence.addEventListener('input', () => {
+      ['input', 'change'].forEach(evt => sliderConfidence.addEventListener(evt, () => {
         sliderConfidenceVal.textContent = sliderConfidence.value;
         state.selectedConfidence = (parseInt(sliderConfidence.value, 10) || 80) / 100;
         updateForecastStudio();
-      });
+      }));
     }
 
     // Execute Forecast Simulation Button
