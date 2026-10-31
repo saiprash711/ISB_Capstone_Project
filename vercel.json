@@ -2,9 +2,15 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": true,
   "trailingSlash": false,
+  "rewrites": [
+    {
+      "source": "/((?!assets/).*)",
+      "destination": "/index.html"
+    }
+  ],
   "headers": [
     {
-      "source": "/(app\\.js|styles\\.css|index\\.html)",
+      "source": "/(app\\.js|engine\\.js|styles\\.css|index\\.html)",
       "headers": [
         {
           "key": "Cache-Control",

@@ -2360,9 +2360,12 @@ button {
                       <th>Week</th>
                       <th>Branch</th>
                       <th>Forecast Date</th>
-                      <th>Forecast (Units)</th>
-                      <th>Lower Bound (Units)</th>
-                      <th>Upper Bound (Units)</th>
+                      <th style="color: #10B981;">Actual Holdout (Units)</th>
+                      <th style="color: var(--primary-color);">Forecast (Units)</th>
+                      <th>Variance (Delta)</th>
+                      <th>Accuracy / APE</th>
+                      <th>Lower Bound (P10)</th>
+                      <th>Upper Bound (P90)</th>
                     </tr>
                   </thead>
                   <tbody id="forecastTableBody">
@@ -2515,13 +2518,13 @@ button {
           <div class="kpi-card">
             <div class="kpi-header">
               <div class="kpi-icon-wrap">📈</div>
-              <span class="kpi-badge purple">MACRO ACCURACY</span>
+              <span class="kpi-badge purple" id="holdoutAccuracyBadge">MACRO ACCURACY</span>
             </div>
             <div class="kpi-label">REGION MONTHLY ACCURACY</div>
-            <div class="kpi-value">71.6%</div>
-            <div class="kpi-subtext">28.4% WAPE on aggregate monthly dispatches</div>
+            <div class="kpi-value" id="holdoutAccuracyVal">71.6%</div>
+            <div class="kpi-subtext" id="holdoutAccuracySub">28.4% WAPE on aggregate monthly dispatches</div>
             <div class="kpi-bar-track">
-              <div class="kpi-bar-fill purple" style="width: 71.6%;"></div>
+              <div class="kpi-bar-fill purple" id="holdoutAccuracyBar" style="width: 71.6%;"></div>
             </div>
           </div>
         </div>
@@ -2546,7 +2549,7 @@ button {
                     <th>Directional Bias %</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody id="holdoutEchelonBody">
                   <tr>
                     <td><strong>Region x Month</strong></td>
                     <td><span class="kpi-badge cyan">Champion Model</span></td>
